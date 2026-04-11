@@ -1,0 +1,195 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ============================================================
+# claude-dotfiles installer
+# Symlinks Claude Code config, Ghostty config, cmux config,
+# and clones ghostty-shaders into their expected locations.
+# Idempotent - safe to run multiple times.
+# ============================================================
+
+REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
+BACKUP_DIR="$REPO_DIR/.backups/$(date +%Y%m%d-%H%M%S)"
+BACKED_UP=0
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+info()  { printf "${CYAN}[info]${NC}  %s\n" "$1"; }
+ok()    { printf "${GREEN}[ok]${NC}    %s\n" "$1"; }
+warn()  { printf "${YELLOW}[warn]${NC}  %s\n" "$1"; }
+err()   { printf "${RED}[error]${NC} %s\n" "$1"; }
+
+# ============================================================
+# Helpers
+# ============================================================
+
+backup_if_exists() {
+  local target="$1"
+  if [ -e "$target" ] && [ ! -L "$target" ]; then
+    mkdir -p "$BACKUP_DIR"
+    local rel="${target#$HOME/}"
+    local backup_path="$BACKUP_DIR/$rel"
+    mkdir -p "$(dirname "$backup_path")"
+    cp -a "$target" "$backup_path"
+    BACKED_UP=1
+    warn "Backed up $target"
+  fi
+}
+
+make_symlink() {
+  local source="$1"
+  local target="$2"
+
+  # Already correct
+  if [ -L "$target" ] && [ "$(readlink "$target")" = "$source" ]; then
+    ok "$target (already linked)"
+    return
+  fi
+
+  # Back up existing file (not symlink)
+  backup_if_exists "$target"
+
+  # Remove stale symlink or file
+  if [ -e "$target" ] || [ -L "$target" ]; then
+    rm "$target"
+  fi
+
+  mkdir -p "$(dirname "$target")"
+  ln -s "$source" "$target"
+  ok "$target -> $source"
+}
+
+# ============================================================
+# Pre-flight
+# ============================================================
+
+if [[ "$(uname)" != "Darwin" ]]; then
+  err "This installer is built for macOS. Linux support would need different paths."
+  err "Ghostty config: ~/.config/ghostty/config instead of ~/Library/Application Support/"
+  err "Adapt the GHOSTTY_CONFIG_DIR variable below and re-run."
+  exit 1
+fi
+
+# Detect home directory for path rewriting
+USER_HOME="$HOME"
+
+# ============================================================
+# 1. Claude Code config
+# ============================================================
+
+echo ""
+info "--- Claude Code ---"
+
+CLAUDE_DIR="$HOME/.claude"
+mkdir -p "$CLAUDE_DIR/memory"
+
+make_symlink "$REPO_DIR/claude/CLAUDE.md"           "$CLAUDE_DIR/CLAUDE.md"
+make_symlink "$REPO_DIR/claude/settings.json"        "$CLAUDE_DIR/settings.json"
+make_symlink "$REPO_DIR/claude/startup-check.sh"     "$CLAUDE_DIR/startup-check.sh"
+make_symlink "$REPO_DIR/claude/statusline-command.sh" "$CLAUDE_DIR/statusline-command.sh"
+make_symlink "$REPO_DIR/claude/memory/MEMORY.md"     "$CLAUDE_DIR/memory/MEMORY.md"
+make_symlink "$REPO_DIR/claude/memory/reference_cmux_browser.md" "$CLAUDE_DIR/memory/reference_cmux_browser.md"
+
+chmod +x "$REPO_DIR/claude/startup-check.sh"
+chmod +x "$REPO_DIR/claude/statusline-command.sh"
+
+# ============================================================
+# 2. Ghostty shaders repo
+# ============================================================
+
+echo ""
+info "--- Ghostty Shaders ---"
+
+SHADERS_DIR="$HOME/Documents/Github/ghostty-shaders"
+
+if [ -d "$SHADERS_DIR/.git" ]; then
+  ok "$SHADERS_DIR (already cloned)"
+  info "Pulling latest..."
+  git -C "$SHADERS_DIR" pull --ff-only 2>/dev/null || warn "Pull failed - may have local changes. Skipping."
+elif [ -d "$SHADERS_DIR" ]; then
+  warn "$SHADERS_DIR exists but is not a git repo. Skipping clone."
+else
+  info "Cloning ghostty-shaders..."
+  mkdir -p "$(dirname "$SHADERS_DIR")"
+  git clone https://github.com/0xhckr/ghostty-shaders.git "$SHADERS_DIR"
+  ok "Cloned ghostty-shaders"
+fi
+
+# Also copy our custom shader into the shaders dir if it is not already there
+if [ -f "$REPO_DIR/shaders/cursor_blaze.glsl" ] && [ ! -f "$SHADERS_DIR/cursor_blaze.glsl" ]; then
+  cp "$REPO_DIR/shaders/cursor_blaze.glsl" "$SHADERS_DIR/cursor_blaze.glsl"
+  ok "Copied cursor_blaze.glsl into ghostty-shaders"
+fi
+
+# ============================================================
+# 3. Ghostty config
+# ============================================================
+
+echo ""
+info "--- Ghostty ---"
+
+GHOSTTY_CONFIG_DIR="$HOME/Library/Application Support/com.mitchellh.ghostty"
+mkdir -p "$GHOSTTY_CONFIG_DIR"
+
+# Rewrite shader path to match this machine's home directory
+GHOSTTY_SOURCE="$REPO_DIR/ghostty/config.ghostty"
+CURRENT_SHADER_PATH=$(grep '^custom-shader = ' "$GHOSTTY_SOURCE" | head -1 | sed 's/custom-shader = //')
+
+if [ -n "$CURRENT_SHADER_PATH" ]; then
+  EXPECTED_SHADER_PATH="$SHADERS_DIR/cursor_blaze.glsl"
+  if [ "$CURRENT_SHADER_PATH" != "$EXPECTED_SHADER_PATH" ]; then
+    # Use | as sed delimiter since paths contain /
+    sed -i '' "s|custom-shader = .*cursor_blaze.glsl|custom-shader = $EXPECTED_SHADER_PATH|" "$GHOSTTY_SOURCE"
+    ok "Rewrote shader path to $EXPECTED_SHADER_PATH"
+  fi
+fi
+
+make_symlink "$GHOSTTY_SOURCE" "$GHOSTTY_CONFIG_DIR/config.ghostty"
+
+# ============================================================
+# 4. cmux config
+# ============================================================
+
+echo ""
+info "--- cmux ---"
+
+CMUX_CONFIG_DIR="$HOME/.config/cmux"
+mkdir -p "$CMUX_CONFIG_DIR"
+
+make_symlink "$REPO_DIR/cmux/settings.json" "$CMUX_CONFIG_DIR/settings.json"
+
+# ============================================================
+# Summary
+# ============================================================
+
+echo ""
+echo "============================================"
+printf "${GREEN}Installation complete.${NC}\n"
+echo "============================================"
+echo ""
+
+if [ "$BACKED_UP" -eq 1 ]; then
+  warn "Backups saved to: $BACKUP_DIR"
+  echo ""
+fi
+
+echo "What was installed:"
+echo "  - Claude Code: CLAUDE.md, settings.json, hooks, statusline, memory"
+echo "  - Ghostty: config.ghostty (shader path adjusted for this machine)"
+echo "  - cmux: settings.json"
+echo "  - Ghostty shaders: cloned/updated in $SHADERS_DIR"
+echo ""
+echo "Manual steps remaining:"
+echo "  1. Install Claude Code if not already present:"
+echo "     npm install -g @anthropic-ai/claude-code"
+echo "  2. Install plugins from the Claude Code marketplace."
+echo "     Your settings.json enables these plugins - install them via:"
+echo "     claude /plugins"
+echo "  3. Install the PolySans Neutral Mono font family (used by Ghostty config)."
+echo "  4. Restart Ghostty and cmux to pick up config changes."
+echo ""

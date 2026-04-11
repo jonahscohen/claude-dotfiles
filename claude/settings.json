@@ -1,0 +1,86 @@
+{
+  "env": {
+    "CLAUDE_CODE_NO_FLICKER": "1"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app@latest:*)",
+      "Bash(claude mcp:*)",
+      "mcp__pencil"
+    ],
+    "defaultMode": "default"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "SESSION_CWD=\"$(pwd)\" ~/.claude/startup-check.sh",
+            "timeout": 10,
+            "statusMessage": "Loading memory..."
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "any-buddy apply --silent"
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "SESSION_CWD=\"$(pwd)\" ~/.claude/startup-check.sh",
+            "timeout": 10,
+            "statusMessage": "Reloading memory after compaction..."
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline-command.sh"
+  },
+  "enabledPlugins": {
+    "code-review@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true,
+    "figma@claude-plugins-official": true,
+    "firebase@claude-plugins-official": true,
+    "github@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "hookify@claude-plugins-official": true,
+    "learning-output-style@claude-plugins-official": false,
+    "semgrep@claude-plugins-official": false,
+    "skill-creator@claude-plugins-official": true,
+    "sentry@claude-plugins-official": true,
+    "supabase@claude-plugins-official": true,
+    "swift-lsp@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": true,
+    "agent-sdk-dev@claude-plugins-official": true,
+    "vercel@claude-plugins-official": false,
+    "typescript-lsp@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "discord@claude-plugins-official": true,
+    "impeccable@impeccable": true
+  },
+  "extraKnownMarketplaces": {
+    "impeccable": {
+      "source": {
+        "source": "github",
+        "repo": "pbakaus/impeccable"
+      }
+    }
+  },
+  "alwaysThinkingEnabled": true,
+  "skipDangerousModePermissionPrompt": true
+}
