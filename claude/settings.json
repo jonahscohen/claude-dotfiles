@@ -21,15 +21,6 @@
             "statusMessage": "Loading memory..."
           }
         ]
-      },
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "any-buddy apply --silent"
-          }
-        ]
       }
     ],
     "PostCompact": [

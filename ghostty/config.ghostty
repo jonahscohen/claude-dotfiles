@@ -16,7 +16,7 @@ unfocused-split-opacity = .9
 
 # shaders
 # custom-shader = /Users/spare3/Documents/Github/ghostty-shaders/starfield-colors.glsl
-custom-shader = /Users/spare3/Documents/Github/ghostty-shaders/cursor_blaze.glsl
+custom-shader = /Users/jonah/Documents/GitHub/claude-dotfiles/shaders/cursor_blaze.glsl
 custom-shader-animation = always
 
 # window
