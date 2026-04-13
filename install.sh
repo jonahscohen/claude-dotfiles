@@ -87,13 +87,25 @@ info "--- Claude Code ---"
 
 CLAUDE_DIR="$HOME/.claude"
 mkdir -p "$CLAUDE_DIR/memory"
+mkdir -p "$CLAUDE_DIR/hooks"
 
 make_symlink "$REPO_DIR/claude/CLAUDE.md"           "$CLAUDE_DIR/CLAUDE.md"
 make_symlink "$REPO_DIR/claude/settings.json"        "$CLAUDE_DIR/settings.json"
 make_symlink "$REPO_DIR/claude/startup-check.sh"     "$CLAUDE_DIR/startup-check.sh"
 make_symlink "$REPO_DIR/claude/statusline-command.sh" "$CLAUDE_DIR/statusline-command.sh"
-make_symlink "$REPO_DIR/claude/memory/MEMORY.md"     "$CLAUDE_DIR/memory/MEMORY.md"
-make_symlink "$REPO_DIR/claude/memory/reference_cmux_browser.md" "$CLAUDE_DIR/memory/reference_cmux_browser.md"
+
+# Symlink every memory file from the repo (sessions, feedback, references, MEMORY.md)
+for f in "$REPO_DIR"/claude/memory/*.md; do
+  [ -f "$f" ] || continue
+  make_symlink "$f" "$CLAUDE_DIR/memory/$(basename "$f")"
+done
+
+# Symlink every hook script from the repo
+for f in "$REPO_DIR"/claude/hooks/*.sh; do
+  [ -f "$f" ] || continue
+  make_symlink "$f" "$CLAUDE_DIR/hooks/$(basename "$f")"
+  chmod +x "$f"
+done
 
 chmod +x "$REPO_DIR/claude/startup-check.sh"
 chmod +x "$REPO_DIR/claude/statusline-command.sh"
