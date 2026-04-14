@@ -1,0 +1,1 @@
+- [Discord channel portability (2026-04-14)](session_2026-04-14_discord-portability.md) - Keychain + dotfiles split so a new machine only needs `discord-setup.sh` to join the same bot/allowlist
