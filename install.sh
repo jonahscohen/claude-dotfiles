@@ -93,6 +93,7 @@ make_symlink "$REPO_DIR/claude/CLAUDE.md"           "$CLAUDE_DIR/CLAUDE.md"
 make_symlink "$REPO_DIR/claude/settings.json"        "$CLAUDE_DIR/settings.json"
 make_symlink "$REPO_DIR/claude/startup-check.sh"     "$CLAUDE_DIR/startup-check.sh"
 make_symlink "$REPO_DIR/claude/statusline-command.sh" "$CLAUDE_DIR/statusline-command.sh"
+make_symlink "$REPO_DIR/claude/discord-chat-launcher.sh" "$CLAUDE_DIR/discord-chat-launcher.sh"
 
 # Symlink every memory file from the repo (sessions, feedback, references, MEMORY.md)
 for f in "$REPO_DIR"/claude/memory/*.md; do
@@ -109,6 +110,7 @@ done
 
 chmod +x "$REPO_DIR/claude/startup-check.sh"
 chmod +x "$REPO_DIR/claude/statusline-command.sh"
+chmod +x "$REPO_DIR/claude/discord-chat-launcher.sh"
 
 # ============================================================
 # 2. Ghostty shaders repo

@@ -5,6 +5,7 @@
 
 ## Sessions
 - [Enforcement hooks v1 setup](session_2026-04-13_enforcement-hooks.md) - PreCompact + PreToolUse Bash + PreToolUse Write/Edit hooks installed in ~/.claude/hooks/
+- [Discord launcher folded into dotfiles](session_2026-04-14_discord-launcher-dotfiles.md) - Moved ~/.claude/discord-chat-launcher.sh into claude-dotfiles, install.sh wiring added
 
 ## Feedback
 - [Hook verification discipline](feedback_hook_verification_discipline.md) - Pipe-test raw hook commands before wiring into settings.json; use python3 -c json.dumps for fixtures, not echo
