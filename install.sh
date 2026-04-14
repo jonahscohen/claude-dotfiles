@@ -150,20 +150,19 @@ info "--- Ghostty ---"
 GHOSTTY_CONFIG_DIR="$HOME/Library/Application Support/com.mitchellh.ghostty"
 mkdir -p "$GHOSTTY_CONFIG_DIR"
 
-# Rewrite shader path to match this machine's home directory
 GHOSTTY_SOURCE="$REPO_DIR/ghostty/config.ghostty"
-CURRENT_SHADER_PATH=$(grep '^custom-shader = ' "$GHOSTTY_SOURCE" | head -1 | sed 's/custom-shader = //')
+GHOSTTY_TARGET="$GHOSTTY_CONFIG_DIR/config.ghostty"
 
-if [ -n "$CURRENT_SHADER_PATH" ]; then
-  EXPECTED_SHADER_PATH="$SHADERS_DIR/cursor_blaze.glsl"
-  if [ "$CURRENT_SHADER_PATH" != "$EXPECTED_SHADER_PATH" ]; then
-    # Use | as sed delimiter since paths contain /
-    sed -i '' "s|custom-shader = .*cursor_blaze.glsl|custom-shader = $EXPECTED_SHADER_PATH|" "$GHOSTTY_SOURCE"
-    ok "Rewrote shader path to $EXPECTED_SHADER_PATH"
-  fi
+# Ghostty config is COPIED (not symlinked) because the shader path is per-machine.
+# The repo file contains a __GHOSTTY_SHADERS_DIR__ placeholder; install substitutes
+# it here so the repo file stays clean across machines.
+backup_if_exists "$GHOSTTY_TARGET"
+if [ -L "$GHOSTTY_TARGET" ]; then
+  rm "$GHOSTTY_TARGET"
 fi
-
-make_symlink "$GHOSTTY_SOURCE" "$GHOSTTY_CONFIG_DIR/config.ghostty"
+cp "$GHOSTTY_SOURCE" "$GHOSTTY_TARGET"
+sed -i '' "s|__GHOSTTY_SHADERS_DIR__|$SHADERS_DIR|g" "$GHOSTTY_TARGET"
+ok "$GHOSTTY_TARGET (copied, shader path -> $SHADERS_DIR)"
 
 # ============================================================
 # 4. cmux config
@@ -176,6 +175,34 @@ CMUX_CONFIG_DIR="$HOME/.config/cmux"
 mkdir -p "$CMUX_CONFIG_DIR"
 
 make_symlink "$REPO_DIR/cmux/settings.json" "$CMUX_CONFIG_DIR/settings.json"
+
+# ============================================================
+# 5. Discord Chat Agent launcher (zsh only, idempotent)
+# ============================================================
+# discord-chat-launcher.sh defines a zsh function that shadows `claude` to
+# optionally connect Discord on startup. Symlinking the file doesn't activate
+# it; the user's .zshrc must source it. Append that source line once, guarded
+# by a marker comment so re-runs don't duplicate.
+
+echo ""
+info "--- Discord Chat Agent launcher ---"
+
+ZSHRC="$HOME/.zshrc"
+DISCORD_LINE="source $CLAUDE_DIR/discord-chat-launcher.sh  # claude-dotfiles: discord-chat-launcher"
+
+if [ -f "$ZSHRC" ]; then
+  # Detect ANY existing source of discord-chat-launcher.sh (manually added or
+  # marker-guarded from a prior run). Prevents duplicate appends.
+  if grep -Fq "discord-chat-launcher.sh" "$ZSHRC"; then
+    ok "$ZSHRC (already sources discord-chat-launcher.sh)"
+  else
+    printf '\n# Discord Chat Agent launcher (from claude-dotfiles)\n%s\n' "$DISCORD_LINE" >> "$ZSHRC"
+    ok "Appended discord-chat-launcher source line to $ZSHRC"
+    warn "Run 'source $ZSHRC' or open a new shell to pick up the wrapper."
+  fi
+else
+  warn "$ZSHRC not found - skipping discord-chat-launcher source line (zsh only)."
+fi
 
 # ============================================================
 # Summary
@@ -193,10 +220,11 @@ if [ "$BACKED_UP" -eq 1 ]; then
 fi
 
 echo "What was installed:"
-echo "  - Claude Code: CLAUDE.md, settings.json, hooks, statusline, memory"
-echo "  - Ghostty: config.ghostty (shader path adjusted for this machine)"
+echo "  - Claude Code: CLAUDE.md, settings.json, hooks, statusline, memory, discord-chat-launcher"
+echo "  - Ghostty: config.ghostty (COPIED, shader placeholder substituted for this machine)"
 echo "  - cmux: settings.json"
 echo "  - Ghostty shaders: cloned/updated in $SHADERS_DIR"
+echo "  - .zshrc: source line for discord-chat-launcher (added once, marker-guarded)"
 echo ""
 echo "Manual steps remaining:"
 echo "  1. Install Claude Code if not already present:"
