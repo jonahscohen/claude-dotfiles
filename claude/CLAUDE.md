@@ -70,6 +70,35 @@ If you cannot verify (no browser available, no dev server running), say so expli
 - NEVER draw, compose, approximate, or fabricate SVG icons. All icons must be sourced verbatim from established royalty-free icon libraries (Heroicons, Lucide, Tabler, Bootstrap Icons, Phosphor, Feather, Material Symbols). Copy the exact path data character-for-character from the library source. Do not rewrite, simplify, optimize, or "clean up" path data. If the path you are inserting does not match the library source byte-for-byte, you are breaking this rule. No exceptions.
 - NEVER use outdated or legacy model versions in any project. Always use the latest bleeding-edge model available. No gpt-4o, no gpt-4, no gpt-3.5, no gpt-4.1. If OpenAI is the provider, use the newest model (currently gpt-5.4). If Anthropic, use the newest Claude. If Google, use the newest Gemini. This applies globally across all projects, all folders, all directories. No exceptions.
 
+## cmux Browser Pane (visual verification tool)
+
+`cmux` is the browser-surface CLI wired into this machine's Claude Code harness. Use it to take screenshots and drive a real browser pane for visual verification instead of (or in addition to) the `mcp__claude-in-chrome__*` tools. This is the preferred surface for verifying UI changes per the Verification Protocol above.
+
+**Core commands** (run via Bash):
+- Screenshot: `cmux browser --surface <surface-id> screenshot --out /tmp/<name>.png` then use the Read tool on the PNG to view it.
+- Navigate: `cmux browser --surface <surface-id> navigate "<url>"`
+- Interactive snapshot (DOM + refs for clicking): `cmux browser --surface <surface-id> snapshot --interactive`
+
+**Surfaces are per-project.** Every project that uses cmux should record its surface id and dev-server URL as a `reference_cmux_browser.md` memory in that project's memory dir, e.g.:
+
+```
+---
+name: cmux browser for <project>
+description: How to use cmux browser to verify <project> UI at <url>
+type: reference
+---
+
+<project> dev server runs at <url>.
+cmux surface handle: surface:<NN>
+```
+
+If a project's memory does not yet declare a surface id, ask the user for it before running cmux commands - don't guess.
+
+**When to use:**
+- Any UI/CSS/layout change - take a cmux screenshot, Read the image, and describe what you see before reporting done.
+- Interactive verification - use `snapshot --interactive` to get element refs, then drive clicks/hovers.
+- When the user says "refresh the tab in cmux" or similar, this is the tool they mean.
+
 ## Style Guide and Component Library Rules
 
 - When building a style guide, component library, or design system page, it MUST be fully isolated from the app's global styles. Use a separate layout with no shared CSS imports, or use CSS layers/cascade to guarantee zero inheritance from the app.
