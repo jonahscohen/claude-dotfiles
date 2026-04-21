@@ -1,1 +1,2 @@
 - [Discord channel portability (2026-04-14)](session_2026-04-14_discord-portability.md) - Keychain + dotfiles split so a new machine only needs `discord-setup.sh` to join the same bot/allowlist
+- [Shader tuning (2026-04-21)](session_2026-04-21_shader-tuning.md) - cursor_blaze.glsl rewrite with particles, pared back for perf. Ghostty shaders don't fire inside TUI apps like Claude Code.
