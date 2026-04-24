@@ -7,9 +7,9 @@ Portable configuration for Claude Code, Ghostty, and cmux. One script to replica
 | Directory | Contents |
 |-----------|----------|
 | `claude/` | Global `CLAUDE.md` instructions, `settings.json` (hooks, statusline, plugins, env), startup hook, statusline script, memory files |
-| `ghostty/` | Ghostty terminal config (PolySans Neutral Mono, custom 256-color palette, transparency, blur, cursor_blaze shader) |
+| `ghostty/` | Ghostty terminal config (PolySans Neutral Mono, custom 256-color palette, transparency, blur, chained `bettercrt` + `tft` + `cursor_blaze` shaders) |
 | `cmux/` | cmux settings |
-| `shaders/` | Bundled copy of `cursor_blaze.glsl` as a backup |
+| `shaders/` | In-repo copies of `bettercrt.glsl`, `tft.glsl`, and `cursor_blaze.glsl` - loaded directly by Ghostty so edits sync live |
 
 ## Install
 
@@ -41,7 +41,7 @@ The installer:
 
 **Claude Code, cmux:** symlinked. Editing `~/.claude/CLAUDE.md` on any machine edits the repo file directly. Commit and push to propagate changes across machines; a `git pull` is the sync step on other machines.
 
-**Ghostty:** copied (not symlinked - Ghostty silently ignores symlinks in its Application Support dir). The repo file is byte-identical to the deployed file: the shader path is `~/Documents/Github/claude-dotfiles/shaders/cursor_blaze.glsl` (Ghostty expands `~`), so no placeholder substitution is needed. Every machine must clone this repo at that path for the shader to resolve; the installer warns if not. To propagate Ghostty config edits: make the change in the repo, commit, push, pull on the other machine, then re-run `./install.sh`.
+**Ghostty:** copied (not symlinked - Ghostty silently ignores symlinks in its Application Support dir). The repo file is byte-identical to the deployed file: shader paths are `~/Documents/Github/claude-dotfiles/shaders/*.glsl` (Ghostty expands `~`), so no placeholder substitution is needed. Every machine must clone this repo at that path for the shaders to resolve; the installer warns if not. To propagate Ghostty config edits: make the change in the repo, commit, push, pull on the other machine, then re-run `./install.sh`.
 
 **Edits on a machine directly (not via the repo)** land in `~/Library/Application Support/com.mitchellh.ghostty/config.ghostty` and will silently drift. Best practice: always edit `ghostty/config.ghostty` in the repo, then `./install.sh`.
 

@@ -134,9 +134,10 @@ else
   ok "Cloned ghostty-shaders"
 fi
 
-# cursor_blaze.glsl now lives in this repo at shaders/cursor_blaze.glsl and is
-# loaded from there directly by Ghostty (see config substitution below). The
-# ghostty-shaders clone is kept for the rest of the community shader library.
+# cursor_blaze.glsl, bettercrt.glsl, and tft.glsl now live in this repo at
+# shaders/*.glsl and are loaded from there directly by Ghostty (see config
+# substitution below). The ghostty-shaders clone is kept for the rest of the
+# community shader library.
 
 # ============================================================
 # 3. Ghostty config
@@ -226,7 +227,7 @@ fi
 echo "What was installed:"
 echo "  - Claude Code: CLAUDE.md, settings.json, hooks, statusline, memory, discord-chat-launcher"
 echo "  - Ghostty: config.ghostty (copied from repo - re-run install.sh to sync edits)"
-echo "  - Ghostty cursor shader: $REPO_DIR/shaders/cursor_blaze.glsl (loaded in-place, edits sync live)"
+echo "  - Ghostty shaders: $REPO_DIR/shaders/{bettercrt,tft,cursor_blaze}.glsl (loaded in-place, edits sync live)"
 echo "  - cmux: settings.json"
 echo "  - Ghostty shaders library: cloned/updated in $SHADERS_DIR"
 echo "  - .zshrc: source line for discord-chat-launcher (added once, marker-guarded)"

@@ -15,9 +15,12 @@ background = #000000
 unfocused-split-opacity = .9
 
 # shaders
-# Shader lives in this repo (shaders/cursor_blaze.glsl) so edits sync directly.
+# Shaders live in this repo (shaders/*.glsl) so edits sync directly.
 # Path assumes the dotfiles repo is cloned at ~/Documents/Github/claude-dotfiles
 # on every machine (install.sh enforces this via symlink).
+# Ghostty chains shaders in declaration order: each stage feeds the next.
+custom-shader = ~/Documents/Github/claude-dotfiles/shaders/bettercrt.glsl
+custom-shader = ~/Documents/Github/claude-dotfiles/shaders/tft.glsl
 custom-shader = ~/Documents/Github/claude-dotfiles/shaders/cursor_blaze.glsl
 custom-shader-animation = always
 
