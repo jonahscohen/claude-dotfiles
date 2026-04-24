@@ -21,8 +21,9 @@ cd ~/Documents/Github/claude-dotfiles
 
 The installer:
 
-- Symlinks Claude Code config files and cmux settings into their expected locations (`~/.claude/`, `~/.config/cmux/`)
-- **Copies** the Ghostty config into its Application Support dir and substitutes the `__GHOSTTY_SHADERS_DIR__` placeholder with this machine's shaders path (copy-not-symlink so the repo file never holds a machine-specific path)
+- Symlinks Claude Code config and cmux settings into their expected locations (`~/.claude/`, `~/.config/cmux/`)
+- **Copies** the Ghostty config into its Application Support dir (Ghostty silently ignores symlinks there). The repo file is byte-identical to the deployed file - the shader path uses `~` which Ghostty expands on each machine
+- Warns if the repo clone is not at `~/Documents/Github/claude-dotfiles` (the Ghostty config's shader path is pinned to this location)
 - Backs up any existing files before overwriting (stored in `.backups/`)
 - Clones the [ghostty-shaders](https://github.com/0xhckr/ghostty-shaders) repo into `~/Documents/Github/ghostty-shaders`
 - Appends a `source ~/.claude/discord-chat-launcher.sh` line to `~/.zshrc` if not already present (marker-guarded, safe to re-run)
@@ -38,9 +39,11 @@ The installer:
 
 ## How it works
 
-**Claude Code, cmux:** symlinked. Editing `~/.claude/CLAUDE.md` on any machine edits the repo file directly. Commit and push to propagate changes across machines.
+**Claude Code, cmux:** symlinked. Editing `~/.claude/CLAUDE.md` on any machine edits the repo file directly. Commit and push to propagate changes across machines; a `git pull` is the sync step on other machines.
 
-**Ghostty:** copied, not symlinked, because the shader path is per-machine. The repo file contains a `__GHOSTTY_SHADERS_DIR__` placeholder; the installer substitutes it on each machine. To propagate edits to the Ghostty config, re-run `install.sh` after pulling.
+**Ghostty:** copied (not symlinked - Ghostty silently ignores symlinks in its Application Support dir). The repo file is byte-identical to the deployed file: the shader path is `~/Documents/Github/claude-dotfiles/shaders/cursor_blaze.glsl` (Ghostty expands `~`), so no placeholder substitution is needed. Every machine must clone this repo at that path for the shader to resolve; the installer warns if not. To propagate Ghostty config edits: make the change in the repo, commit, push, pull on the other machine, then re-run `./install.sh`.
+
+**Edits on a machine directly (not via the repo)** land in `~/Library/Application Support/com.mitchellh.ghostty/config.ghostty` and will silently drift. Best practice: always edit `ghostty/config.ghostty` in the repo, then `./install.sh`.
 
 **discord-chat-launcher.sh:** symlinked into `~/.claude/`, AND the installer wires a source line into `~/.zshrc` (marker-guarded). The file alone is inert until sourced; the wrapper needs to be loaded by your interactive shell.
 

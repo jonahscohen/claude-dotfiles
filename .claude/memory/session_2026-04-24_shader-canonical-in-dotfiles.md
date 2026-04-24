@@ -21,3 +21,7 @@ After: Ghostty loads `~/Documents/GitHub/claude-dotfiles/shaders/cursor_blaze.gl
 - The ghostty-shaders community repo is still cloned by install.sh for access to the rest of the shader library; only the cursor_blaze deploy step was removed.
 - Case matters: the config uses `GitHub` (capital H) to match the actual repo path on this machine. The old shader path used lowercase `Github` from the ghostty-shaders clone - don't copy that style back in.
 - Known limitation from 2026-04-21 still applies: the shader doesn't visually fire inside Claude Code's TUI because `iCurrentCursor`/`iPreviousCursor` only update when Ghostty's own cursor moves.
+
+## Follow-up 2026-04-24 (Jonah Cohen)
+
+Active ghostty config at `~/Library/Application Support/com.mitchellh.ghostty/config.ghostty` was found still pointing at `/Users/spare3/Documents/Github/ghostty-shaders/cursor_blaze.glsl` (lowercase Github, ghostty-shaders clone). Re-patched the `custom-shader` line in place to `/Users/spare3/Documents/Github/claude-dotfiles/shaders/cursor_blaze.glsl` so Ghostty loads the in-repo shader directly. Why: the earlier patch described above must have been reverted or never persisted on this machine. How: single-line Edit of the deployed config; reload Ghostty to pick up.

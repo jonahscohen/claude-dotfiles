@@ -1,3 +1,4 @@
 - [Discord channel portability (2026-04-14)](session_2026-04-14_discord-portability.md) - Keychain + dotfiles split so a new machine only needs `discord-setup.sh` to join the same bot/allowlist
 - [Shader tuning (2026-04-21)](session_2026-04-21_shader-tuning.md) - cursor_blaze.glsl rewrite with particles, pared back for perf. Ghostty shaders don't fire inside TUI apps like Claude Code.
 - [Shader canonical in dotfiles (2026-04-24)](session_2026-04-24_shader-canonical-in-dotfiles.md) - Ghostty now loads cursor_blaze.glsl straight from claude-dotfiles/shaders; edits sync live without install.sh re-runs.
+- [Ghostty config sync (2026-04-24)](session_2026-04-24_ghostty-config-symlink.md) - Ghostty silently ignores symlinks in Application Support; config stays copied. Shader path uses ~ expansion so repo file is byte-identical to deployed, no placeholder needed.

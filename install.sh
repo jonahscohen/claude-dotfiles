@@ -151,16 +151,22 @@ mkdir -p "$GHOSTTY_CONFIG_DIR"
 GHOSTTY_SOURCE="$REPO_DIR/ghostty/config.ghostty"
 GHOSTTY_TARGET="$GHOSTTY_CONFIG_DIR/config.ghostty"
 
-# Ghostty config is COPIED (not symlinked) because the shader path is per-machine.
-# The repo file contains a __DOTFILES_DIR__ placeholder; install substitutes it
-# here so the repo file stays clean across machines.
+# Ghostty config is COPIED (not symlinked). Ghostty on macOS does not follow
+# symlinks in ~/Library/Application Support/com.mitchellh.ghostty/ - the config
+# silently fails to load. The repo file is byte-identical to the deployed file
+# though (no more __DOTFILES_DIR__ placeholder - the shader path uses ~ which
+# Ghostty expands), so re-running install.sh is the sync step across machines.
+EXPECTED_REPO="$HOME/Documents/Github/claude-dotfiles"
+if [ "$(echo "$REPO_DIR" | tr '[:upper:]' '[:lower:]')" != "$(echo "$EXPECTED_REPO" | tr '[:upper:]' '[:lower:]')" ]; then
+  warn "This repo is at $REPO_DIR but the Ghostty config expects $EXPECTED_REPO."
+  warn "Move the clone to $EXPECTED_REPO or the shader path in config.ghostty won't resolve."
+fi
 backup_if_exists "$GHOSTTY_TARGET"
 if [ -L "$GHOSTTY_TARGET" ]; then
   rm "$GHOSTTY_TARGET"
 fi
 cp "$GHOSTTY_SOURCE" "$GHOSTTY_TARGET"
-sed -i '' "s|__DOTFILES_DIR__|$REPO_DIR|g" "$GHOSTTY_TARGET"
-ok "$GHOSTTY_TARGET (copied, shader path -> $REPO_DIR/shaders)"
+ok "$GHOSTTY_TARGET (copied from repo)"
 
 # ============================================================
 # 4. cmux config
@@ -219,7 +225,7 @@ fi
 
 echo "What was installed:"
 echo "  - Claude Code: CLAUDE.md, settings.json, hooks, statusline, memory, discord-chat-launcher"
-echo "  - Ghostty: config.ghostty (COPIED, shader placeholder substituted for this machine)"
+echo "  - Ghostty: config.ghostty (copied from repo - re-run install.sh to sync edits)"
 echo "  - Ghostty cursor shader: $REPO_DIR/shaders/cursor_blaze.glsl (loaded in-place, edits sync live)"
 echo "  - cmux: settings.json"
 echo "  - Ghostty shaders library: cloned/updated in $SHADERS_DIR"
