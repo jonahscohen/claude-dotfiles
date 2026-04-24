@@ -4,6 +4,7 @@
 - [cmux browser pane](reference_cmux_browser.md) - Use cmux built-in browser for UI verification when inside a cmux terminal; prioritize over Chrome MCP
 
 ## Sessions
+- [Attribution rule shipped](session_2026-04-23_attribution-rule.md): Added human-collaborator naming rule and How/Why memory requirement to claude/CLAUDE.md so the bundle ships it
 - [PAUSE STATE - start here](session_2026-04-21_pause-state.md) - Full status of enforcement hooks (3/6 built), dotfiles portability (done), startup-check analysis (not implemented), what to do next
 - [Enforcement hooks v1 setup](session_2026-04-13_enforcement-hooks.md) - PreCompact + PreToolUse Bash + PreToolUse Write/Edit hooks installed in ~/.claude/hooks/
 - [Discord launcher folded into dotfiles](session_2026-04-14_discord-launcher-dotfiles.md) - Moved ~/.claude/discord-chat-launcher.sh into claude-dotfiles, install.sh wiring added
