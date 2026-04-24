@@ -15,8 +15,9 @@ background = #000000
 unfocused-split-opacity = .9
 
 # shaders
-# Placeholder is replaced by install.sh with the per-machine shaders dir.
-custom-shader = __GHOSTTY_SHADERS_DIR__/cursor_blaze.glsl
+# Shader lives in this repo (shaders/cursor_blaze.glsl) so edits sync directly.
+# Placeholder is replaced by install.sh with this machine's claude-dotfiles path.
+custom-shader = __DOTFILES_DIR__/shaders/cursor_blaze.glsl
 custom-shader-animation = always
 
 # window

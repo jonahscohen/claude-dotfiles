@@ -134,11 +134,9 @@ else
   ok "Cloned ghostty-shaders"
 fi
 
-# Also copy our custom shader into the shaders dir if it is not already there
-if [ -f "$REPO_DIR/shaders/cursor_blaze.glsl" ] && [ ! -f "$SHADERS_DIR/cursor_blaze.glsl" ]; then
-  cp "$REPO_DIR/shaders/cursor_blaze.glsl" "$SHADERS_DIR/cursor_blaze.glsl"
-  ok "Copied cursor_blaze.glsl into ghostty-shaders"
-fi
+# cursor_blaze.glsl now lives in this repo at shaders/cursor_blaze.glsl and is
+# loaded from there directly by Ghostty (see config substitution below). The
+# ghostty-shaders clone is kept for the rest of the community shader library.
 
 # ============================================================
 # 3. Ghostty config
@@ -154,15 +152,15 @@ GHOSTTY_SOURCE="$REPO_DIR/ghostty/config.ghostty"
 GHOSTTY_TARGET="$GHOSTTY_CONFIG_DIR/config.ghostty"
 
 # Ghostty config is COPIED (not symlinked) because the shader path is per-machine.
-# The repo file contains a __GHOSTTY_SHADERS_DIR__ placeholder; install substitutes
-# it here so the repo file stays clean across machines.
+# The repo file contains a __DOTFILES_DIR__ placeholder; install substitutes it
+# here so the repo file stays clean across machines.
 backup_if_exists "$GHOSTTY_TARGET"
 if [ -L "$GHOSTTY_TARGET" ]; then
   rm "$GHOSTTY_TARGET"
 fi
 cp "$GHOSTTY_SOURCE" "$GHOSTTY_TARGET"
-sed -i '' "s|__GHOSTTY_SHADERS_DIR__|$SHADERS_DIR|g" "$GHOSTTY_TARGET"
-ok "$GHOSTTY_TARGET (copied, shader path -> $SHADERS_DIR)"
+sed -i '' "s|__DOTFILES_DIR__|$REPO_DIR|g" "$GHOSTTY_TARGET"
+ok "$GHOSTTY_TARGET (copied, shader path -> $REPO_DIR/shaders)"
 
 # ============================================================
 # 4. cmux config
@@ -222,8 +220,9 @@ fi
 echo "What was installed:"
 echo "  - Claude Code: CLAUDE.md, settings.json, hooks, statusline, memory, discord-chat-launcher"
 echo "  - Ghostty: config.ghostty (COPIED, shader placeholder substituted for this machine)"
+echo "  - Ghostty cursor shader: $REPO_DIR/shaders/cursor_blaze.glsl (loaded in-place, edits sync live)"
 echo "  - cmux: settings.json"
-echo "  - Ghostty shaders: cloned/updated in $SHADERS_DIR"
+echo "  - Ghostty shaders library: cloned/updated in $SHADERS_DIR"
 echo "  - .zshrc: source line for discord-chat-launcher (added once, marker-guarded)"
 echo ""
 echo "Manual steps remaining:"
