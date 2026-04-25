@@ -3,9 +3,23 @@ set -euo pipefail
 
 # ============================================================
 # claude-dotfiles installer
-# Symlinks Claude Code config, Ghostty config, cmux config,
-# and clones ghostty-shaders into their expected locations.
-# Idempotent - safe to run multiple times.
+# Interactive TUI over six components:
+#   claude   - Claude Code global config (CLAUDE.md, settings.json, hooks, statusline, memory)
+#   ghostty  - Ghostty terminal config (copied into Application Support)
+#   shaders  - Ghostty shaders: in-repo chain + community library clone
+#   cmux     - cmux settings.json
+#   discord  - .zshrc source line for discord-chat-launcher
+#   nvm      - .zshrc auto-activate of nvm default (so claude/node/npm land on PATH)
+#
+# Flags:
+#   --yes              non-interactive, pick all components
+#   --only KEYS        non-interactive, pick comma-separated keys (e.g. claude,ghostty)
+#   --preset NAME      non-interactive preset: all | minimal | none
+#                      minimal = claude + nvm
+#   --dry-run          print picks and exit; touches no files
+#   --help             print usage
+#
+# Idempotent. Safe to re-run.
 # ============================================================
 
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -17,6 +31,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 CYAN='\033[0;36m'
+DIM='\033[2m'
 NC='\033[0m'
 
 info()  { printf "${CYAN}[info]${NC}  %s\n" "$1"; }
@@ -25,7 +40,244 @@ warn()  { printf "${YELLOW}[warn]${NC}  %s\n" "$1"; }
 err()   { printf "${RED}[error]${NC} %s\n" "$1"; }
 
 # ============================================================
-# Helpers
+# Component catalogue (parallel arrays for bash 3.2 compatibility)
+# ============================================================
+
+KEYS=(claude ghostty shaders cmux discord nvm yesplease)
+TITLES=(
+  "Claude Code (config + plugins + memory)"
+  "Ghostty terminal look"
+  "Ghostty visual effects (shaders)"
+  "cmux split-pane terminal"
+  "Discord chat at Claude launch"
+  "nvm fix (optional, only if needed)"
+  "'yesplease' shortcut (re-run installer)"
+)
+DESCS=(
+  "Your global Claude Code brain: instructions (CLAUDE.md), settings, safety hooks, status line, and shared memory files. Also pre-enables your plugin list - Impeccable (design), Figma, Sentry, Supabase, Discord, plus 9 more - which Claude Code auto-installs on first launch. Skip only if you've configured Claude Code by hand and don't want it overwritten."
+  "Your Ghostty terminal's appearance: PolySans Neutral Mono font, custom 256-color palette, transparency, and blur. Skip if you don't use Ghostty as your terminal."
+  "The cinematic Ghostty effects: CRT curvature, TFT pixel grid, and a blazing cursor trail. Also clones a wider community shader library you can swap into the chain. Skip if you picked Ghostty but want it to look plain."
+  "Settings for cmux, the split-pane terminal that hosts the in-app browser preview Claude uses to verify your UI work. Skip if you don't use cmux."
+  "Adds a one-line wrapper to your zsh config so when you run 'claude', it asks if you want to connect this session to your Discord channel. Skip if you don't pair Claude with Discord."
+  "A small one-line addition to your zsh config that fixes a specific issue some setups hit: opening a new terminal and getting 'claude not found in PATH' even though Claude is installed. The fix only activates if your zsh config already loads nvm (Node Version Manager) - on most machines this is a harmless no-op, so it's safe to leave on. If 'claude' already runs fine in fresh terminals on your machine, you can skip this."
+  "Adds a one-word shortcut to your zsh config: type 'yesplease' in any terminal to pull the latest dotfiles from GitHub and re-launch this installer. Useful for syncing across machines or re-picking components without remembering the path. Pass through args like 'yesplease --yes' or 'yesplease --preset minimal'."
+)
+PICKS=(1 1 1 1 1 1 1)
+
+key_index() {
+  local target="$1" i
+  for i in "${!KEYS[@]}"; do
+    if [[ "${KEYS[$i]}" == "$target" ]]; then printf -- '%s' "$i"; return 0; fi
+  done
+  printf -- '%s' "-1"
+}
+
+picked() {
+  local idx; idx="$(key_index "$1")"
+  [[ "$idx" != "-1" && "${PICKS[$idx]}" == "1" ]]
+}
+
+set_pick() {
+  local idx; idx="$(key_index "$1")"
+  [[ "$idx" == "-1" ]] && return 0
+  PICKS[$idx]="$2"
+}
+
+set_all() {
+  local v="$1" i
+  for i in "${!PICKS[@]}"; do PICKS[$i]="$v"; done
+}
+
+apply_only() {
+  local csv="$1"
+  set_all 0
+  local IFS=','
+  local k
+  for k in $csv; do
+    k="${k// /}"
+    [[ -z "$k" ]] && continue
+    if [[ "$(key_index "$k")" == "-1" ]]; then
+      err "Unknown component in --only: $k"
+      err "Valid keys: ${KEYS[*]}"
+      exit 2
+    fi
+    set_pick "$k" 1
+  done
+}
+
+apply_preset() {
+  case "$1" in
+    all)     set_all 1 ;;
+    none)    set_all 0 ;;
+    minimal) set_all 0; set_pick claude 1; set_pick nvm 1 ;;
+    *)       err "Unknown preset: $1 (valid: all, minimal, none)"; exit 2 ;;
+  esac
+}
+
+# ============================================================
+# Flag parsing
+# ============================================================
+
+NONINTERACTIVE=0
+DRY_RUN=0
+
+print_help() {
+  cat <<'EOF'
+claude-dotfiles installer
+
+Usage:
+  ./install.sh                  Interactive checkbox TUI (gum or text fallback)
+  ./install.sh --yes            Non-interactive, install everything
+  ./install.sh --preset NAME    Non-interactive preset: all | minimal | none
+  ./install.sh --only KEYS      Non-interactive, comma-separated keys
+                                (claude, ghostty, shaders, cmux, discord, nvm)
+  ./install.sh --dry-run        Print resolved picks and exit
+  ./install.sh --help           Show this help
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --yes|-y)       NONINTERACTIVE=1; set_all 1; shift ;;
+    --only)         NONINTERACTIVE=1; apply_only "${2:-}"; shift 2 ;;
+    --preset)       NONINTERACTIVE=1; apply_preset "${2:-}"; shift 2 ;;
+    --dry-run|-n)   DRY_RUN=1; shift ;;
+    --help|-h)      print_help; exit 0 ;;
+    *)              err "Unknown flag: $1"; print_help; exit 2 ;;
+  esac
+done
+
+# ============================================================
+# Pre-flight
+# ============================================================
+
+if [[ "$(uname)" != "Darwin" ]]; then
+  err "This installer is built for macOS. Linux support would need different paths."
+  err "Ghostty config: ~/.config/ghostty/config instead of ~/Library/Application Support/"
+  exit 1
+fi
+
+USER_HOME="$HOME"
+ZSHRC="$HOME/.zshrc"
+CLAUDE_DIR="$HOME/.claude"
+
+# ============================================================
+# TUI
+# ============================================================
+
+ensure_gum() {
+  command -v gum >/dev/null 2>&1 && return 0
+  if ! command -v brew >/dev/null 2>&1; then
+    return 1
+  fi
+  printf "${CYAN}[info]${NC}  gum (TUI library) is not installed. Install via Homebrew? [Y/n] "
+  local reply=""
+  if [ -r /dev/tty ]; then read -r reply </dev/tty || true; fi
+  reply="${reply:-Y}"
+  case "$reply" in
+    [Nn]*) return 1 ;;
+  esac
+  brew install gum >/dev/null 2>&1 || return 1
+  command -v gum >/dev/null 2>&1
+}
+
+show_picks_summary() {
+  printf "\n${CYAN}Selected components${NC}\n"
+  local i mark
+  for i in "${!KEYS[@]}"; do
+    if [[ "${PICKS[$i]}" == "1" ]]; then mark="${GREEN}[x]${NC}"; else mark="${DIM}[ ]${NC}"; fi
+    printf "  %b %-9s ${DIM}%s${NC}\n" "$mark" "${KEYS[$i]}" "${TITLES[$i]}"
+  done
+  printf "\n"
+}
+
+run_tui_gum() {
+  gum style --border double --margin "1 0" --padding "1 2" --border-foreground 212 \
+    "claude-dotfiles installer" "Pick what to install on this machine."
+
+  local i
+  for i in "${!KEYS[@]}"; do
+    gum style --foreground 212 "${KEYS[$i]} - ${TITLES[$i]}"
+    gum style --faint "  ${DESCS[$i]}"
+  done
+  printf "\n"
+
+  # Default-selected list = currently picked keys (CSV for gum --selected)
+  local sel=""
+  for i in "${!KEYS[@]}"; do
+    if [[ "${PICKS[$i]}" == "1" ]]; then
+      [[ -n "$sel" ]] && sel="${sel},"
+      sel="${sel}${KEYS[$i]}"
+    fi
+  done
+
+  local chosen
+  chosen="$(printf '%s\n' "${KEYS[@]}" \
+    | gum choose --no-limit --selected "$sel" \
+        --header "Space to toggle, enter to confirm")" || return 1
+
+  set_all 0
+  local k
+  while IFS= read -r k; do
+    [[ -z "$k" ]] && continue
+    set_pick "$k" 1
+  done <<< "$chosen"
+
+  show_picks_summary
+  gum confirm "Proceed with these components?" || return 1
+  return 0
+}
+
+run_tui_fallback() {
+  printf "\n${CYAN}claude-dotfiles installer${NC}\n"
+  printf "Pick what to install. Default is everything on.\n\n"
+  local i
+  for i in "${!KEYS[@]}"; do
+    printf "  ${GREEN}%d)${NC} %s ${DIM}- %s${NC}\n" "$((i+1))" "${TITLES[$i]}" "${KEYS[$i]}"
+    printf "     ${DIM}%s${NC}\n" "${DESCS[$i]}"
+  done
+  printf "\n"
+  printf "Enter the numbers to toggle off (space-separated), or press Enter to keep all: "
+
+  local toggles=""
+  if [ -r /dev/tty ]; then read -r toggles </dev/tty || true; fi
+
+  local n
+  for n in $toggles; do
+    [[ "$n" =~ ^[0-9]+$ ]] || continue
+    local idx=$((n-1))
+    if [[ "$idx" -ge 0 && "$idx" -lt "${#KEYS[@]}" ]]; then
+      PICKS[$idx]=0
+    fi
+  done
+
+  show_picks_summary
+  printf "Proceed? [Y/n] "
+  local reply=""
+  if [ -r /dev/tty ]; then read -r reply </dev/tty || true; fi
+  reply="${reply:-Y}"
+  case "$reply" in
+    [Nn]*) return 1 ;;
+  esac
+  return 0
+}
+
+if [[ "$NONINTERACTIVE" == "0" ]]; then
+  if ensure_gum; then
+    run_tui_gum || { warn "Aborted at confirmation."; exit 0; }
+  else
+    run_tui_fallback || { warn "Aborted at confirmation."; exit 0; }
+  fi
+fi
+
+if [[ "$DRY_RUN" == "1" ]]; then
+  show_picks_summary
+  info "--dry-run: no files were touched."
+  exit 0
+fi
+
+# ============================================================
+# Helpers (apply phase)
 # ============================================================
 
 backup_if_exists() {
@@ -45,16 +297,13 @@ make_symlink() {
   local source="$1"
   local target="$2"
 
-  # Already correct
   if [ -L "$target" ] && [ "$(readlink "$target")" = "$source" ]; then
     ok "$target (already linked)"
     return
   fi
 
-  # Back up existing file (not symlink)
   backup_if_exists "$target"
 
-  # Remove stale symlink or file
   if [ -e "$target" ] || [ -L "$target" ]; then
     rm "$target"
   fi
@@ -65,148 +314,194 @@ make_symlink() {
 }
 
 # ============================================================
-# Pre-flight
-# ============================================================
-
-if [[ "$(uname)" != "Darwin" ]]; then
-  err "This installer is built for macOS. Linux support would need different paths."
-  err "Ghostty config: ~/.config/ghostty/config instead of ~/Library/Application Support/"
-  err "Adapt the GHOSTTY_CONFIG_DIR variable below and re-run."
-  exit 1
-fi
-
-# Detect home directory for path rewriting
-USER_HOME="$HOME"
-
-# ============================================================
 # 1. Claude Code config
 # ============================================================
 
-echo ""
-info "--- Claude Code ---"
+if picked claude; then
+  echo ""
+  info "--- Claude Code ---"
+  mkdir -p "$CLAUDE_DIR/memory"
+  mkdir -p "$CLAUDE_DIR/hooks"
 
-CLAUDE_DIR="$HOME/.claude"
-mkdir -p "$CLAUDE_DIR/memory"
-mkdir -p "$CLAUDE_DIR/hooks"
+  make_symlink "$REPO_DIR/claude/CLAUDE.md"                 "$CLAUDE_DIR/CLAUDE.md"
+  make_symlink "$REPO_DIR/claude/settings.json"             "$CLAUDE_DIR/settings.json"
+  make_symlink "$REPO_DIR/claude/startup-check.sh"          "$CLAUDE_DIR/startup-check.sh"
+  make_symlink "$REPO_DIR/claude/statusline-command.sh"     "$CLAUDE_DIR/statusline-command.sh"
+  make_symlink "$REPO_DIR/claude/discord-chat-launcher.sh"  "$CLAUDE_DIR/discord-chat-launcher.sh"
 
-make_symlink "$REPO_DIR/claude/CLAUDE.md"           "$CLAUDE_DIR/CLAUDE.md"
-make_symlink "$REPO_DIR/claude/settings.json"        "$CLAUDE_DIR/settings.json"
-make_symlink "$REPO_DIR/claude/startup-check.sh"     "$CLAUDE_DIR/startup-check.sh"
-make_symlink "$REPO_DIR/claude/statusline-command.sh" "$CLAUDE_DIR/statusline-command.sh"
-make_symlink "$REPO_DIR/claude/discord-chat-launcher.sh" "$CLAUDE_DIR/discord-chat-launcher.sh"
+  for f in "$REPO_DIR"/claude/memory/*.md; do
+    [ -f "$f" ] || continue
+    make_symlink "$f" "$CLAUDE_DIR/memory/$(basename "$f")"
+  done
 
-# Symlink every memory file from the repo (sessions, feedback, references, MEMORY.md)
-for f in "$REPO_DIR"/claude/memory/*.md; do
-  [ -f "$f" ] || continue
-  make_symlink "$f" "$CLAUDE_DIR/memory/$(basename "$f")"
-done
+  for f in "$REPO_DIR"/claude/hooks/*.sh; do
+    [ -f "$f" ] || continue
+    make_symlink "$f" "$CLAUDE_DIR/hooks/$(basename "$f")"
+    chmod +x "$f"
+  done
 
-# Symlink every hook script from the repo
-for f in "$REPO_DIR"/claude/hooks/*.sh; do
-  [ -f "$f" ] || continue
-  make_symlink "$f" "$CLAUDE_DIR/hooks/$(basename "$f")"
-  chmod +x "$f"
-done
-
-chmod +x "$REPO_DIR/claude/startup-check.sh"
-chmod +x "$REPO_DIR/claude/statusline-command.sh"
-chmod +x "$REPO_DIR/claude/discord-chat-launcher.sh"
-
-# ============================================================
-# 2. Ghostty shaders repo
-# ============================================================
-
-echo ""
-info "--- Ghostty Shaders ---"
-
-SHADERS_DIR="$HOME/Documents/Github/ghostty-shaders"
-
-if [ -d "$SHADERS_DIR/.git" ]; then
-  ok "$SHADERS_DIR (already cloned)"
-  info "Pulling latest..."
-  git -C "$SHADERS_DIR" pull --ff-only 2>/dev/null || warn "Pull failed - may have local changes. Skipping."
-elif [ -d "$SHADERS_DIR" ]; then
-  warn "$SHADERS_DIR exists but is not a git repo. Skipping clone."
-else
-  info "Cloning ghostty-shaders..."
-  mkdir -p "$(dirname "$SHADERS_DIR")"
-  git clone https://github.com/0xhckr/ghostty-shaders.git "$SHADERS_DIR"
-  ok "Cloned ghostty-shaders"
+  chmod +x "$REPO_DIR/claude/startup-check.sh"
+  chmod +x "$REPO_DIR/claude/statusline-command.sh"
+  chmod +x "$REPO_DIR/claude/discord-chat-launcher.sh"
 fi
 
-# cursor_blaze.glsl, bettercrt.glsl, and tft.glsl now live in this repo at
-# shaders/*.glsl and are loaded from there directly by Ghostty (see config
-# substitution below). The ghostty-shaders clone is kept for the rest of the
-# community shader library.
+# ============================================================
+# 2. Ghostty shaders (community library + in-repo chain)
+# ============================================================
+
+if picked shaders; then
+  echo ""
+  info "--- Ghostty Shaders ---"
+
+  SHADERS_DIR="$HOME/Documents/Github/ghostty-shaders"
+
+  if [ -d "$SHADERS_DIR/.git" ]; then
+    ok "$SHADERS_DIR (already cloned)"
+    info "Pulling latest..."
+    git -C "$SHADERS_DIR" pull --ff-only 2>/dev/null || warn "Pull failed - may have local changes. Skipping."
+  elif [ -d "$SHADERS_DIR" ]; then
+    warn "$SHADERS_DIR exists but is not a git repo. Skipping clone."
+  else
+    info "Cloning ghostty-shaders..."
+    mkdir -p "$(dirname "$SHADERS_DIR")"
+    git clone https://github.com/0xhckr/ghostty-shaders.git "$SHADERS_DIR"
+    ok "Cloned ghostty-shaders"
+  fi
+
+  # bettercrt.glsl, tft.glsl, and cursor_blaze.glsl live in this repo at
+  # shaders/*.glsl and are loaded directly from there by Ghostty (see
+  # config.ghostty). The ghostty-shaders clone is kept for the rest of the
+  # community shader library.
+fi
 
 # ============================================================
 # 3. Ghostty config
 # ============================================================
 
-echo ""
-info "--- Ghostty ---"
+if picked ghostty; then
+  echo ""
+  info "--- Ghostty ---"
 
-GHOSTTY_CONFIG_DIR="$HOME/Library/Application Support/com.mitchellh.ghostty"
-mkdir -p "$GHOSTTY_CONFIG_DIR"
+  GHOSTTY_CONFIG_DIR="$HOME/Library/Application Support/com.mitchellh.ghostty"
+  mkdir -p "$GHOSTTY_CONFIG_DIR"
 
-GHOSTTY_SOURCE="$REPO_DIR/ghostty/config.ghostty"
-GHOSTTY_TARGET="$GHOSTTY_CONFIG_DIR/config.ghostty"
+  GHOSTTY_SOURCE="$REPO_DIR/ghostty/config.ghostty"
+  GHOSTTY_TARGET="$GHOSTTY_CONFIG_DIR/config.ghostty"
 
-# Ghostty config is COPIED (not symlinked). Ghostty on macOS does not follow
-# symlinks in ~/Library/Application Support/com.mitchellh.ghostty/ - the config
-# silently fails to load. The repo file is byte-identical to the deployed file
-# though (no more __DOTFILES_DIR__ placeholder - the shader path uses ~ which
-# Ghostty expands), so re-running install.sh is the sync step across machines.
-EXPECTED_REPO="$HOME/Documents/Github/claude-dotfiles"
-if [ "$(echo "$REPO_DIR" | tr '[:upper:]' '[:lower:]')" != "$(echo "$EXPECTED_REPO" | tr '[:upper:]' '[:lower:]')" ]; then
-  warn "This repo is at $REPO_DIR but the Ghostty config expects $EXPECTED_REPO."
-  warn "Move the clone to $EXPECTED_REPO or the shader path in config.ghostty won't resolve."
+  EXPECTED_REPO="$HOME/Documents/Github/claude-dotfiles"
+  if [ "$(echo "$REPO_DIR" | tr '[:upper:]' '[:lower:]')" != "$(echo "$EXPECTED_REPO" | tr '[:upper:]' '[:lower:]')" ]; then
+    warn "This repo is at $REPO_DIR but the Ghostty config expects $EXPECTED_REPO."
+    warn "Move the clone to $EXPECTED_REPO or the shader path in config.ghostty won't resolve."
+  fi
+  backup_if_exists "$GHOSTTY_TARGET"
+  if [ -L "$GHOSTTY_TARGET" ]; then
+    rm "$GHOSTTY_TARGET"
+  fi
+  cp "$GHOSTTY_SOURCE" "$GHOSTTY_TARGET"
+  ok "$GHOSTTY_TARGET (copied from repo)"
+
+  if ! picked shaders; then
+    warn "Ghostty config references shaders/*.glsl but you skipped the shaders component."
+    warn "Ghostty will start fine; the shader chain just won't render."
+  fi
 fi
-backup_if_exists "$GHOSTTY_TARGET"
-if [ -L "$GHOSTTY_TARGET" ]; then
-  rm "$GHOSTTY_TARGET"
-fi
-cp "$GHOSTTY_SOURCE" "$GHOSTTY_TARGET"
-ok "$GHOSTTY_TARGET (copied from repo)"
 
 # ============================================================
 # 4. cmux config
 # ============================================================
 
-echo ""
-info "--- cmux ---"
+if picked cmux; then
+  echo ""
+  info "--- cmux ---"
 
-CMUX_CONFIG_DIR="$HOME/.config/cmux"
-mkdir -p "$CMUX_CONFIG_DIR"
+  CMUX_CONFIG_DIR="$HOME/.config/cmux"
+  mkdir -p "$CMUX_CONFIG_DIR"
 
-make_symlink "$REPO_DIR/cmux/settings.json" "$CMUX_CONFIG_DIR/settings.json"
+  make_symlink "$REPO_DIR/cmux/settings.json" "$CMUX_CONFIG_DIR/settings.json"
+fi
 
 # ============================================================
 # 5. Discord Chat Agent launcher (zsh only, idempotent)
 # ============================================================
-# discord-chat-launcher.sh defines a zsh function that shadows `claude` to
-# optionally connect Discord on startup. Symlinking the file doesn't activate
-# it; the user's .zshrc must source it. Append that source line once, guarded
-# by a marker comment so re-runs don't duplicate.
 
-echo ""
-info "--- Discord Chat Agent launcher ---"
+if picked discord; then
+  echo ""
+  info "--- Discord Chat Agent launcher ---"
 
-ZSHRC="$HOME/.zshrc"
-DISCORD_LINE="source $CLAUDE_DIR/discord-chat-launcher.sh  # claude-dotfiles: discord-chat-launcher"
+  DISCORD_LINE="source $CLAUDE_DIR/discord-chat-launcher.sh  # claude-dotfiles: discord-chat-launcher"
 
-if [ -f "$ZSHRC" ]; then
-  # Detect ANY existing source of discord-chat-launcher.sh (manually added or
-  # marker-guarded from a prior run). Prevents duplicate appends.
-  if grep -Fq "discord-chat-launcher.sh" "$ZSHRC"; then
-    ok "$ZSHRC (already sources discord-chat-launcher.sh)"
+  if [ -f "$ZSHRC" ]; then
+    if grep -Fq "discord-chat-launcher.sh" "$ZSHRC"; then
+      ok "$ZSHRC (already sources discord-chat-launcher.sh)"
+    else
+      printf '\n# Discord Chat Agent launcher (from claude-dotfiles)\n%s\n' "$DISCORD_LINE" >> "$ZSHRC"
+      ok "Appended discord-chat-launcher source line to $ZSHRC"
+      warn "Run 'source $ZSHRC' or open a new shell to pick up the wrapper."
+    fi
+    if ! picked claude; then
+      warn "discord launcher source line points to ~/.claude/discord-chat-launcher.sh, but the claude component is unselected."
+      warn "Run with --only claude or re-run with claude picked to install the file the line sources."
+    fi
   else
-    printf '\n# Discord Chat Agent launcher (from claude-dotfiles)\n%s\n' "$DISCORD_LINE" >> "$ZSHRC"
-    ok "Appended discord-chat-launcher source line to $ZSHRC"
-    warn "Run 'source $ZSHRC' or open a new shell to pick up the wrapper."
+    warn "$ZSHRC not found - skipping discord-chat-launcher source line (zsh only)."
   fi
-else
-  warn "$ZSHRC not found - skipping discord-chat-launcher source line (zsh only)."
+fi
+
+# ============================================================
+# 6. nvm default auto-activation (zsh only, idempotent)
+# ============================================================
+# Homebrew's nvm install sources nvm.sh but does NOT activate a default Node
+# version. That leaves claude, node, npm, npx out of PATH in fresh shells, so
+# the cmux claude wrapper errors with "claude not found in PATH". Append
+# `nvm use default --silent` once, marker-guarded.
+
+if picked nvm; then
+  echo ""
+  info "--- nvm default auto-activation ---"
+
+  if [ -f "$ZSHRC" ]; then
+    if grep -Fq "nvm use default" "$ZSHRC"; then
+      ok "$ZSHRC (already auto-activates nvm default)"
+    elif grep -Fq "nvm.sh" "$ZSHRC"; then
+      printf '\n# Auto-activate nvm default so claude/node/npm are on PATH in new shells\nnvm use default --silent 2>/dev/null\n' >> "$ZSHRC"
+      ok "Appended 'nvm use default' to $ZSHRC"
+      warn "Run 'source $ZSHRC' or open a new shell to activate Node tooling."
+    else
+      warn "$ZSHRC does not source nvm.sh - skipping nvm default activation."
+    fi
+  else
+    warn "$ZSHRC not found - skipping nvm default activation (zsh only)."
+  fi
+fi
+
+# ============================================================
+# 7. yesplease vanity shortcut (zsh only, idempotent)
+# ============================================================
+# Defines a zsh function `yesplease` that cd's into the dotfiles repo, pulls
+# latest, and re-launches install.sh. Forwards any args, so you can do
+# `yesplease --preset minimal` or `yesplease --yes`.
+
+if picked yesplease; then
+  echo ""
+  info "--- yesplease shortcut ---"
+
+  if [ -f "$ZSHRC" ]; then
+    if grep -Eq '^(function[[:space:]]+yesplease|alias[[:space:]]+yesplease=)' "$ZSHRC"; then
+      ok "$ZSHRC (already defines 'yesplease')"
+    else
+      cat >> "$ZSHRC" <<EOF
+
+# claude-dotfiles vanity command: pull latest and re-launch installer
+function yesplease() {
+  ( cd "$REPO_DIR" && git pull --ff-only && ./install.sh "\$@" )
+}
+EOF
+      ok "Added 'yesplease' function to $ZSHRC"
+      warn "Run 'source $ZSHRC' or open a new shell to use 'yesplease'."
+    fi
+  else
+    warn "$ZSHRC not found - skipping yesplease shortcut (zsh only)."
+  fi
 fi
 
 # ============================================================
@@ -225,20 +520,38 @@ if [ "$BACKED_UP" -eq 1 ]; then
 fi
 
 echo "What was installed:"
-echo "  - Claude Code: CLAUDE.md, settings.json, hooks, statusline, memory, discord-chat-launcher"
-echo "  - Ghostty: config.ghostty (copied from repo - re-run install.sh to sync edits)"
-echo "  - Ghostty shaders: $REPO_DIR/shaders/{bettercrt,tft,cursor_blaze}.glsl (loaded in-place, edits sync live)"
-echo "  - cmux: settings.json"
-echo "  - Ghostty shaders library: cloned/updated in $SHADERS_DIR"
-echo "  - .zshrc: source line for discord-chat-launcher (added once, marker-guarded)"
+picked claude   && echo "  - Claude Code: CLAUDE.md, settings.json, hooks, statusline, memory, discord-chat-launcher"
+picked ghostty  && echo "  - Ghostty: config.ghostty (copied from repo - re-run install.sh to sync edits)"
+picked shaders  && echo "  - Ghostty shaders: in-repo chain at $REPO_DIR/shaders, plus library at ~/Documents/Github/ghostty-shaders"
+picked cmux     && echo "  - cmux: settings.json"
+picked discord  && echo "  - .zshrc: source line for discord-chat-launcher (added once, marker-guarded)"
+picked nvm      && echo "  - .zshrc: nvm default auto-activation"
+picked yesplease && echo "  - .zshrc: 'yesplease' shortcut (type 'yesplease' to re-run installer)"
 echo ""
 echo "Manual steps remaining:"
 echo "  1. Install Claude Code if not already present:"
 echo "     npm install -g @anthropic-ai/claude-code"
-echo "  2. Install plugins from the Claude Code marketplace."
-echo "     Your settings.json enables these plugins - install them via:"
-echo "     claude /plugins"
+echo "  2. Open Claude Code once - your enabled plugins (Impeccable, Figma,"
+echo "     Sentry, Supabase, Discord, hookify, superpowers, etc.) auto-install"
+echo "     from settings.json on first launch. Run 'claude /plugins' to confirm."
 echo "  3. Install the PolySans Neutral Mono font family (used by Ghostty config)."
 echo "  4. Restart Ghostty and cmux to pick up config changes."
-echo "  5. Open a new shell or 'source ~/.zshrc' to activate the discord-chat-launcher wrapper."
+echo "  5. Open a new shell or 'source ~/.zshrc' to activate the .zshrc additions."
+echo ""
+echo "Connectors and MCP servers (NOT installed by this script - per-account):"
+echo "  - ClickUp: a Claude.ai connector. Sign in at claude.ai, go to"
+echo "    Settings -> Connectors, and authorize ClickUp once. It then works"
+echo "    in every Claude session signed in to that account."
+echo "  - Claude in Chrome: a Chrome extension. Install from the Chrome Web"
+echo "    Store, sign in to Claude, and it bridges to Claude Code automatically."
+echo "  These aren't portable through dotfiles because they need OAuth and"
+echo "  per-browser setup. Set them up once per machine."
+echo ""
+echo "Design workflow (Impeccable):"
+echo "  - The impeccable plugin is enabled in settings.json (autoUpdate on)."
+echo "  - CLAUDE.md routes all design and UI-QA work through /impeccable."
+echo "  - In each new project, run '/impeccable teach' once to seed PRODUCT.md"
+echo "    and optionally DESIGN.md at the project root. Every /impeccable command"
+echo "    reads those files, so skipping this step produces generic output."
+echo "  - Run '/impeccable' with no argument to see the full 23-command menu."
 echo ""

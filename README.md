@@ -6,28 +6,104 @@ Portable configuration for Claude Code, Ghostty, and cmux. One script to replica
 
 | Directory | Contents |
 |-----------|----------|
-| `claude/` | Global `CLAUDE.md` instructions, `settings.json` (hooks, statusline, plugins, env), startup hook, statusline script, memory files |
+| `claude/` | Global `CLAUDE.md` instructions (including the Impeccable design/QA routing rules), `settings.json` (hooks, statusline, plugins, env), startup hook, statusline script, memory files |
 | `ghostty/` | Ghostty terminal config (PolySans Neutral Mono, custom 256-color palette, transparency, blur, chained `bettercrt` + `tft` + `cursor_blaze` shaders) |
 | `cmux/` | cmux settings |
 | `shaders/` | In-repo copies of `bettercrt.glsl`, `tft.glsl`, and `cursor_blaze.glsl` - loaded directly by Ghostty so edits sync live |
 
+## Design skills: Impeccable
+
+`claude/settings.json` enables the [Impeccable](https://impeccable.style) plugin (`impeccable@impeccable`) with `autoUpdate: true`. Impeccable is a single `/impeccable` skill with 23 commands that cover the whole frontend design loop: context gathering, shaping, building, auditing, critiquing, polishing, and targeted fixes (typography, color, motion, copy, performance, responsive, accessibility).
+
+`claude/CLAUDE.md` adds a "Design Work and Impeccable" section that makes the plugin non-optional:
+
+- Before any design task, Claude checks for `PRODUCT.md` at the project root; if it's missing or a stub, it runs `/impeccable teach` first (interactive, writes `PRODUCT.md` and optionally `DESIGN.md`).
+- For any UI task, Claude picks the right entry command (`craft`, `shape`, `polish`, `critique`, `audit`, `harden`, etc.) rather than improvising.
+- Before reporting UI work complete, Claude runs the `audit` + `critique` + `polish` triad and addresses the findings. This sits on top of the existing visual-verification protocol, not in place of it.
+
+### First-run walkthrough (per project)
+
+1. Open a project in Claude Code.
+2. Say "design me a settings page" (or anything UI-shaped). Claude notices there's no `PRODUCT.md` and runs `/impeccable teach`.
+3. Answer its questions (register: brand vs product, users, brand personality, anti-references). `PRODUCT.md` and optionally `DESIGN.md` land at the project root.
+4. Claude resumes the original task, usually via `/impeccable craft` for a net-new build.
+5. After implementation, Claude runs `/impeccable audit`, `/impeccable critique`, and `/impeccable polish` before declaring done.
+
+You can also invoke commands directly:
+
+```
+/impeccable                 Menu of all 23 commands (when you're not sure)
+/impeccable teach           One-time project setup
+/impeccable craft <thing>   Shape, build, iterate visually
+/impeccable audit <thing>   Technical QA (a11y, perf, theming, responsive, anti-patterns)
+/impeccable critique <thing> Design review (heuristics, cognitive load, AI-slop check)
+/impeccable polish <thing>  Final design-system alignment pass
+/impeccable pin <command>   Create a top-level shortcut (e.g. pin audit -> /audit)
+```
+
+The commands mentioned above that aren't in this short list (`bolder`, `quieter`, `distill`, `harden`, `colorize`, `typeset`, `layout`, `animate`, `delight`, `overdrive`, `clarify`, `adapt`, `optimize`, `onboard`, `extract`, `document`, `live`) follow the same pattern - `/impeccable <command> <target>`.
+
+
+
 ## Install
 
+One-line install on a fresh Mac (clones into `~/Documents/Github/claude-dotfiles`, then launches the interactive TUI):
+
 ```bash
-git clone <this-repo> ~/Documents/Github/claude-dotfiles
+curl -fsSL https://raw.githubusercontent.com/raiderforge/claude-dotfiles/main/bootstrap.sh | bash
+```
+
+Or if you've already cloned the repo:
+
+```bash
 cd ~/Documents/Github/claude-dotfiles
 ./install.sh
 ```
 
-The installer:
+### What you'll see
 
-- Symlinks Claude Code config and cmux settings into their expected locations (`~/.claude/`, `~/.config/cmux/`)
-- **Copies** the Ghostty config into its Application Support dir (Ghostty silently ignores symlinks there). The repo file is byte-identical to the deployed file - the shader path uses `~` which Ghostty expands on each machine
-- Warns if the repo clone is not at `~/Documents/Github/claude-dotfiles` (the Ghostty config's shader path is pinned to this location)
-- Backs up any existing files before overwriting (stored in `.backups/`)
-- Clones the [ghostty-shaders](https://github.com/0xhckr/ghostty-shaders) repo into `~/Documents/Github/ghostty-shaders`
-- Appends a `source ~/.claude/discord-chat-launcher.sh` line to `~/.zshrc` if not already present (marker-guarded, safe to re-run)
-- Is idempotent - safe to run repeatedly
+A checkbox TUI (rendered with [gum](https://github.com/charmbracelet/gum); installs it via Homebrew if missing, with your consent) lets you pick what lands on this machine:
+
+| Component | Plain-English | What changes on disk |
+|-----------|---------------|----------------------|
+| `claude`  | Your Claude Code brain: instructions, settings, hooks, status line, memory, **and the plugin list** (Impeccable, Figma, Sentry, Supabase, Discord, hookify, superpowers, etc. - auto-installed by Claude Code on first launch) | Symlinks into `~/.claude/` |
+| `ghostty` | Your Ghostty terminal look: PolySans font, custom palette, transparency, blur | Copies `config.ghostty` into `~/Library/Application Support/com.mitchellh.ghostty/` |
+| `shaders` | The cinematic Ghostty effects: CRT curvature, TFT pixel grid, blazing cursor trail | In-repo `shaders/*.glsl` + clones [ghostty-shaders](https://github.com/0xhckr/ghostty-shaders) |
+| `cmux`    | cmux split-pane terminal config (powers the in-app browser preview Claude uses) | Symlinks `~/.config/cmux/settings.json` |
+| `discord` | When you run `claude`, asks if you want to connect this session to your Discord channel | Appends one line to `~/.zshrc` (marker-guarded) |
+| `nvm`     | Optional fix for a specific issue: if a new terminal greets you with "claude not found in PATH" even though Claude is installed, this resolves it. Harmless no-op on machines that don't use nvm. Skip if `claude` already works in fresh terminals on your machine. | Appends `nvm use default --silent` to `~/.zshrc` (only fires if your zsh config already sources `nvm.sh`) |
+| `yesplease` | A one-word shortcut. Type `yesplease` in any terminal to pull the latest dotfiles from GitHub and re-launch this installer. Forwards args, so `yesplease --yes` or `yesplease --preset minimal` work too. | Appends a `function yesplease()` definition to `~/.zshrc` |
+
+If `gum` is unavailable and you decline to install it, the installer falls back to a numbered text menu with the same choices.
+
+### Plugins vs. connectors vs. extensions
+
+The `claude` component declares which **plugins** are enabled (via `settings.json`). Two things you might expect aren't here, because they live elsewhere:
+
+- **ClickUp** is a Claude.ai **connector** (OAuth). Authorize it once at [claude.ai](https://claude.ai) -> Settings -> Connectors and it works in every signed-in Claude session.
+- **Claude in Chrome** is a **Chrome extension**. Install it from the Chrome Web Store and sign in. Per-browser, not portable through dotfiles.
+
+The post-install summary reminds you about both.
+
+### Non-interactive flags
+
+```bash
+./install.sh --yes                 # install everything, no prompts
+./install.sh --preset minimal      # claude + nvm only
+./install.sh --preset all          # same as --yes
+./install.sh --preset none         # no components (useful with --dry-run)
+./install.sh --only claude,nvm     # explicit subset
+./install.sh --dry-run             # show resolved picks, touch no files
+```
+
+`bootstrap.sh` forwards these too: `curl -fsSL .../bootstrap.sh | bash -s -- --preset minimal`.
+
+### Behaviors
+
+- Symlinks for Claude Code and cmux config; existing files are backed up to `.backups/<timestamp>/` before overwriting
+- Ghostty config is **copied** (not symlinked - Ghostty silently ignores symlinks in Application Support); re-run `install.sh` to sync edits
+- Warns if the repo clone is not at `~/Documents/Github/claude-dotfiles` (the Ghostty shader paths are pinned to that location)
+- `.zshrc` appends are marker-guarded - safe to re-run repeatedly
 
 ## Manual steps after install
 

@@ -59,6 +59,53 @@ You are BLOCKED from reporting task completion to the user until ALL of the foll
 
 If you cannot verify (no browser available, no dev server running), say so explicitly. Do not claim completion without proof.
 
+## Design Work and Impeccable (MANDATORY for UI tasks)
+
+The `impeccable` plugin is enabled in `~/.claude/settings.json` with `autoUpdate: true`. It ships one `/impeccable` skill with 23 commands that cover design briefs, implementation, and QA for frontend work. Use `/impeccable` as the front door for every design or QA task in every project, not as an optional tool.
+
+### Project-level setup (do this first, once per project)
+
+Every `/impeccable` command reads two files at the project root:
+
+- `PRODUCT.md` - register (brand vs product), users, brand personality, anti-references, strategic principles. Required.
+- `DESIGN.md` - colors, typography, components, layout. Optional, strongly recommended.
+
+Before any design work, check whether PRODUCT.md exists at the project root and has real content (not `[TODO]` placeholders, not under 200 characters). If it is missing, empty, or a stub, run `/impeccable teach` first. It is interactive (asks about users, brand, anti-references) and writes PRODUCT.md. After it returns, resume the original task with the fresh context. Do not improvise a design on a project with no PRODUCT.md.
+
+If DESIGN.md is missing and there is already code in the project, nudge the user once per session: "Run `/impeccable document` to capture the current visual system so variants stay on-brand." Proceed even if they skip.
+
+### Entry-command routing (pick one before writing code)
+
+| User's intent | Command |
+|---|---|
+| Net-new feature or page, build from scratch | `/impeccable craft <feature>` |
+| Plan the design only, no code yet | `/impeccable shape <feature>` |
+| Add motion, color, personality, or boldness | `/impeccable animate`, `colorize`, `delight`, `bolder`, `overdrive` |
+| Tone down a loud or over-stimulated UI | `/impeccable quieter` or `distill` |
+| Fix typography, spacing, layout, responsive, copy, perf | `/impeccable typeset`, `layout`, `adapt`, `clarify`, `optimize` |
+| Production-ready sweep (errors, i18n, edge cases) | `/impeccable harden` |
+| First-run flows, empty states, activation | `/impeccable onboard` |
+| Pull reusable tokens and components into the design system | `/impeccable extract` |
+| Iterate visually on elements in a live browser | `/impeccable live` |
+
+When unsure, invoke `/impeccable` with no argument. It renders the full command menu grouped by category.
+
+Once an entry command is loaded, let its reference file drive. Do not improvise around it.
+
+### QA gate for UI work (before reporting done)
+
+The existing Verification Protocol above (visual, interactive, side-by-side, completeness) still applies to UI work. In addition, any substantive UI change (new feature, redesign, significant component edit) must pass this triad before you report completion:
+
+1. `/impeccable audit <target>` - runs the 5-dimension technical scan (a11y, performance, theming, responsive, anti-patterns) plus the `npx impeccable detect` CLI. Address all Critical and High findings.
+2. `/impeccable critique <target>` - design review via independent sub-agents (AI-slop detection, Nielsen heuristics, cognitive load, emotional journey). Address anything above "minor".
+3. `/impeccable polish <target>` - final alignment pass against the project's design system. Must run last.
+
+Small, obviously-trivial edits (a one-line copy tweak, a named-token swap) can skip the triad. Anything where the aesthetic result is in question must run it. "I'll skip polish because it probably looks fine" is not a valid judgment; run the commands.
+
+### What impeccable is NOT for
+
+Backend logic, non-UI refactors, build-tool work, infrastructure changes. Do not load `/impeccable` for those.
+
 ## Code Quality
 
 - You must always avoid using broad CSS rules when we build. Be specific, avoid overclassing.
