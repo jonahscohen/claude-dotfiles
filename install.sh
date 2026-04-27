@@ -54,7 +54,7 @@ TITLES=(
   "'yesplease' shortcut (re-run installer)"
 )
 DESCS=(
-  "Your global Claude Code brain: instructions (CLAUDE.md), settings, safety hooks, status line, and shared memory files. Also pre-enables your plugin list - Impeccable (design), Figma, Sentry, Supabase, Discord, plus 9 more - which Claude Code auto-installs on first launch. Skip only if you've configured Claude Code by hand and don't want it overwritten."
+  "Your global Claude Code brain: instructions (CLAUDE.md), settings, safety hooks, status line, and shared memory files. Also pre-enables your plugin list - Impeccable (design), Figma, Sentry, Supabase, Discord, plus 9 more - which Claude Code auto-installs on first launch. Installs the make-interfaces-feel-better skill (tactical UI polish, auto-triggers on UI work) via npx. Skip only if you've configured Claude Code by hand and don't want it overwritten."
   "Your Ghostty terminal's appearance: PolySans Neutral Mono font, custom 256-color palette, transparency, and blur. Skip if you don't use Ghostty as your terminal."
   "The cinematic Ghostty effects: CRT curvature, TFT pixel grid, and a blazing cursor trail. Also clones a wider community shader library you can swap into the chain. Skip if you picked Ghostty but want it to look plain."
   "Settings for cmux, the split-pane terminal that hosts the in-app browser preview Claude uses to verify your UI work. Skip if you don't use cmux."
@@ -343,6 +343,26 @@ if picked claude; then
   chmod +x "$REPO_DIR/claude/startup-check.sh"
   chmod +x "$REPO_DIR/claude/statusline-command.sh"
   chmod +x "$REPO_DIR/claude/discord-chat-launcher.sh"
+
+  # Anthropic Skill: make-interfaces-feel-better
+  # Tactical UI polish layer (concentric border radius, scale 0.96 on press,
+  # tabular numbers, optical alignment, etc.). Auto-triggers on UI keywords.
+  # CLAUDE.md routes this skill into the design QA stack alongside
+  # /impeccable and the @google/design.md lint.
+  echo ""
+  info "Installing make-interfaces-feel-better skill..."
+  if command -v npx >/dev/null 2>&1; then
+    if npx --yes skills add jakubkrehel/make-interfaces-feel-better 2>/dev/null; then
+      ok "make-interfaces-feel-better skill installed"
+    else
+      warn "Skill install failed (non-fatal). Run manually after Claude Code is set up:"
+      warn "  npx skills add jakubkrehel/make-interfaces-feel-better"
+    fi
+  else
+    warn "npx not found - skipping skill install."
+    warn "After installing Claude Code (and Node), run:"
+    warn "  npx skills add jakubkrehel/make-interfaces-feel-better"
+  fi
 fi
 
 # ============================================================
@@ -542,6 +562,7 @@ fi
 
 echo "What was installed:"
 picked claude   && echo "  - Claude Code: CLAUDE.md, settings.json, hooks, statusline, memory, discord-chat-launcher"
+picked claude   && echo "  - Skill: make-interfaces-feel-better (tactical UI polish; auto-triggers on UI work)"
 picked ghostty  && echo "  - Ghostty: config.ghostty (copied from repo - re-run install.sh to sync edits)"
 picked shaders  && echo "  - Ghostty shaders: in-repo chain at $REPO_DIR/shaders, plus library at ~/Documents/Github/ghostty-shaders"
 picked cmux     && echo "  - cmux: settings.json"

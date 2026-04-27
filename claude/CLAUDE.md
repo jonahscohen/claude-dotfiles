@@ -98,6 +98,16 @@ When unsure, invoke `/impeccable` with no argument. It renders the full command 
 
 Once an entry command is loaded, let its reference file drive. Do not improvise around it.
 
+### Tactical implementation layer (make-interfaces-feel-better)
+
+Installed via `install.sh` as the `make-interfaces-feel-better` Anthropic Skill. It auto-triggers on UI keywords (border radius, animation, optical alignment, hover state, tabular numbers, "feel better," etc.) and supplies 16 specific tactical rules with exact values: `scale(0.96)` on press, concentric border radius (`outer = inner + padding`), icon swaps via opacity+scale+blur (`scale 0.25->1, opacity 0->1, blur 4px->0`), image outlines `rgba(0,0,0,0.1)` never tinted, hit areas at least 40x40px, `transition: all` banned, `font-variant-numeric: tabular-nums` on dynamic numbers, `text-wrap: balance` on headings, etc. Full reference at `~/.claude/skills/make-interfaces-feel-better/`.
+
+This skill is the tactical layer that sits between Impeccable's strategy (PRODUCT.md, register, anti-references) and DESIGN.md's tokens (colors, typography, spacing). Apply it during implementation, not as a separate pass:
+
+- If the skill auto-triggers, follow it. Address every applicable item from its 14-point checklist.
+- If you are modifying UI but the skill did NOT auto-trigger, manually invoke `/make-interfaces-feel-better` before reporting done. The skill's `description` field is keyword-driven and may miss subtle UI work; an explicit invocation is the fallback.
+- When summarizing UI changes (in PR descriptions, session memory, or to the user), use the skill's before/after table format. Group by principle, one row per diff. The free-form "I tightened up the button" summary is not acceptable.
+
 ### QA gate for UI work (before reporting done)
 
 The existing Verification Protocol above (visual, interactive, side-by-side, completeness) still applies to UI work. In addition, any substantive UI change (new feature, redesign, significant component edit) must pass this triad before you report completion:
@@ -105,8 +115,10 @@ The existing Verification Protocol above (visual, interactive, side-by-side, com
 1. `/impeccable audit <target>` - runs the 5-dimension technical scan (a11y, performance, theming, responsive, anti-patterns) plus the `npx impeccable detect` CLI. Address all Critical and High findings.
 2. `/impeccable critique <target>` - design review via independent sub-agents (AI-slop detection, Nielsen heuristics, cognitive load, emotional journey). Address anything above "minor".
 3. `/impeccable polish <target>` - final alignment pass against the project's design system. Must run last.
+4. `make-interfaces-feel-better` 14-point checklist - run through every item applicable to the change (concentric radius, optical alignment, shadows over borders, split/staggered enters, subtle exits, tabular nums, font smoothing, balanced text wrap, image outlines, scale-on-press, `initial={false}` on AnimatePresence, no `transition: all`, sparse `will-change`, 40x40 hit areas). The skill's review-output-format (before/after tables grouped by principle) is the canonical way to record what changed.
+5. If the project has a `DESIGN.md` (per the Google spec): `npx @google/design.md lint DESIGN.md` and resolve every error/warning before reporting done.
 
-Small, obviously-trivial edits (a one-line copy tweak, a named-token swap) can skip the triad. Anything where the aesthetic result is in question must run it. "I'll skip polish because it probably looks fine" is not a valid judgment; run the commands.
+Small, obviously-trivial edits (a one-line copy tweak, a named-token swap) can skip the gate. Anything where the aesthetic result is in question must run all five. "I'll skip polish because it probably looks fine" is not a valid judgment; run the commands.
 
 ### What impeccable is NOT for
 

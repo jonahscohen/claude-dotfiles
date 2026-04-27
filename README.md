@@ -27,7 +27,9 @@ Portable configuration for Claude Code, Ghostty, and cmux. One script to replica
 2. Say "design me a settings page" (or anything UI-shaped). Claude notices there's no `PRODUCT.md` and runs `/impeccable teach`.
 3. Answer its questions (register: brand vs product, users, brand personality, anti-references). `PRODUCT.md` and optionally `DESIGN.md` land at the project root.
 4. Claude resumes the original task, usually via `/impeccable craft` for a net-new build.
-5. After implementation, Claude runs `/impeccable audit`, `/impeccable critique`, and `/impeccable polish` before declaring done.
+5. After implementation, Claude runs `/impeccable audit`, `/impeccable critique`, `/impeccable polish`, the [`make-interfaces-feel-better`](https://github.com/jakubkrehel/make-interfaces-feel-better) 14-point checklist, and `npx @google/design.md lint` (if `DESIGN.md` exists) before declaring done.
+
+The dotfiles installer auto-installs `make-interfaces-feel-better` via `npx skills add jakubkrehel/make-interfaces-feel-better` when the `claude` component runs. It's the tactical implementation layer (concentric border radius, `scale(0.96)` on press, tabular nums, optical alignment, etc.) that sits between Impeccable's brand strategy and DESIGN.md's tokens.
 
 You can also invoke commands directly:
 
