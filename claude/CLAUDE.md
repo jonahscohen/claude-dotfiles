@@ -76,6 +76,10 @@ Before any design work, check whether PRODUCT.md exists at the project root and 
 
 If DESIGN.md is missing and there is already code in the project, nudge the user once per session: "Run `/impeccable document` to capture the current visual system so variants stay on-brand." Proceed even if they skip.
 
+### DESIGN.md format (Google spec)
+
+When writing or updating a project's `DESIGN.md` (via `/impeccable document`, `/impeccable extract`, or by hand), conform to the [google-labs-code/design.md](https://github.com/google-labs-code/design.md) spec: YAML frontmatter for tokens (colors, typography, rounded, spacing, components with `{token.path}` references), markdown prose body for rationale, sections in canonical order (Overview, Colors, Typography, Layout, Elevation, Shapes, Components, Do's and Don'ts). After writing or modifying the file, run `npx @google/design.md lint DESIGN.md` and address every error or warning (broken token references, WCAG contrast failures, schema violations) before reporting done. Generated UI code must reference tokens via the `{path.to.token}` form rather than hard-coding hex values, so the design system stays the single source of truth.
+
 ### Entry-command routing (pick one before writing code)
 
 | User's intent | Command |
