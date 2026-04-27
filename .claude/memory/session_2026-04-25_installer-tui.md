@@ -79,3 +79,21 @@ Added a 7th component, `yesplease`, default-on. Appends a `function yesplease()`
 **Heredoc quoting trick:** the section uses an unquoted `<<EOF` so `$REPO_DIR` expands at install time (function bakes in the absolute path), but `\$@` is escaped so it survives literal into the function body and forwards installer args at call time. Verified by piping the heredoc through bash and inspecting the rendered output.
 
 **Idempotency:** marker grep is `^(function[[:space:]]+yesplease|alias[[:space:]]+yesplease=)` so re-runs detect both function and alias forms but don't false-positive on comments mentioning "yesplease."
+
+## Multi-location support (2026-04-25 follow-up)
+
+User clones the dotfiles in different paths on different machines and asked for the installer to be sensitive to that. Removed the hardcoded `~/Documents/Github/claude-dotfiles` assumption from three places:
+
+1. `ghostty/config.ghostty` now uses `__DOTFILES_DIR__/shaders/*.glsl` instead of literal paths. install.sh renders the config via `sed "s|__DOTFILES_DIR__|$REPO_DIR|g"` at copy time, so the deployed Ghostty config gets absolute paths baked in based on wherever the repo actually lives. Repo file stays portable.
+2. install.sh dropped the `EXPECTED_REPO` warning about the clone needing to be at the canonical path. No longer relevant.
+3. install.sh `yesplease` block now self-heals: detects our marker comment, checks whether the baked path matches current `$REPO_DIR`, and if not, sed-deletes the old function block and appends a fresh one. Lets users move the dotfiles dir on a machine and have `yesplease` re-point automatically the next time install.sh runs from the new location. If the user has manually defined `yesplease` (no marker), we leave it alone and warn.
+
+`bootstrap.sh` gained a `--dir PATH` flag (in addition to the existing `CLAUDE_DOTFILES_DIR` env var) so curl|bash invocations can target a custom location:
+
+```bash
+curl ... | bash -s -- --dir ~/code/dots
+```
+
+The flag-parsing loop peels `--dir` off the front and forwards everything else to install.sh. Used `INSTALLER_ARGS=()` array; protected empty-array expansion under `set -u` with the bash-3.2-safe `"${INSTALLER_ARGS[@]+"${INSTALLER_ARGS[@]}"}"` idiom.
+
+README install section updated: new "Cloning to a custom location" subsection, plus the "How it works" Ghostty paragraph rewritten to describe the placeholder substitution rather than the old "byte-identical repo file" claim.

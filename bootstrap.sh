@@ -10,10 +10,38 @@ set -euo pipefail
 # Pass-through flags work too:
 #   curl -fsSL .../bootstrap.sh | bash -s -- --yes
 #   curl -fsSL .../bootstrap.sh | bash -s -- --preset minimal
+#
+# Choose where the repo lives on this machine (3 options, any one works):
+#   1. Set env var:  CLAUDE_DOTFILES_DIR=~/code/dots curl ... | bash
+#   2. Pass --dir:   curl ... | bash -s -- --dir ~/code/dots
+#   3. Default:      ~/Documents/Github/claude-dotfiles
 # ============================================================
 
 REPO_URL="${CLAUDE_DOTFILES_REPO:-https://github.com/raiderforge/claude-dotfiles.git}"
 REPO_DIR="${CLAUDE_DOTFILES_DIR:-$HOME/Documents/Github/claude-dotfiles}"
+
+# Peel off --dir PATH if present at the front; leave everything else for install.sh.
+INSTALLER_ARGS=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dir)
+      REPO_DIR="$2"
+      shift 2
+      ;;
+    --dir=*)
+      REPO_DIR="${1#--dir=}"
+      shift
+      ;;
+    *)
+      INSTALLER_ARGS+=("$1")
+      shift
+      ;;
+  esac
+done
+# Expand leading ~ if user passed --dir ~/code/dots literally
+case "$REPO_DIR" in
+  "~"|"~/"*) REPO_DIR="${HOME}${REPO_DIR#\~}" ;;
+esac
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -58,10 +86,10 @@ chmod +x install.sh 2>/dev/null || true
 # available. If neither stdin is a TTY nor /dev/tty is readable (e.g. CI),
 # fall back to --yes so we at least install everything non-interactively.
 if [ -t 0 ] && [ -t 1 ]; then
-  exec bash install.sh "$@"
+  exec bash install.sh "${INSTALLER_ARGS[@]+"${INSTALLER_ARGS[@]}"}"
 elif [ -r /dev/tty ]; then
-  exec bash install.sh "$@" </dev/tty
+  exec bash install.sh "${INSTALLER_ARGS[@]+"${INSTALLER_ARGS[@]}"}" </dev/tty
 else
   warn "No TTY detected. Running install.sh --yes (full install)."
-  exec bash install.sh --yes "$@"
+  exec bash install.sh --yes "${INSTALLER_ARGS[@]+"${INSTALLER_ARGS[@]}"}"
 fi

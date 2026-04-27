@@ -47,18 +47,35 @@ The commands mentioned above that aren't in this short list (`bolder`, `quieter`
 
 ## Install
 
-One-line install on a fresh Mac (clones into `~/Documents/Github/claude-dotfiles`, then launches the interactive TUI):
+One-line install on a fresh Mac (clones into `~/Documents/Github/claude-dotfiles` by default, then launches the interactive TUI):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/raiderforge/claude-dotfiles/main/bootstrap.sh | bash
 ```
 
-Or if you've already cloned the repo:
+Or if you've already cloned the repo (anywhere):
 
 ```bash
-cd ~/Documents/Github/claude-dotfiles
+cd /path/to/claude-dotfiles
 ./install.sh
 ```
+
+### Cloning to a custom location
+
+The dotfiles repo can live anywhere on disk. The Ghostty config uses a `__DOTFILES_DIR__` placeholder that the installer replaces with the actual repo path at install time, so cloning to `~/code/dots` or `/opt/dots` or anywhere else works. Three ways to set the location during a curl-bootstrap:
+
+```bash
+# 1. Environment variable
+CLAUDE_DOTFILES_DIR=~/code/dots curl -fsSL .../bootstrap.sh | bash
+
+# 2. --dir flag
+curl -fsSL .../bootstrap.sh | bash -s -- --dir ~/code/dots
+
+# 3. Default (no flags): ~/Documents/Github/claude-dotfiles
+curl -fsSL .../bootstrap.sh | bash
+```
+
+If you re-run `install.sh` from a different clone location later, the `yesplease` function in your `~/.zshrc` is automatically refreshed to point at the new path.
 
 ### What you'll see
 
@@ -102,7 +119,7 @@ The post-install summary reminds you about both.
 
 - Symlinks for Claude Code and cmux config; existing files are backed up to `.backups/<timestamp>/` before overwriting
 - Ghostty config is **copied** (not symlinked - Ghostty silently ignores symlinks in Application Support); re-run `install.sh` to sync edits
-- Warns if the repo clone is not at `~/Documents/Github/claude-dotfiles` (the Ghostty shader paths are pinned to that location)
+- Renders the Ghostty config from the repo with `__DOTFILES_DIR__` substituted to the actual repo location, so the dotfiles can be cloned anywhere
 - `.zshrc` appends are marker-guarded - safe to re-run repeatedly
 
 ## Manual steps after install
@@ -117,7 +134,7 @@ The post-install summary reminds you about both.
 
 **Claude Code, cmux:** symlinked. Editing `~/.claude/CLAUDE.md` on any machine edits the repo file directly. Commit and push to propagate changes across machines; a `git pull` is the sync step on other machines.
 
-**Ghostty:** copied (not symlinked - Ghostty silently ignores symlinks in its Application Support dir). The repo file is byte-identical to the deployed file: shader paths are `~/Documents/Github/claude-dotfiles/shaders/*.glsl` (Ghostty expands `~`), so no placeholder substitution is needed. Every machine must clone this repo at that path for the shaders to resolve; the installer warns if not. To propagate Ghostty config edits: make the change in the repo, commit, push, pull on the other machine, then re-run `./install.sh`.
+**Ghostty:** rendered from the repo with `__DOTFILES_DIR__` substituted to the actual install location (Ghostty silently ignores symlinks in its Application Support dir, so this is a `sed`-into-place copy, not a symlink). The dotfiles repo can live anywhere on disk; the deployed config gets absolute paths baked in at install time. To propagate Ghostty config edits: make the change in the repo, commit, push, pull on the other machine, then re-run `./install.sh` (or just type `yesplease`).
 
 **Edits on a machine directly (not via the repo)** land in `~/Library/Application Support/com.mitchellh.ghostty/config.ghostty` and will silently drift. Best practice: always edit `ghostty/config.ghostty` in the repo, then `./install.sh`.
 

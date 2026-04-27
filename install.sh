@@ -388,17 +388,15 @@ if picked ghostty; then
   GHOSTTY_SOURCE="$REPO_DIR/ghostty/config.ghostty"
   GHOSTTY_TARGET="$GHOSTTY_CONFIG_DIR/config.ghostty"
 
-  EXPECTED_REPO="$HOME/Documents/Github/claude-dotfiles"
-  if [ "$(echo "$REPO_DIR" | tr '[:upper:]' '[:lower:]')" != "$(echo "$EXPECTED_REPO" | tr '[:upper:]' '[:lower:]')" ]; then
-    warn "This repo is at $REPO_DIR but the Ghostty config expects $EXPECTED_REPO."
-    warn "Move the clone to $EXPECTED_REPO or the shader path in config.ghostty won't resolve."
-  fi
   backup_if_exists "$GHOSTTY_TARGET"
   if [ -L "$GHOSTTY_TARGET" ]; then
     rm "$GHOSTTY_TARGET"
   fi
-  cp "$GHOSTTY_SOURCE" "$GHOSTTY_TARGET"
-  ok "$GHOSTTY_TARGET (copied from repo)"
+  # Substitute __DOTFILES_DIR__ with the actual repo path on this machine.
+  # Lets the dotfiles be cloned anywhere - the deployed config gets absolute
+  # paths baked in at install time.
+  sed "s|__DOTFILES_DIR__|$REPO_DIR|g" "$GHOSTTY_SOURCE" > "$GHOSTTY_TARGET"
+  ok "$GHOSTTY_TARGET (rendered from repo, paths -> $REPO_DIR)"
 
   if ! picked shaders; then
     warn "Ghostty config references shaders/*.glsl but you skipped the shaders component."
@@ -485,13 +483,36 @@ if picked yesplease; then
   echo ""
   info "--- yesplease shortcut ---"
 
+  YESPLEASE_MARKER="# claude-dotfiles vanity command: pull latest and re-launch installer"
+
   if [ -f "$ZSHRC" ]; then
-    if grep -Eq '^(function[[:space:]]+yesplease|alias[[:space:]]+yesplease=)' "$ZSHRC"; then
-      ok "$ZSHRC (already defines 'yesplease')"
+    if grep -Fq "$YESPLEASE_MARKER" "$ZSHRC"; then
+      # Our marker is present. Check whether the baked path still matches REPO_DIR.
+      if grep -Fq "cd \"$REPO_DIR\"" "$ZSHRC"; then
+        ok "$ZSHRC (already defines 'yesplease' for $REPO_DIR)"
+      else
+        warn "'yesplease' in $ZSHRC points at a different repo location. Refreshing to $REPO_DIR."
+        # Strip the existing marker comment + function block, then append fresh.
+        # Range: from marker line through the next standalone closing brace.
+        sed -i.bak "/$YESPLEASE_MARKER/,/^}$/d" "$ZSHRC"
+        rm -f "$ZSHRC.bak"
+        cat >> "$ZSHRC" <<EOF
+
+$YESPLEASE_MARKER
+function yesplease() {
+  ( cd "$REPO_DIR" && git pull --ff-only && ./install.sh "\$@" )
+}
+EOF
+        ok "Refreshed 'yesplease' in $ZSHRC -> $REPO_DIR"
+        warn "Run 'source $ZSHRC' or open a new shell to pick up the new path."
+      fi
+    elif grep -Eq '^(function[[:space:]]+yesplease|alias[[:space:]]+yesplease=)' "$ZSHRC"; then
+      # Some other yesplease (manually defined, no marker). Don't touch it.
+      warn "$ZSHRC already defines 'yesplease' without our marker - leaving it alone."
     else
       cat >> "$ZSHRC" <<EOF
 
-# claude-dotfiles vanity command: pull latest and re-launch installer
+$YESPLEASE_MARKER
 function yesplease() {
   ( cd "$REPO_DIR" && git pull --ff-only && ./install.sh "\$@" )
 }
