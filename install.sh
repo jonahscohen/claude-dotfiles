@@ -43,9 +43,10 @@ err()   { printf "${RED}[error]${NC} %s\n" "$1"; }
 # Component catalogue (parallel arrays for bash 3.2 compatibility)
 # ============================================================
 
-KEYS=(claude ghostty shaders cmux discord nvm yesplease)
+KEYS=(claude skills ghostty shaders cmux discord nvm yesplease)
 TITLES=(
-  "Claude Code (config + plugins + memory)"
+  "Claude Code config (REPLACES existing)"
+  "Anthropic Skills (additive, safe alongside existing setup)"
   "Ghostty terminal look"
   "Ghostty visual effects (shaders)"
   "cmux split-pane terminal"
@@ -54,7 +55,8 @@ TITLES=(
   "'yesplease' shortcut (re-run installer)"
 )
 DESCS=(
-  "Your global Claude Code brain: instructions (CLAUDE.md), settings, safety hooks, status line, and shared memory files. Also pre-enables your plugin list - Impeccable (design), Figma, Sentry, Supabase, Discord, plus 9 more - which Claude Code auto-installs on first launch. Installs the make-interfaces-feel-better skill (tactical UI polish, auto-triggers on UI work) via npx. Skip only if you've configured Claude Code by hand and don't want it overwritten."
+  "Your global Claude Code brain: REPLACES ~/.claude/CLAUDE.md, settings.json (with our plugin list - Impeccable, Figma, Sentry, Supabase, Discord, plus 9 more), safety hooks, status line, and shared memory files. Existing files are backed up to .backups/ but the active versions become ours. Skip if you already have your own CLAUDE.md and settings.json that you want to keep - then pick 'skills' alone to add UI-polish capability without touching your config. (Plugin-list merging into an existing settings.json is a TODO; for now you'd manually copy enabledPlugins from claude/settings.json into yours.)"
+  "Adds Anthropic Skills to ~/.claude/skills/ via npx, fully additive. Currently bundles make-interfaces-feel-better (tactical UI polish: concentric border radius, scale 0.96 on press, tabular nums, optical alignment, auto-triggers on UI keywords). Does NOT touch your CLAUDE.md, settings.json, hooks, or statusline. Safe to pick standalone if you have your own Claude Code config and just want the skill capability."
   "Your Ghostty terminal's appearance: PolySans Neutral Mono font, custom 256-color palette, transparency, and blur. Skip if you don't use Ghostty as your terminal."
   "The cinematic Ghostty effects: CRT curvature, TFT pixel grid, and a blazing cursor trail. Also clones a wider community shader library you can swap into the chain. Skip if you picked Ghostty but want it to look plain."
   "Settings for cmux, the split-pane terminal that hosts the in-app browser preview Claude uses to verify your UI work. Skip if you don't use cmux."
@@ -62,7 +64,7 @@ DESCS=(
   "A small one-line addition to your zsh config that fixes a specific issue some setups hit: opening a new terminal and getting 'claude not found in PATH' even though Claude is installed. The fix only activates if your zsh config already loads nvm (Node Version Manager) - on most machines this is a harmless no-op, so it's safe to leave on. If 'claude' already runs fine in fresh terminals on your machine, you can skip this."
   "Adds a one-word shortcut to your zsh config: type 'yesplease' in any terminal to pull the latest dotfiles from GitHub and re-launch this installer. Useful for syncing across machines or re-picking components without remembering the path. Pass through args like 'yesplease --yes' or 'yesplease --preset minimal'."
 )
-PICKS=(1 1 1 1 1 1 1)
+PICKS=(1 1 1 1 1 1 1 1)
 
 key_index() {
   local target="$1" i
@@ -109,7 +111,7 @@ apply_preset() {
   case "$1" in
     all)     set_all 1 ;;
     none)    set_all 0 ;;
-    minimal) set_all 0; set_pick claude 1; set_pick nvm 1 ;;
+    minimal) set_all 0; set_pick claude 1; set_pick skills 1; set_pick nvm 1 ;;
     *)       err "Unknown preset: $1 (valid: all, minimal, none)"; exit 2 ;;
   esac
 }
@@ -130,7 +132,7 @@ Usage:
   ./install.sh --yes            Non-interactive, install everything
   ./install.sh --preset NAME    Non-interactive preset: all | minimal | none
   ./install.sh --only KEYS      Non-interactive, comma-separated keys
-                                (claude, ghostty, shaders, cmux, discord, nvm)
+                                (claude, skills, ghostty, shaders, cmux, discord, nvm, yesplease)
   ./install.sh --dry-run        Print resolved picks and exit
   ./install.sh --help           Show this help
 EOF
@@ -343,30 +345,36 @@ if picked claude; then
   chmod +x "$REPO_DIR/claude/startup-check.sh"
   chmod +x "$REPO_DIR/claude/statusline-command.sh"
   chmod +x "$REPO_DIR/claude/discord-chat-launcher.sh"
+fi
 
-  # Anthropic Skill: make-interfaces-feel-better
-  # Tactical UI polish layer (concentric border radius, scale 0.96 on press,
-  # tabular numbers, optical alignment, etc.). Auto-triggers on UI keywords.
-  # CLAUDE.md routes this skill into the design QA stack alongside
-  # /impeccable and the @google/design.md lint.
+# ============================================================
+# 2. Anthropic Skills (additive, no config touched)
+# ============================================================
+# Skills install into ~/.claude/skills/ via the npx skills CLI. They do not
+# replace or modify your CLAUDE.md, settings.json, hooks, or statusline -
+# Claude Code reads skills from ~/.claude/skills/ regardless of whose
+# config is active. Safe to install alongside an existing Claude Code setup.
+
+if picked skills; then
   echo ""
-  info "Installing make-interfaces-feel-better skill..."
+  info "--- Anthropic Skills ---"
   if command -v npx >/dev/null 2>&1; then
+    info "Installing make-interfaces-feel-better (tactical UI polish)..."
     if npx --yes skills add jakubkrehel/make-interfaces-feel-better 2>/dev/null; then
-      ok "make-interfaces-feel-better skill installed"
+      ok "make-interfaces-feel-better installed"
     else
-      warn "Skill install failed (non-fatal). Run manually after Claude Code is set up:"
+      warn "Skill install failed (non-fatal). Run manually:"
       warn "  npx skills add jakubkrehel/make-interfaces-feel-better"
     fi
   else
     warn "npx not found - skipping skill install."
-    warn "After installing Claude Code (and Node), run:"
+    warn "After installing Node + Claude Code, run:"
     warn "  npx skills add jakubkrehel/make-interfaces-feel-better"
   fi
 fi
 
 # ============================================================
-# 2. Ghostty shaders (community library + in-repo chain)
+# 3. Ghostty shaders (community library + in-repo chain)
 # ============================================================
 
 if picked shaders; then
@@ -395,7 +403,7 @@ if picked shaders; then
 fi
 
 # ============================================================
-# 3. Ghostty config
+# 4. Ghostty config
 # ============================================================
 
 if picked ghostty; then
@@ -425,7 +433,7 @@ if picked ghostty; then
 fi
 
 # ============================================================
-# 4. cmux config
+# 5. cmux config
 # ============================================================
 
 if picked cmux; then
@@ -439,7 +447,7 @@ if picked cmux; then
 fi
 
 # ============================================================
-# 5. Discord Chat Agent launcher (zsh only, idempotent)
+# 6. Discord Chat Agent launcher (zsh only, idempotent)
 # ============================================================
 
 if picked discord; then
@@ -466,7 +474,7 @@ if picked discord; then
 fi
 
 # ============================================================
-# 6. nvm default auto-activation (zsh only, idempotent)
+# 7. nvm default auto-activation (zsh only, idempotent)
 # ============================================================
 # Homebrew's nvm install sources nvm.sh but does NOT activate a default Node
 # version. That leaves claude, node, npm, npx out of PATH in fresh shells, so
@@ -493,7 +501,7 @@ if picked nvm; then
 fi
 
 # ============================================================
-# 7. yesplease vanity shortcut (zsh only, idempotent)
+# 8. yesplease vanity shortcut (zsh only, idempotent)
 # ============================================================
 # Defines a zsh function `yesplease` that cd's into the dotfiles repo, pulls
 # latest, and re-launches install.sh. Forwards any args, so you can do
@@ -561,8 +569,8 @@ if [ "$BACKED_UP" -eq 1 ]; then
 fi
 
 echo "What was installed:"
-picked claude   && echo "  - Claude Code: CLAUDE.md, settings.json, hooks, statusline, memory, discord-chat-launcher"
-picked claude   && echo "  - Skill: make-interfaces-feel-better (tactical UI polish; auto-triggers on UI work)"
+picked claude   && echo "  - Claude Code: CLAUDE.md, settings.json, hooks, statusline, memory, discord-chat-launcher (REPLACED any existing files; backed up to .backups/)"
+picked skills   && echo "  - Anthropic Skills: make-interfaces-feel-better (tactical UI polish; auto-triggers on UI work)"
 picked ghostty  && echo "  - Ghostty: config.ghostty (copied from repo - re-run install.sh to sync edits)"
 picked shaders  && echo "  - Ghostty shaders: in-repo chain at $REPO_DIR/shaders, plus library at ~/Documents/Github/ghostty-shaders"
 picked cmux     && echo "  - cmux: settings.json"

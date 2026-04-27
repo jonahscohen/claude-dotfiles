@@ -85,13 +85,20 @@ A checkbox TUI (rendered with [gum](https://github.com/charmbracelet/gum); insta
 
 | Component | Plain-English | What changes on disk |
 |-----------|---------------|----------------------|
-| `claude`  | Your Claude Code brain: instructions, settings, hooks, status line, memory, **and the plugin list** (Impeccable, Figma, Sentry, Supabase, Discord, hookify, superpowers, etc. - auto-installed by Claude Code on first launch) | Symlinks into `~/.claude/` |
+| `claude`  | Your Claude Code brain: **REPLACES** ~/.claude/CLAUDE.md, settings.json (with our plugin list - Impeccable, Figma, Sentry, Supabase, Discord, plus 9 more), hooks, statusline, memory. Existing files are backed up to `.backups/`. Skip if you already have your own Claude Code config you want to keep | Symlinks into `~/.claude/` |
+| `skills`  | **Additive.** Installs Anthropic Skills via `npx skills add` - currently bundles `make-interfaces-feel-better` (tactical UI polish, auto-triggers on UI keywords). Does NOT touch your CLAUDE.md, settings.json, hooks, or statusline. Safe to pick standalone if you have your own Claude Code config | Adds to `~/.claude/skills/` only |
 | `ghostty` | Your Ghostty terminal look: PolySans font, custom palette, transparency, blur | Copies `config.ghostty` into `~/Library/Application Support/com.mitchellh.ghostty/` |
 | `shaders` | The cinematic Ghostty effects: CRT curvature, TFT pixel grid, blazing cursor trail | In-repo `shaders/*.glsl` + clones [ghostty-shaders](https://github.com/0xhckr/ghostty-shaders) |
 | `cmux`    | cmux split-pane terminal config (powers the in-app browser preview Claude uses) | Symlinks `~/.config/cmux/settings.json` |
 | `discord` | When you run `claude`, asks if you want to connect this session to your Discord channel | Appends one line to `~/.zshrc` (marker-guarded) |
-| `nvm`     | Optional fix for a specific issue: if a new terminal greets you with "claude not found in PATH" even though Claude is installed, this resolves it. Harmless no-op on machines that don't use nvm. Skip if `claude` already works in fresh terminals on your machine. | Appends `nvm use default --silent` to `~/.zshrc` (only fires if your zsh config already sources `nvm.sh`) |
-| `yesplease` | A one-word shortcut. Type `yesplease` in any terminal to pull the latest dotfiles from GitHub and re-launch this installer. Forwards args, so `yesplease --yes` or `yesplease --preset minimal` work too. | Appends a `function yesplease()` definition to `~/.zshrc` |
+| `nvm`     | Optional fix for a specific issue: if a new terminal greets you with "claude not found in PATH" even though Claude is installed, this resolves it. Harmless no-op on machines that don't use nvm. Skip if `claude` already works in fresh terminals on your machine | Appends `nvm use default --silent` to `~/.zshrc` (only fires if your zsh config already sources `nvm.sh`) |
+| `yesplease` | A one-word shortcut. Type `yesplease` in any terminal to pull the latest dotfiles from GitHub and re-launch this installer. Forwards args, so `yesplease --yes` or `yesplease --preset minimal` work too | Appends a `function yesplease()` definition to `~/.zshrc` |
+
+### Boost an existing Claude Code setup without overwriting it
+
+If you already have your own `~/.claude/CLAUDE.md`, `settings.json`, hooks, etc. and just want to layer in our skills (and eventually plugins), pick `skills` and **uncheck** `claude`. The skill install drops `make-interfaces-feel-better` into `~/.claude/skills/` and your config stays untouched.
+
+For our plugin list specifically (Impeccable, Figma, Sentry, etc.) into your existing settings.json: that's a TODO. Today the plugin list is part of `claude/settings.json`, so picking `claude` means accepting our settings.json wholesale. To layer just plugins onto your existing settings, manually copy the `enabledPlugins` and `extraKnownMarketplaces` blocks from `claude/settings.json` into yours.
 
 If `gum` is unavailable and you decline to install it, the installer falls back to a numbered text menu with the same choices.
 
