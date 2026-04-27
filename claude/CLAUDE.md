@@ -57,6 +57,8 @@ You are BLOCKED from reporting task completion to the user until ALL of the foll
 
 6. **No false positives.** Running `npx tsc --noEmit` with no errors does not mean the feature works. A 200 HTTP status does not mean the page looks right. A passing CSS selector check does not mean the design matches Figma. Verify with your eyes.
 
+7. **For non-UI tasks, state a verifiable plan first.** For refactors, CLI changes, scripts, build-tool work, or any multi-step non-UI task, write a brief plan as `<step> -> verify: <check>` lines before implementing. Each verify clause must be runnable (a command, a test, a grep, an expected exit code), not "looks right" or "should work." If you can't name the verify check, the goal isn't well-defined yet - clarify before coding.
+
 If you cannot verify (no browser available, no dev server running), say so explicitly. Do not claim completion without proof.
 
 ## Design Work and Impeccable (MANDATORY for UI tasks)
@@ -108,6 +110,7 @@ Backend logic, non-UI refactors, build-tool work, infrastructure changes. Do not
 
 ## Code Quality
 
+- When the request has multiple plausible interpretations, name them and ask. Don't silently pick one and run with it.
 - You must always avoid using broad CSS rules when we build. Be specific, avoid overclassing.
 - Always check to see if sass is part of a project. If so, you must attempt to leverage it, rather than work around it.
 - Never use emojis, Claude. We're professionals.
