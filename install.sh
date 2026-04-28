@@ -673,6 +673,7 @@ returning_flow() {
   local did_install=0
   while true; do
     clear
+    print_yes_and_banner
     printf "${PURPLE}Components${NC}\n"
     local i status display
     for i in "${!KEYS[@]}"; do
