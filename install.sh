@@ -43,11 +43,12 @@ err()   { printf "${RED}[error]${NC} %s\n" "$1"; }
 # Component catalogue (parallel arrays for bash 3.2 compatibility)
 # ============================================================
 
-KEYS=(claude memory skills ghostty shaders cmux discord nvm yesplease)
+KEYS=(claude memory skills statusline ghostty shaders cmux discord nvm yesplease)
 TITLES=(
   "Claude Code config (REPLACES existing)"
   "Memory subsystem (additive: hooks + rules + loader)"
   "Anthropic Skills (additive, safe alongside existing setup)"
+  "Custom statusline (bottom-of-window prompt bar)"
   "Ghostty terminal look"
   "Ghostty visual effects (shaders)"
   "cmux split-pane terminal"
@@ -56,9 +57,10 @@ TITLES=(
   "'yesplease' shortcut (re-run installer)"
 )
 DESCS=(
-  "Your global Claude Code brain: REPLACES ~/.claude/CLAUDE.md, settings.json (with our plugin list - Impeccable, Figma, Sentry, Supabase, Discord, plus 9 more), safety hooks, status line, and shared memory files. Existing files are backed up to .backups/ but the active versions become ours. Skip if you already have your own CLAUDE.md and settings.json that you want to keep - then pick 'memory' and 'skills' alone to add memory capability and UI-polish capability without touching your config. (Plugin-list merging into an existing settings.json is a TODO; for now you'd manually copy enabledPlugins from claude/settings.json into yours.)"
+  "Your global Claude Code brain: REPLACES ~/.claude/CLAUDE.md, settings.json (with our plugin list - Impeccable, Figma, Sentry, Supabase, Discord, plus 9 more), safety hooks, and shared memory files. Existing files are backed up to .backups/ but the active versions become ours. Skip if you already have your own CLAUDE.md and settings.json that you want to keep - then pick 'memory' and 'skills' alone to add memory capability and UI-polish capability without touching your config. (Plugin-list merging into an existing settings.json is a TODO; for now you'd manually copy enabledPlugins from claude/settings.json into yours.)"
   "ADDITIVE memory subsystem: appends our Memory Discipline rules (loading order, per-task updates, file format) to your CLAUDE.md between marker comments, JSON-merges three hooks (SessionStart loader, PreCompact reminder, PostCompact reload) into your settings.json, and symlinks the startup-check.sh loader. Does NOT replace or overwrite anything - all changes are marker-guarded so re-runs are no-ops, and the markers can be removed cleanly if you ever want to undo. Pick this if your team wants to beef up an existing Claude Code with persistent memory capability without losing their config."
   "Adds Anthropic Skills to ~/.claude/skills/ via npx, fully additive. Currently bundles make-interfaces-feel-better (tactical UI polish: concentric border radius, scale 0.96 on press, tabular nums, optical alignment, auto-triggers on UI keywords). Does NOT touch your CLAUDE.md, settings.json, hooks, or statusline. Safe to pick standalone if you have your own Claude Code config and just want the skill capability."
+  "Symlinks our statusline-command.sh into ~/.claude/. The settings.json statusLine command is tolerant of a missing script, so unticking this cleanly falls back to no custom statusline (Claude Code's default takes over). Pick this if you like our prompt-bar render; skip if you prefer Claude Code's default or a different statusline you've configured yourself."
   "Your Ghostty terminal's appearance: PolySans Neutral Mono font, custom 256-color palette, transparency, and blur. Skip if you don't use Ghostty as your terminal."
   "The cinematic Ghostty effects: CRT curvature, TFT pixel grid, and a blazing cursor trail. Also clones a wider community shader library you can swap into the chain. Skip if you picked Ghostty but want it to look plain."
   "Settings for cmux, the split-pane terminal that hosts the in-app browser preview Claude uses to verify your UI work. Skip if you don't use cmux."
@@ -66,7 +68,7 @@ DESCS=(
   "A small one-line addition to your zsh config that fixes a specific issue some setups hit: opening a new terminal and getting 'claude not found in PATH' even though Claude is installed. The fix only activates if your zsh config already loads nvm (Node Version Manager) - on most machines this is a harmless no-op, so it's safe to leave on. If 'claude' already runs fine in fresh terminals on your machine, you can skip this."
   "Adds a one-word shortcut to your zsh config: type 'yesplease' in any terminal to pull the latest dotfiles from GitHub and re-launch this installer. Useful for syncing across machines or re-picking components without remembering the path. Pass through args like 'yesplease --yes' or 'yesplease --preset minimal'."
 )
-PICKS=(1 1 1 1 1 1 1 1 1)
+PICKS=(1 1 1 1 1 1 1 1 1 1)
 
 key_index() {
   local target="$1" i
@@ -134,7 +136,7 @@ Usage:
   ./install.sh --yes            Non-interactive, install everything
   ./install.sh --preset NAME    Non-interactive preset: all | minimal | none
   ./install.sh --only KEYS      Non-interactive, comma-separated keys
-                                (claude, memory, skills, ghostty, shaders, cmux, discord, nvm, yesplease)
+                                (claude, memory, skills, statusline, ghostty, shaders, cmux, discord, nvm, yesplease)
   ./install.sh --dry-run        Print resolved picks and exit
   ./install.sh --help           Show this help
 EOF
@@ -380,7 +382,6 @@ if picked claude; then
   make_symlink "$REPO_DIR/claude/CLAUDE.md"                 "$CLAUDE_DIR/CLAUDE.md"
   make_symlink "$REPO_DIR/claude/settings.json"             "$CLAUDE_DIR/settings.json"
   make_symlink "$REPO_DIR/claude/startup-check.sh"          "$CLAUDE_DIR/startup-check.sh"
-  make_symlink "$REPO_DIR/claude/statusline-command.sh"     "$CLAUDE_DIR/statusline-command.sh"
   make_symlink "$REPO_DIR/claude/discord-chat-launcher.sh"  "$CLAUDE_DIR/discord-chat-launcher.sh"
 
   for f in "$REPO_DIR"/claude/memory/*.md; do
@@ -395,7 +396,6 @@ if picked claude; then
   done
 
   chmod +x "$REPO_DIR/claude/startup-check.sh"
-  chmod +x "$REPO_DIR/claude/statusline-command.sh"
   chmod +x "$REPO_DIR/claude/discord-chat-launcher.sh"
 fi
 
@@ -530,7 +530,23 @@ if picked skills; then
 fi
 
 # ============================================================
-# 4. Ghostty shaders (community library + in-repo chain)
+# 4. Custom statusline
+# ============================================================
+# Symlinks our statusline-command.sh into ~/.claude/. The statusLine command
+# in our settings.json is `[ -x SCRIPT ] && bash SCRIPT || true`, so if this
+# component is unticked the test-x check fails, the OR clause keeps exit at
+# 0, and Claude Code falls back to its default statusline cleanly.
+
+if picked statusline; then
+  echo ""
+  info "--- Custom statusline ---"
+  mkdir -p "$CLAUDE_DIR"
+  make_symlink "$REPO_DIR/claude/statusline-command.sh" "$CLAUDE_DIR/statusline-command.sh"
+  chmod +x "$REPO_DIR/claude/statusline-command.sh"
+fi
+
+# ============================================================
+# 5. Ghostty shaders (community library + in-repo chain)
 # ============================================================
 
 if picked shaders; then
@@ -559,7 +575,7 @@ if picked shaders; then
 fi
 
 # ============================================================
-# 5. Ghostty config
+# 6. Ghostty config
 # ============================================================
 
 if picked ghostty; then
@@ -589,7 +605,7 @@ if picked ghostty; then
 fi
 
 # ============================================================
-# 6. cmux config
+# 7. cmux config
 # ============================================================
 
 if picked cmux; then
@@ -603,7 +619,7 @@ if picked cmux; then
 fi
 
 # ============================================================
-# 7. Discord Chat Agent launcher (zsh only, idempotent)
+# 8. Discord Chat Agent launcher (zsh only, idempotent)
 # ============================================================
 
 if picked discord; then
@@ -630,7 +646,7 @@ if picked discord; then
 fi
 
 # ============================================================
-# 8. nvm default auto-activation (zsh only, idempotent)
+# 9. nvm default auto-activation (zsh only, idempotent)
 # ============================================================
 # Homebrew's nvm install sources nvm.sh but does NOT activate a default Node
 # version. That leaves claude, node, npm, npx out of PATH in fresh shells, so
@@ -657,7 +673,7 @@ if picked nvm; then
 fi
 
 # ============================================================
-# 9. yesplease vanity shortcut (zsh only, idempotent)
+# 10. yesplease vanity shortcut (zsh only, idempotent)
 # ============================================================
 # Defines a zsh function `yesplease` that cd's into the dotfiles repo, pulls
 # latest, and re-launches install.sh. Forwards any args, so you can do
@@ -725,9 +741,10 @@ if [ "$BACKED_UP" -eq 1 ]; then
 fi
 
 echo "What was installed:"
-picked claude   && echo "  - Claude Code: CLAUDE.md, settings.json, hooks, statusline, memory, discord-chat-launcher (REPLACED any existing files; backed up to .backups/)"
-picked memory   && echo "  - Memory subsystem: startup-check.sh + Memory Discipline section appended to CLAUDE.md + 3 hooks merged into settings.json (additive, marker-guarded)"
-picked skills   && echo "  - Anthropic Skills: make-interfaces-feel-better (tactical UI polish; auto-triggers on UI work)"
+picked claude     && echo "  - Claude Code: CLAUDE.md, settings.json, hooks, memory, discord-chat-launcher (REPLACED any existing files; backed up to .backups/)"
+picked memory     && echo "  - Memory subsystem: startup-check.sh + Memory Discipline section appended to CLAUDE.md + 3 hooks merged into settings.json (additive, marker-guarded)"
+picked skills     && echo "  - Anthropic Skills: make-interfaces-feel-better (tactical UI polish; auto-triggers on UI work)"
+picked statusline && echo "  - Custom statusline: statusline-command.sh symlinked (Claude Code falls back to default if unticked)"
 picked ghostty  && echo "  - Ghostty: config.ghostty (copied from repo - re-run install.sh to sync edits)"
 picked shaders  && echo "  - Ghostty shaders: in-repo chain at $REPO_DIR/shaders, plus library at ~/Documents/Github/ghostty-shaders"
 picked cmux     && echo "  - cmux: settings.json"
