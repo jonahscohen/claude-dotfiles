@@ -733,12 +733,21 @@ returning_flow() {
 
     case "$action" in
       install|activate)
-        # Set PICKS to just this component, fall through to apply phase below the loop.
-        # We mark did_install so the script knows to run the apply phase, then exit.
-        set_all 0
-        set_pick "$pick" 1
-        did_install=1
-        break
+        # Run the install in a subshell so we stay inside the action loop and
+        # redraw the menu after. Use _AMPERSAND_NO_SUMMARY=1 to suppress the
+        # subshell's verbose post-install summary (which is fine for top-level
+        # runs but jarring mid-session). Capture output to a tempfile and show
+        # the last 20 lines only on failure.
+        local logfile; logfile=$(mktemp)
+        printf "\nInstalling %s...\n" "$pick"
+        if _AMPERSAND_NO_SUMMARY=1 bash "$0" --only "$pick" --yes >"$logfile" 2>&1; then
+          ok "$pick installed."
+        else
+          err "$pick install failed. Last 20 lines:"
+          tail -20 "$logfile"
+        fi
+        rm -f "$logfile"
+        sleep 1.0
         ;;
       deactivate)
         deactivate_component "$pick"
@@ -1238,6 +1247,11 @@ fi
 # ============================================================
 # Summary
 # ============================================================
+# Suppress when invoked recursively from the returning-flow action loop -
+# the parent flow shows its own brief result and returns to the menu.
+# Wrap only the visual summary; the state-file write at the very end
+# still runs in either case so the parent loop sees fresh state.
+if [ -z "${_AMPERSAND_NO_SUMMARY:-}" ]; then
 
 echo ""
 echo "============================================"
@@ -1378,6 +1392,8 @@ if [ "$SHORTCUTS_NEW" -eq 1 ]; then
   fi
   echo ""
 fi
+
+fi  # end if [ -z "$_AMPERSAND_NO_SUMMARY" ]
 
 # ============================================================
 # Final: update state file with what's now active.
