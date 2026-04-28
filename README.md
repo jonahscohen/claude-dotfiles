@@ -8,29 +8,33 @@
 
 <h1 align="center">claude-dotfiles</h1>
 
-<p align="center"><i>The Yes& Claude Code stack. One curl, ten components, the way we think about agentic coding.</i></p>
+<p align="center"><i>The Yes& Claude Code stack. The way we think about agentic coding, made installable.</i></p>
 
 <p align="center">
-  <a href="#quick-start">Quick start</a> ·
-  <a href="#high-level">High level</a> ·
-  <a href="#deep-dive">Deep dive</a> ·
-  <a href="#troubleshooting">Troubleshooting</a> ·
-  <a href="#license--footer">License</a>
+  <a href="#quick-start">Land</a> ·
+  <a href="#orient">Orient</a> ·
+  <a href="#believe">Believe</a> ·
+  <a href="#practice">Practice</a> ·
+  <a href="#reference">Reference</a>
 </p>
 
 ---
 
 We start with yes, and build what's next. These dotfiles are the "&." Confident defaults. Real discipline. The Yes& development stack distilled into one curl, deployed in seconds, opinionated by design. If you ship things and care how they feel, you'll feel right at home.
 
-Three tiers. Stop at any point and still know what you need:
+This README runs in five acts. You can stop after any one and still know what you need:
 
-- **[Quick start](#quick-start)** - the curl one-liner. Done.
-- **[High level](#high-level)** - the 60-second tour of what's in the box and why it's there.
-- **[Deep dive](#deep-dive)** - thirteen chapters. Every choice, the rationale, every gotcha.
+- **[Land](#quick-start)** - the curl one-liner. Done.
+- **[Orient](#orient)** - what you actually have once it's installed.
+- **[Believe](#believe)** - why each piece is shaped the way it is.
+- **[Practice](#practice)** - what you do with it day to day.
+- **[Reference](#reference)** - the dense lookup material, in collapsible chapters.
+
+---
 
 <a id="quick-start"></a>
 
-## Quick start
+## 1. Land
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jonahscohen/claude-dotfiles/main/bootstrap.sh | bash
@@ -46,13 +50,15 @@ Already cloned? `cd` into the repo:
 ./install.sh --only memory      # just one component
 ```
 
-That's it for quick start. Everything below is the why and the how.
+That's the whole quick start. Read on for what you got and why.
 
 ---
 
-<a id="high-level"></a>
+<a id="orient"></a>
 
-## High level
+## 2. Orient
+
+You've got it installed. Here's what you actually have.
 
 ### What this is
 
@@ -66,7 +72,7 @@ The version-controlled answer to "how is Yes& running Claude Code right now." Wh
 4. **Memory across machines, across Yes& devs.** The memory subsystem makes Claude take notes after every task. Notes commit, notes pull, everyone knows what was decided and why.
 5. **Additive-where-possible for everyone else.** Already love your Claude Code config? Don't throw it away. Pick `memory` and `skills` only - we append to your CLAUDE.md and JSON-merge our hooks into your settings.json. Your content stays. Ours layers on.
 
-### What's in the box (the ten components)
+### What's in the box
 
 Seven components. Pick any combination. Defaults are all on, so most Yes& devs just hit enter.
 
@@ -80,56 +86,23 @@ Seven components. Pick any combination. Defaults are all on, so most Yes& devs j
 | `nvm` | Optional fix for "claude: command not found" in fresh terminals | Marker-guarded line in `~/.zshrc` |
 | `ampersand` | The `ampersand` zsh shortcut (`ampersand` to re-run, `ampersand --pull` to sync first). `yesplease` aliased for back-compat | Marker-guarded block in `~/.zshrc` |
 
-### The three-layer design stack
-
-Most AI-generated UI looks the same because most prompts ask for the same vague thing. Yes& devs stack three tools, each handling a different layer:
-
-- **Strategy / brand:** [Impeccable](https://impeccable.style) plugin (PRODUCT.md + 23 commands). Decides who this is for and what's NOT us.
-- **Token values:** [google-labs-code/design.md](https://github.com/google-labs-code/design.md) spec. Canonical source of truth for colors, type, spacing, components.
-- **Tactical CSS / motion:** [make-interfaces-feel-better](https://github.com/jakubkrehel/make-interfaces-feel-better) skill. Sixteen specific rules with exact values (scale 0.96 on press, blur 4px to 0 on icon swaps, image outlines never tinted).
-
-Each fires at the right beat. Strategy at brief time. Tokens at write time. Tactics at implementation time. All three at QA time. Generated UI lands seen, felt, and on-brand.
-
-### How memory works (in 30 seconds)
-
-1. You ask Claude to do something.
-2. Claude does it. Verifies. Confirms.
-3. Before responding, Claude writes a memory entry to `<project>/.claude/memory/session_YYYY-MM-DD_<topic>.md` with frontmatter, a `Collaborator: <your name>` line, a `Why:`, a `How:`, and files touched.
-4. Claude updates `MEMORY.md` to index the new entry.
-5. THEN Claude responds.
-
-Memory commits to your project's git like any source file. Your teammate pulls, their Claude reads it at session start. The next Yes& dev starts where you left off, with `Collaborator:` attribution baked in.
-
 ### What's NOT here
 
 - **Claude Desktop config** is mostly the same runtime as Claude Code now (Desktop bundles Claude Code), so most dotfiles benefits apply automatically. The Discord launcher is the exception - it's a shell wrapper, and Desktop doesn't go through your shell.
 - **Claude.ai connectors** (ClickUp, Google Drive, etc.) are account-bound, not machine-bound. Authorize once at claude.ai, propagates to every signed-in device.
 - **MCP servers** (Claude in Chrome, etc.) need OAuth or per-machine credentials. Configure per-app, not via dotfiles.
 
-If those distinctions blurred, the [deep-dive plugins/connectors/MCP section](#deep-plugins) breaks them down.
+If those distinctions blurred, the [reference section on plugins/connectors/MCP](#deep-plugins) breaks them down.
 
 ---
 
-<a id="deep-dive"></a>
+<a id="believe"></a>
 
-## Deep dive
+## 3. Believe
 
-Thirteen collapsible chapters. Open the one you need, ignore the rest.
+You've seen what's in the box. Here's why each piece is shaped the way it is.
 
-<a id="deep-opinion"></a>
-
-<details>
-<summary><b>1. The opinion (the long version of why this exists)</b></summary>
-
-### Why we built this
-
-Every Yes& developer runs Claude Code. Each of us figured out the same lessons one fix at a time: how to make Claude remember yesterday, how to keep it from inventing icons, how to stop it from writing 800 lines when 80 was the brief, how to get the design output to actually feel on-brand. Those lessons used to live in scattered private CLAUDE.md files, half-remembered Teams threads, and the sediment of pull-request comments.
-
-We pulled them into one place, made them installable, and made them yours by typing `ampersand`.
-
-This repo is the version-controlled answer to "how is Yes& running Claude Code right now."
-
-### The opinion in five sentences
+### The opinion, in five sentences
 
 1. **Discipline beats cleverness.** Hooks that mechanically refuse certain patterns (legacy model IDs, AI-attribution lines, emoji, force-push to main) are more reliable than hoping the model behaves.
 2. **Memory beats context.** A version-controlled record of what we decided yesterday is more useful than re-explaining the project to Claude every session.
@@ -137,18 +110,213 @@ This repo is the version-controlled answer to "how is Yes& running Claude Code r
 4. **Verification beats vibes.** UI work isn't done until it's screenshotted and checked. Non-UI work isn't done until each step has a runnable verify clause.
 5. **Additive-where-possible beats wholesale.** Other devs and teams should be able to take what they want and leave the rest. The `memory` component appends to your existing CLAUDE.md and JSON-merges into your existing settings.json (your other content stays); the `skills` component writes only to `~/.claude/skills/` and never touches your config files.
 
-### What this isn't
+The five disciplines that come out of those opinions:
 
-It isn't a Claude Code tutorial - we assume you've got `claude` working. It isn't a productivity-hack collection - the opinions here are constraints, not optimizations. It isn't a Yes& proprietary - the additive components are safe outside our team, by design.
+### Memory: Claude as a colleague who remembers
 
-</details>
+Memory turns Claude Code from a stateless code generator into a colleague who remembers what we decided last week and why. The flow:
+
+1. You ask Claude to do something.
+2. Claude does it. Verifies. Confirms.
+3. Before responding, Claude writes a memory entry to `<project>/.claude/memory/session_YYYY-MM-DD_<topic>.md` with frontmatter, a `Collaborator: <your name>` line, a `Why:`, a `How:`, and files touched.
+4. Claude updates `MEMORY.md` to index the new entry.
+5. THEN Claude responds.
+
+Memory commits to your project's git like any source file. Your teammate pulls, their Claude reads it at session start. The next Yes& dev starts where you left off, with `Collaborator:` attribution baked in. → [Memory in detail](#deep-memory).
+
+### The three-layer design stack: strategy, tokens, tactics
+
+Most AI-generated UI looks the same because most prompts ask for the same vague thing. Yes& devs stack three tools, each handling a different layer:
+
+- **Strategy / brand:** [Impeccable](https://impeccable.style) plugin (PRODUCT.md + 23 commands). Decides who this is for and what's NOT us.
+- **Token values:** [google-labs-code/design.md](https://github.com/google-labs-code/design.md) spec. Canonical source of truth for colors, type, spacing, components.
+- **Tactical CSS / motion:** [make-interfaces-feel-better](https://github.com/jakubkrehel/make-interfaces-feel-better) skill. Sixteen specific rules with exact values.
+
+Each fires at the right beat. Strategy at brief time. Tokens at write time. Tactics at implementation time. All three at QA time. Generated UI lands seen, felt, and on-brand. → [Design stack in detail](#deep-design-stack).
+
+### Verification Protocol: nothing ships on vibes
+
+Seven rules in CLAUDE.md that gate task completion. UI changes need a screenshot, then an interactive screenshot for clickable elements, then a side-by-side against the design source. Non-UI changes need a `<step> -> verify: <check>` plan written before implementation, with verify clauses that are runnable commands, not "looks right." → [The full Verification Protocol](#deep-brain).
+
+### Hooks: refusal, not advice
+
+Two PreToolUse hooks intercept every Bash and every file write before the tool runs. `bash-guard.sh` blocks AI-attribution lines in commands, force-push to main/master, `rm` against `.claude/memory`, and legacy model IDs. `content-guard.sh` blocks the same patterns inside file content, plus emdashes, endashes, and emoji unicode ranges. Three lifecycle hooks (SessionStart, PreCompact, PostCompact) run the memory loader. → [Hook lifecycle in detail](#deep-architecture).
+
+### Permission posture: an honest tradeoff
+
+`claude/settings.json` ships with `defaultMode: bypassPermissions` and `skipDangerousModePermissionPrompt: true`. Every tool call auto-approves. This is intentional for a Yes& machine - the friction of every-tool-prompt outweighs the safety it adds, and the hooks already block the specific patterns we care about. If you want different defaults, it's a one-line change in settings.json. → [Permission Posture in CLAUDE.md](#deep-brain).
+
+---
+
+<a id="practice"></a>
+
+## 4. Practice
+
+Enough theory. Here's what you do with it.
+
+### Day-to-day workflows
+
+The shortcuts you'll actually type once the dotfiles are installed.
+
+#### `ampersand` - re-launch the installer (no pull)
+
+```bash
+ampersand                      # interactive TUI from any directory
+ampersand --yes                # full non-interactive install
+ampersand --preset minimal     # claude + memory + skills + nvm
+ampersand --only memory        # just one component
+ampersand --only memory,skills # multiple components
+ampersand --dry-run            # preview without writing
+```
+
+Used when you're iterating on the dotfiles locally, or you want to re-pick components without waiting on the network.
+
+#### `ampersand --pull` - pull latest from GitHub then re-launch
+
+```bash
+ampersand --pull                # most common use: sync + run TUI
+ampersand --pull --preset all   # full sync + non-interactive
+ampersand --pull --only memory  # sync + just memory
+```
+
+Used when you want to pick up changes another teammate pushed. Pulls via `git pull --ff-only` so it never silently merges divergent local changes. The legacy `yesplease` command is kept as an alias for `ampersand --pull` so anyone with muscle memory for it still works.
+
+#### Direct `./install.sh`
+
+Still works if you prefer to be explicit, or if you're scripting against the installer in CI:
+
+```bash
+cd /path/to/claude-dotfiles
+./install.sh --preset minimal
+```
+
+#### Custom clone location (three ways)
+
+The dotfiles can live anywhere on disk. The Ghostty config uses a `__DOTFILES_DIR__` placeholder that the installer replaces with the actual repo path at install time, so cloning to `~/code/dots`, `/opt/dots`, or anywhere else works.
+
+```bash
+# Env var (works for both bootstrap and direct install.sh)
+CLAUDE_DOTFILES_DIR=~/code/dots curl -fsSL .../bootstrap.sh | bash
+
+# Bootstrap flag
+curl -fsSL .../bootstrap.sh | bash -s -- --dir ~/code/dots
+
+# Default (no flags): ~/Documents/Github/claude-dotfiles
+curl -fsSL .../bootstrap.sh | bash
+```
+
+If you re-run `install.sh` from a different clone location later, the `ampersand` function in your `~/.zshrc` is automatically refreshed to point at the new path.
+
+### For Yes& teams: collaboration & attribution
+
+Two or more Yes& devs in the same codebase, Claude Code on both sides. Here's how memory and attribution flow.
+
+#### Attribution
+
+Every memory entry Claude writes gets a `Collaborator:` line baked in. The rule lives in CLAUDE.md's Code Quality section: "Project updates must record the human collaborator's name, derived from `git config user.name`." So when you work, your Claude tags your name. When your teammate works, theirs tags their name. Memory files commit and push like any source file, so attribution flows through git.
+
+You end up with three layers of authorship:
+
+- **Per memory entry:** `Collaborator: <name>` line at the top
+- **Per memory file:** `git log` / `git blame` (which is identical, but ironclad)
+- **Per task:** the `Why:` and `How:` fields explain reasoning so reading a session memory tells you "Alice fixed the auth bug because legal flagged session-token storage, here's how she approached it"
+
+#### Project-level CLAUDE.md
+
+For ironclad team-wide enforcement of memory discipline (especially if a teammate hasn't installed the dotfiles), drop a `CLAUDE.md` at the project root that re-states the rules. Claude Code always reads project-root CLAUDE.md regardless of dotfiles state, so it propagates to anyone who clones.
+
+A minimal project-root CLAUDE.md template:
+
+```markdown
+## Memory Discipline (project-level)
+
+After every discrete change in this project, write a memory entry to
+`.claude/memory/session_YYYY-MM-DD_<topic>.md` before responding to the user.
+
+Include:
+- Frontmatter (name, description, type: project)
+- A `Collaborator:` line with the human's name from `git config user.name`
+- A `Why:` rationale and `How:` approach for non-trivial decisions
+- A list of files touched
+
+Update `.claude/memory/MEMORY.md` to index the new file.
+
+This applies regardless of whether the developer has Yes&-dotfiles installed.
+```
+
+#### Merge conflict patterns to expect
+
+The most contention-prone file is `MEMORY.md` (the index). Two devs working on the same day both want to add an index line. The convention "append at the bottom, one line per entry" makes most of these auto-merge cleanly. Session files themselves rarely conflict because the file naming includes the topic, so two devs working on different topics never touch the same file.
+
+#### Onboarding a new Yes& dev
+
+1. They run `curl -fsSL https://raw.githubusercontent.com/jonahscohen/claude-dotfiles/main/bootstrap.sh | bash`.
+2. They take TUI defaults or pick `--preset all`.
+3. New terminal or `source ~/.zshrc`.
+4. They open any Yes& project. Claude reads its own `~/.claude/CLAUDE.md`, plus the project's root `CLAUDE.md`, plus the project's `.claude/memory/` files. They have full context the moment they start.
+
+That's the entire onboarding. Same machine state as everyone else, same disciplines applied, same memory loaded.
+
+### Boost an existing Claude Code (no overwrites)
+
+For developers who already have a Claude Code setup they like and want to layer in specific Yes& capabilities without losing their config.
+
+#### The additive-where-possible components
+
+Three components are designed to NOT replace your existing config. The `memory` component does mutate your CLAUDE.md and settings.json (it has to - that's where the rules and hooks live), but it appends and JSON-merges, never overwrites. `skills` and `ampersand` only write to namespaces we control:
+
+| Component | Touches | What it adds |
+|---|---|---|
+| `memory`   | Appends to `~/.claude/CLAUDE.md` between markers; JSON-merges hooks into `~/.claude/settings.json`; symlinks `~/.claude/startup-check.sh` | The full memory subsystem (rules + 3 hooks + loader) |
+| `skills`   | Adds to `~/.claude/skills/` only | The `make-interfaces-feel-better` skill |
+| `ampersand`| Marker-guarded block in `~/.zshrc` | The `ampersand` shortcut (and `yesplease` alias for back-compat) |
+
+#### Common patterns
+
+```bash
+# Just the memory subsystem - your CLAUDE.md and settings.json get appended/merged, never replaced
+ampersand --only memory
+
+# Memory + UI-polish skill
+ampersand --only memory,skills
+
+# Everything additive (memory + skills + the shortcut block), zero overwrites
+ampersand --only memory,skills,ampersand
+```
+
+#### Marker-guarded means undoable
+
+The `memory` component appends inside HTML comment markers in your `CLAUDE.md`:
+
+```markdown
+<!-- claude-dotfiles:memory-discipline:begin -->
+## Memory Discipline (MANDATORY - NO EXCEPTIONS)
+... (Memory Discipline content) ...
+<!-- claude-dotfiles:memory-discipline:end -->
+```
+
+To undo, delete from one marker to the other. Same idea for the JSON merge in settings.json (markers are the command paths `~/.claude/startup-check.sh` and the string `PreCompact: flushing pending memory`). To undo: delete the three hook entries from `settings.json`.
+
+The shortcuts block in `~/.zshrc` uses `# === claude-dotfiles:shortcuts:begin ===` / `:end` markers and is sed-deletable as a range.
+
+#### What's NOT additive (yet)
+
+The plugin list. `enabledPlugins` and `extraKnownMarketplaces` live inside `claude/settings.json`, so picking the `claude` component means accepting our settings.json wholesale. To layer just our plugin list onto your existing settings, manually copy the `enabledPlugins` and `extraKnownMarketplaces` blocks from `claude/settings.json` into yours. A real plugin-merge implementation is a TODO.
+
+---
+
+<a id="reference"></a>
+
+## 5. Reference
+
+The dense lookup material, in collapsible chapters. You won't read this end to end - you'll grep it when something breaks or you're extending.
 
 <a id="deep-components"></a>
 
 <details>
-<summary><b>2. The components (full table with what they do)</b></summary>
+<summary><b>Components, in detail</b></summary>
 
-When the installer launches you get a checkbox TUI listing ten components. Each is independently togglable. Defaults are all on, but every component is honest about whether it overwrites your existing config.
+When the installer launches you get a checkbox TUI listing seven components. Each is independently togglable. Defaults are all on, but every component is honest about whether it overwrites your existing config.
 
 | Component | Plain-English | What changes on disk |
 |-----------|---------------|----------------------|
@@ -167,7 +335,7 @@ The TUI also lets you pre-select via flags: `--yes` for everything, `--preset mi
 <a id="deep-brain"></a>
 
 <details>
-<summary><b>3. The Claude Code brain (CLAUDE.md walkthrough)</b></summary>
+<summary><b>The Claude Code brain (CLAUDE.md walkthrough)</b></summary>
 
 `~/.claude/CLAUDE.md` is the global instruction file Claude reads at the start of every session in every project on this machine. Picking the `claude` component symlinks our canonical version into place. Picking `memory` instead appends just the Memory Discipline section between markers without touching the rest. Here's what's in our canonical file, section by section.
 
@@ -222,6 +390,10 @@ Five steps that must pass before UI work is reported done:
 4. `make-interfaces-feel-better` 14-point checklist - concentric radius, optical alignment, shadows over borders, split/staggered enters, subtle exits, tabular nums, font smoothing, balanced text wrap, image outlines (always pure-tone, never tinted), scale-on-press at exactly 0.96, `initial={false}` on AnimatePresence, no `transition: all`, sparse `will-change`, 40x40 hit areas
 5. `npx @google/design.md lint DESIGN.md` if a DESIGN.md exists - resolve every error and warning before reporting done
 
+### Permission Posture (deliberate choice)
+
+`defaultMode: bypassPermissions` + `skipDangerousModePermissionPrompt: true` are set on purpose. Every tool call auto-approves. The hook layer still blocks AI-attribution lines, force-push to main/master, `rm` against `.claude/memory`, legacy model IDs, emojis, emdashes - regardless of permission mode. To change defaults: edit `claude/settings.json` and switch `defaultMode` to `default` (per-tool prompting) or `acceptEdits` (auto-approve edits but not bash). Remove `skipDangerousModePermissionPrompt` if you want Claude Code's own warning to show.
+
 ### Code Quality
 
 A growing list of bullets. The non-obvious ones:
@@ -245,7 +417,7 @@ Documents `cmux browser screenshot`, `navigate`, `snapshot --interactive` comman
 <a id="deep-design-stack"></a>
 
 <details>
-<summary><b>4. The three-layer design stack (in detail)</b></summary>
+<summary><b>The three-layer design stack, in detail</b></summary>
 
 Most "AI-generated UI" looks the same because most prompts ask for the same vague thing. Yes& uses three stacked tools that each address a different layer of the design problem:
 
@@ -297,7 +469,7 @@ The skill's review-output-format (before/after tables grouped by principle) is t
 <a id="deep-memory"></a>
 
 <details>
-<summary><b>5. Memory: how Claude remembers (in detail)</b></summary>
+<summary><b>Memory: how Claude remembers, in detail</b></summary>
 
 Memory turns Claude Code from a stateless code generator into a colleague who remembers what we decided last week and why. It's the most important thing in this repo.
 
@@ -309,27 +481,11 @@ Memory turns Claude Code from a stateless code generator into a colleague who re
 
 **Per-project global memory** (`~/.claude/projects/<project-path>/memory/`) is automatically written by Claude Code itself for telemetry-style state. Secondary context, read at session start.
 
-### How a memory entry happens
-
-Claude is mandated by CLAUDE.md to write a memory entry after every discrete change. The flow:
-
-1. You ask Claude to do something.
-2. Claude does the thing. Verifies it. Confirms it works.
-3. Before responding to you, Claude writes a memory file in `<project>/.claude/memory/` with frontmatter, a Collaborator line (your name from `git config user.name`), a Why, a How, and a list of files touched.
-4. Claude updates `MEMORY.md` to index the new entry.
-5. THEN Claude responds.
-
-Three lifecycle hooks make this concrete:
+### Three lifecycle hooks make memory concrete
 
 - **`SessionStart`** runs `~/.claude/startup-check.sh` which loads project memory + global memory + relevant feedback files into the model's session context. The status line "Loading memory..." is the visible signal.
 - **`PreCompact`** fires when Claude's context window is about to be compressed. The hook emits a system reminder telling Claude to flush any pending memory entries to disk before context is lost. Status: "Flushing memory before compact..."
 - **`PostCompact`** re-runs the startup loader after compaction, so post-compaction Claude has fresh memory loaded again. Status: "Reloading memory after compaction..."
-
-### Why this works across machines and developers
-
-Memory files are markdown in your project's `.claude/memory/` directory. They get committed and pushed like any other source file. When a teammate pulls, their Claude reads the same memory at session start. The `Collaborator:` line baked into every entry by CLAUDE.md's rule lets you see who did what at a glance, layered on top of `git log` / `git blame` for ironclad attribution.
-
-For ironclad team-wide enforcement, drop a project-root `CLAUDE.md` that re-states the memory + collaborator rules. Project-level CLAUDE.md is read by Claude Code regardless of whether the teammate has the dotfiles installed, so even teammates without Yes&-dotfiles get the discipline applied in that repo.
 
 ### What memory is NOT for
 
@@ -343,185 +499,10 @@ These exclusions apply even when a user explicitly asks Claude to "save this." M
 
 </details>
 
-<a id="deep-workflows"></a>
-
-<details>
-<summary><b>6. Day-to-day workflows</b></summary>
-
-The shortcuts you'll actually type once the dotfiles are installed.
-
-### `ampersand` - re-launch the installer (no pull)
-
-```bash
-ampersand                      # interactive TUI from any directory
-ampersand --yes                # full non-interactive install
-ampersand --preset minimal     # claude + memory + skills + nvm
-ampersand --only memory        # just one component
-ampersand --only memory,skills # multiple components
-ampersand --dry-run            # preview without writing
-```
-
-Used when you're iterating on the dotfiles locally, or you want to re-pick components without waiting on the network.
-
-### `ampersand --pull` - pull latest from GitHub then re-launch
-
-```bash
-ampersand --pull                # most common use: sync + run TUI
-ampersand --pull --preset all   # full sync + non-interactive
-ampersand --pull --only memory  # sync + just memory
-```
-
-Used when you want to pick up changes another teammate pushed. Pulls via `git pull --ff-only` so it never silently merges divergent local changes. The legacy `yesplease` command is kept as an alias for `ampersand --pull` so anyone with muscle memory for it still works.
-
-### Direct `./install.sh`
-
-Still works if you prefer to be explicit, or if you're scripting against the installer in CI:
-
-```bash
-cd /path/to/claude-dotfiles
-./install.sh --preset minimal
-```
-
-### `bootstrap.sh`: the curl-friendly entrypoint
-
-This is what the curl one-liner runs. By default (no args) it clones the repo, installs ONLY the `ampersand` shell shortcut, prints "Unpacking installer...complete." and then `exec`s a fresh login zsh so `ampersand` is immediately available. The TUI does NOT auto-launch in this mode - the user types `ampersand` themselves to pick components.
-
-If you pass installer args through the curl|bash, bootstrap installs the shortcut, then re-execs `install.sh` with those args (and a TTY restored from `/dev/tty` so the TUI works through the pipe). Same flag set passes through:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/jonahscohen/claude-dotfiles/main/bootstrap.sh | bash -s -- --preset minimal
-curl -fsSL .../bootstrap.sh | bash -s -- --dir ~/code/dots --yes
-```
-
-### Custom clone location (three ways)
-
-The dotfiles can live anywhere on disk. The Ghostty config uses a `__DOTFILES_DIR__` placeholder that the installer replaces with the actual repo path at install time, so cloning to `~/code/dots`, `/opt/dots`, or anywhere else works.
-
-```bash
-# Env var (works for both bootstrap and direct install.sh)
-CLAUDE_DOTFILES_DIR=~/code/dots curl -fsSL .../bootstrap.sh | bash
-
-# Bootstrap flag
-curl -fsSL .../bootstrap.sh | bash -s -- --dir ~/code/dots
-
-# Default (no flags): ~/Documents/Github/claude-dotfiles
-curl -fsSL .../bootstrap.sh | bash
-```
-
-If you re-run `install.sh` from a different clone location later, the `ampersand` function in your `~/.zshrc` is automatically refreshed to point at the new path. Path drift is detected by comparing the baked `cd "$REPO_DIR"` against the current run's `$REPO_DIR`.
-
-</details>
-
-<a id="deep-teams"></a>
-
-<details>
-<summary><b>7. For Yes& teams (collaboration & attribution)</b></summary>
-
-The collaboration story for two or more humans working on the same codebase with Claude Code on both sides.
-
-### Attribution
-
-Every memory entry Claude writes gets a `Collaborator:` line baked in. The rule lives in CLAUDE.md's Code Quality section: "Project updates must record the human collaborator's name, derived from `git config user.name`." So when you work, your Claude tags your name. When your teammate works, theirs tags their name. Memory files commit and push like any source file, so attribution flows through git.
-
-You end up with three layers of authorship:
-
-- **Per memory entry:** `Collaborator: <name>` line at the top
-- **Per memory file:** `git log` / `git blame` (which is identical, but ironclad)
-- **Per task:** the `Why:` and `How:` fields explain reasoning so reading a session memory tells you "Alice fixed the auth bug because legal flagged session-token storage, here's how she approached it"
-
-### Project-level CLAUDE.md
-
-For ironclad team-wide enforcement of memory discipline (especially if a teammate hasn't installed the dotfiles), drop a `CLAUDE.md` at the project root that re-states the rules. Claude Code always reads project-root CLAUDE.md regardless of dotfiles state, so it propagates to anyone who clones.
-
-A minimal project-root CLAUDE.md template:
-
-```markdown
-## Memory Discipline (project-level)
-
-After every discrete change in this project, write a memory entry to
-`.claude/memory/session_YYYY-MM-DD_<topic>.md` before responding to the user.
-
-Include:
-- Frontmatter (name, description, type: project)
-- A `Collaborator:` line with the human's name from `git config user.name`
-- A `Why:` rationale and `How:` approach for non-trivial decisions
-- A list of files touched
-
-Update `.claude/memory/MEMORY.md` to index the new file.
-
-This applies regardless of whether the developer has Yes&-dotfiles installed.
-```
-
-### Merge conflict patterns to expect
-
-The most contention-prone file is `MEMORY.md` (the index). Two devs working on the same day both want to add an index line. The convention "append at the bottom, one line per entry" makes most of these auto-merge cleanly. Session files themselves rarely conflict because the file naming includes the topic, so two devs working on different topics never touch the same file.
-
-### Onboarding a new Yes& dev
-
-1. They run `curl -fsSL https://raw.githubusercontent.com/jonahscohen/claude-dotfiles/main/bootstrap.sh | bash`.
-2. They take TUI defaults or pick `--preset all`.
-3. New terminal or `source ~/.zshrc`.
-4. They open any Yes& project. Claude reads its own `~/.claude/CLAUDE.md`, plus the project's root `CLAUDE.md`, plus the project's `.claude/memory/` files. They have full context the moment they start.
-
-That's the entire onboarding. Same machine state as everyone else, same disciplines applied, same memory loaded.
-
-</details>
-
-<a id="deep-additive"></a>
-
-<details>
-<summary><b>8. Boost an existing Claude Code (no overwrites)</b></summary>
-
-For developers who already have a Claude Code setup they like and want to layer in specific Yes& capabilities without losing their config.
-
-### The additive-where-possible components
-
-Three components are designed to NOT replace your existing config. The `memory` component does mutate your CLAUDE.md and settings.json (it has to - that's where the rules and hooks live), but it appends and JSON-merges, never overwrites. `skills` and `ampersand` only write to namespaces we control:
-
-| Component | Touches | What it adds |
-|---|---|---|
-| `memory`   | Appends to `~/.claude/CLAUDE.md` between markers; JSON-merges hooks into `~/.claude/settings.json`; symlinks `~/.claude/startup-check.sh` | The full memory subsystem (rules + 3 hooks + loader) |
-| `skills`   | Adds to `~/.claude/skills/` only | The `make-interfaces-feel-better` skill |
-| `ampersand`| Marker-guarded block in `~/.zshrc` | The `ampersand` shortcut (and `yesplease` alias for back-compat) |
-
-### Common patterns
-
-```bash
-# Just the memory subsystem - your CLAUDE.md and settings.json get appended/merged, never replaced
-ampersand --only memory
-
-# Memory + UI-polish skill
-ampersand --only memory,skills
-
-# Everything additive (memory + skills + the shortcut block), zero overwrites
-ampersand --only memory,skills,ampersand
-```
-
-### Marker-guarded means undoable
-
-The `memory` component appends inside HTML comment markers in your `CLAUDE.md`:
-
-```markdown
-<!-- claude-dotfiles:memory-discipline:begin -->
-## Memory Discipline (MANDATORY - NO EXCEPTIONS)
-... (Memory Discipline content) ...
-<!-- claude-dotfiles:memory-discipline:end -->
-```
-
-To undo, delete from one marker to the other. Same idea for the JSON merge in settings.json (markers are the command paths `~/.claude/startup-check.sh` and the string `PreCompact: flushing pending memory`). To undo: delete the three hook entries from `settings.json`.
-
-The shortcuts block in `~/.zshrc` uses `# === claude-dotfiles:shortcuts:begin ===` / `:end` markers and is sed-deletable as a range.
-
-### What's NOT additive (yet)
-
-The plugin list. `enabledPlugins` and `extraKnownMarketplaces` live inside `claude/settings.json`, so picking the `claude` component means accepting our settings.json wholesale. To layer just our plugin list onto your existing settings, manually copy the `enabledPlugins` and `extraKnownMarketplaces` blocks from `claude/settings.json` into yours. A real plugin-merge implementation is a TODO.
-
-</details>
-
 <a id="deep-plugins"></a>
 
 <details>
-<summary><b>9. Plugins, connectors, MCP servers, Skills (the four-tier explanation)</b></summary>
+<summary><b>Plugins, connectors, MCP servers, Skills (the four-tier explanation)</b></summary>
 
 People conflate these. They're four different mechanisms with four different config surfaces.
 
@@ -583,7 +564,7 @@ The `skills` component installs `make-interfaces-feel-better`. The dotfiles' ski
 <a id="deep-customization"></a>
 
 <details>
-<summary><b>10. Customization (env vars, flags, deep config)</b></summary>
+<summary><b>Customization (env vars, flags, deep config)</b></summary>
 
 ### Bootstrap-time flags
 
@@ -638,7 +619,7 @@ Edit `claude/CLAUDE.md` in the repo. It's the source of truth. Changes propagate
 <a id="deep-architecture"></a>
 
 <details>
-<summary><b>11. Architecture (under the hood)</b></summary>
+<summary><b>Architecture (under the hood)</b></summary>
 
 ### Symlink-vs-copy strategy
 
@@ -671,7 +652,6 @@ All hooks are pipe-tested before they ship - the bash-guard hook discipline (ver
 Every section of `install.sh` is idempotent:
 
 - **Symlinks**: `make_symlink` checks if the target already points where we want; if so, no-op. Otherwise backs up any pre-existing real file, removes stale symlinks, creates fresh.
-- **Ghostty config**: always re-rendered from the repo template via `sed`. The deployed file gets overwritten, but the repo template is the canonical source so this is intentional.
 - **`.zshrc` appends** (nvm, shortcuts): marker-guarded with grep checks. If the marker is present, no-op. The shortcuts block (ampersand) also self-heals: if the marker is present but the baked `cd "$REPO_DIR"` doesn't match the current `$REPO_DIR`, the entire block is sed-deleted and re-appended at the new path. Lets you move the repo on a machine and have shortcuts auto-refresh. Same self-heal also handles legacy formats (yesplease-only, or yesplease+ampersand combined) and migrates them to the current format.
 - **Memory hooks JSON-merge**: marker-based detection on substrings (`startup-check.sh`, `PreCompact: flushing pending memory`). If detected, no-op. Otherwise python3 reads the existing settings.json, adds the missing hook entries, writes back.
 - **CLAUDE.md memory-discipline append**: marker-guarded on `<!-- claude-dotfiles:memory-discipline:begin -->`. If present, no-op. Otherwise awk-extract the block from our CLAUDE.md and append.
@@ -683,16 +663,14 @@ Any pre-existing real (non-symlink) file at a target path gets copied to `.backu
 
 ### Multi-location support
 
-The Ghostty config uses a `__DOTFILES_DIR__` placeholder that gets substituted with the actual repo path on this machine at install time. This means the dotfiles can be cloned to any path - `~/code/dots`, `/opt/dots`, `~/dotfiles/yes-and` - and the deployed Ghostty config gets absolute paths baked in correctly.
-
-The `ampersand` shortcut also bakes in the install-time `$REPO_DIR`. If you move the repo, re-running `install.sh` from the new location triggers the path-drift self-heal that rewrites the shortcut block.
+The dotfiles can be cloned to any path - `~/code/dots`, `/opt/dots`, `~/dotfiles/yes-and`. The `ampersand` shortcut bakes in the install-time `$REPO_DIR`. If you move the repo, re-running `install.sh` from the new location triggers the path-drift self-heal that rewrites the shortcut block.
 
 </details>
 
 <a id="troubleshooting"></a>
 
 <details>
-<summary><b>12. Troubleshooting</b></summary>
+<summary><b>Troubleshooting</b></summary>
 
 ### "claude: command not found" in fresh terminals
 
@@ -742,7 +720,7 @@ That installs the memory subsystem (additive markers in your CLAUDE.md, JSON-mer
 
 ### How do I undo the dotfiles entirely
 
-For symlinked files (CLAUDE.md, settings.json, hooks, statusline, memory): `rm` them and copy back from `.backups/<some-timestamp>/`. For appended `.zshrc` blocks: sed-delete the marker-guarded ranges. For the Ghostty config: copy back from `.backups/`.
+For symlinked files (CLAUDE.md, settings.json, hooks, statusline, memory): `rm` them and copy back from `.backups/<some-timestamp>/`. For appended `.zshrc` blocks: sed-delete the marker-guarded ranges.
 
 We don't ship an automated uninstaller because it would require us to know which timestamp's backups to use. Manual is safer.
 
@@ -751,7 +729,7 @@ We don't ship an automated uninstaller because it would require us to know which
 <a id="deep-contributing"></a>
 
 <details>
-<summary><b>13. Contributing (for Yes& devs)</b></summary>
+<summary><b>Contributing (for Yes& devs)</b></summary>
 
 ### Adding a new component
 
@@ -817,9 +795,24 @@ Branch from `main`. Squash-merge with a clear title. Don't take credit in commit
 
 </details>
 
----
+<a id="deep-opinion"></a>
 
-<a id="license--footer"></a>
+<details>
+<summary><b>Why we built this (the long version)</b></summary>
+
+Every Yes& developer runs Claude Code. Each of us figured out the same lessons one fix at a time: how to make Claude remember yesterday, how to keep it from inventing icons, how to stop it from writing 800 lines when 80 was the brief, how to get the design output to actually feel on-brand. Those lessons used to live in scattered private CLAUDE.md files, half-remembered Teams threads, and the sediment of pull-request comments.
+
+We pulled them into one place, made them installable, and made them yours by typing `ampersand`.
+
+This repo is the version-controlled answer to "how is Yes& running Claude Code right now."
+
+### What this isn't
+
+It isn't a Claude Code tutorial - we assume you've got `claude` working. It isn't a productivity-hack collection - the opinions here are constraints, not optimizations. It isn't a Yes& proprietary - the additive components are safe outside our team, by design.
+
+</details>
+
+---
 
 ## License & footer
 
