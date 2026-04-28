@@ -11,10 +11,10 @@
 <p align="center"><i>The Yes& Claude Code stack. The way we think about agentic coding, made installable.</i></p>
 
 <p align="center">
-  <a href="#quick-start">Land</a> ·
-  <a href="#orient">Orient</a> ·
-  <a href="#believe">Believe</a> ·
-  <a href="#practice">Practice</a> ·
+  <a href="#install">Install</a> ·
+  <a href="#what-you-get">What you get</a> ·
+  <a href="#how-it-thinks">How it thinks</a> ·
+  <a href="#day-to-day">Day to day</a> ·
   <a href="#reference">Reference</a>
 </p>
 
@@ -22,19 +22,20 @@
 
 We start with yes, and build what's next. These dotfiles are the "&." Confident defaults. Real discipline. The Yes& development stack distilled into one curl, deployed in seconds, opinionated by design. If you ship things and care how they feel, you'll feel right at home.
 
-This README runs in five acts. You can stop after any one and still know what you need:
+Five sections. Stop after any one and still know what you need:
 
-- **[Land](#quick-start)** - the curl one-liner. Done.
-- **[Orient](#orient)** - what you actually have once it's installed.
-- **[Believe](#believe)** - why each piece is shaped the way it is.
-- **[Practice](#practice)** - what you do with it day to day.
+- **[Install](#install)** - the curl one-liner. Done.
+- **[What you get](#what-you-get)** - everything that lands on your machine, summarized.
+- **[How it thinks](#how-it-thinks)** - the opinions and disciplines behind the choices.
+- **[Day to day](#day-to-day)** - the commands, workflows, and team patterns you'll actually use.
 - **[Reference](#reference)** - the dense lookup material, in collapsible chapters.
 
 ---
 
+<a id="install"></a>
 <a id="quick-start"></a>
 
-## 1. Land
+## Install
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jonahscohen/claude-dotfiles/main/bootstrap.sh | bash
@@ -54,11 +55,12 @@ That's the whole quick start. Read on for what you got and why.
 
 ---
 
+<a id="what-you-get"></a>
 <a id="orient"></a>
 
-## 2. Orient
+## What you get
 
-You've got it installed. Here's what you actually have.
+You've got it installed. Here's what's actually on your machine now.
 
 ### What this is
 
@@ -96,11 +98,12 @@ If those distinctions blurred, the [reference section on plugins/connectors/MCP]
 
 ---
 
+<a id="how-it-thinks"></a>
 <a id="believe"></a>
 
-## 3. Believe
+## How it thinks
 
-You've seen what's in the box. Here's why each piece is shaped the way it is.
+You've seen what's in the box. Here's the opinions and disciplines behind why each piece is shaped the way it is.
 
 ### The opinion, in five sentences
 
@@ -148,9 +151,10 @@ Two PreToolUse hooks intercept every Bash and every file write before the tool r
 
 ---
 
+<a id="day-to-day"></a>
 <a id="practice"></a>
 
-## 4. Practice
+## Day to day
 
 Enough theory. Here's what you do with it.
 
@@ -307,7 +311,7 @@ The plugin list. `enabledPlugins` and `extraKnownMarketplaces` live inside `clau
 
 <a id="reference"></a>
 
-## 5. Reference
+## Reference
 
 The dense lookup material, in collapsible chapters. You won't read this end to end - you'll grep it when something breaks or you're extending.
 
