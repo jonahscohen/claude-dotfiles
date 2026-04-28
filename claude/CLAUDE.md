@@ -1,3 +1,4 @@
+<!-- claude-dotfiles:memory-discipline:begin -->
 ## Memory Discipline (MANDATORY - NO EXCEPTIONS)
 
 ### Session Startup - Memory Loading Order
@@ -40,6 +41,7 @@ If you did something and it works, it goes in memory before anything else happen
 - Record key technical decisions with "Why:" rationale and "How:" approach summary, so reviewers understand both the reasoning and the mechanics
 - List files touched at the bottom
 - Update `MEMORY.md` index when creating new session files
+<!-- claude-dotfiles:memory-discipline:end -->
 
 ## Verification Protocol (MANDATORY - NO EXCEPTIONS)
 

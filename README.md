@@ -86,6 +86,7 @@ A checkbox TUI (rendered with [gum](https://github.com/charmbracelet/gum); insta
 | Component | Plain-English | What changes on disk |
 |-----------|---------------|----------------------|
 | `claude`  | Your Claude Code brain: **REPLACES** ~/.claude/CLAUDE.md, settings.json (with our plugin list - Impeccable, Figma, Sentry, Supabase, Discord, plus 9 more), hooks, statusline, memory. Existing files are backed up to `.backups/`. Skip if you already have your own Claude Code config you want to keep | Symlinks into `~/.claude/` |
+| `memory`  | **Additive.** Bolts our memory subsystem onto an existing Claude Code: appends the Memory Discipline rules to your `CLAUDE.md` between marker comments, JSON-merges three hooks (SessionStart loader, PreCompact reminder, PostCompact reload) into your `settings.json`, and symlinks the `startup-check.sh` loader. Marker-guarded - re-runs are no-ops, and the markers can be removed cleanly to undo | Symlinks `startup-check.sh`; appends to `CLAUDE.md`; merges hooks into `settings.json` |
 | `skills`  | **Additive.** Installs Anthropic Skills via `npx skills add` - currently bundles `make-interfaces-feel-better` (tactical UI polish, auto-triggers on UI keywords). Does NOT touch your CLAUDE.md, settings.json, hooks, or statusline. Safe to pick standalone if you have your own Claude Code config | Adds to `~/.claude/skills/` only |
 | `ghostty` | Your Ghostty terminal look: PolySans font, custom palette, transparency, blur | Copies `config.ghostty` into `~/Library/Application Support/com.mitchellh.ghostty/` |
 | `shaders` | The cinematic Ghostty effects: CRT curvature, TFT pixel grid, blazing cursor trail | In-repo `shaders/*.glsl` + clones [ghostty-shaders](https://github.com/0xhckr/ghostty-shaders) |
@@ -96,9 +97,25 @@ A checkbox TUI (rendered with [gum](https://github.com/charmbracelet/gum); insta
 
 ### Boost an existing Claude Code setup without overwriting it
 
-If you already have your own `~/.claude/CLAUDE.md`, `settings.json`, hooks, etc. and just want to layer in our skills (and eventually plugins), pick `skills` and **uncheck** `claude`. The skill install drops `make-interfaces-feel-better` into `~/.claude/skills/` and your config stays untouched.
+If your team already has their own `~/.claude/CLAUDE.md`, `settings.json`, hooks, etc. and you just want to bolt on specific capabilities, pick the additive components (`memory`, `skills`) and **uncheck** `claude`:
 
-For our plugin list specifically (Impeccable, Figma, Sentry, etc.) into your existing settings.json: that's a TODO. Today the plugin list is part of `claude/settings.json`, so picking `claude` means accepting our settings.json wholesale. To layer just plugins onto your existing settings, manually copy the `enabledPlugins` and `extraKnownMarketplaces` blocks from `claude/settings.json` into yours.
+```bash
+# Just the memory subsystem (rules, hooks, loader) - your CLAUDE.md and settings.json get appended/merged, never replaced
+yesplease --only memory
+
+# Memory + the UI-polish skill
+yesplease --only memory,skills
+
+# Everything additive (memory + skills + the yesplease shortcut), no overwrites
+yesplease --only memory,skills,yesplease
+```
+
+What each additive component does to existing files:
+
+- **`memory`** appends the Memory Discipline section to your `CLAUDE.md` between `<!-- claude-dotfiles:memory-discipline:begin -->` and `:end` marker comments, and JSON-merges three hooks (`SessionStart`, `PreCompact`, `PostCompact`) into your `settings.json`. Both ops are marker-guarded; re-running the installer is a no-op. To undo, delete between the markers and remove the three hook entries.
+- **`skills`** writes only to `~/.claude/skills/` via `npx skills add`. Doesn't touch any other Claude Code file.
+
+For our **plugin list** specifically (Impeccable, Figma, Sentry, etc.) into your existing `settings.json`: that's a TODO. Today the plugin list is bundled inside `claude/settings.json`, so picking `claude` means accepting that file wholesale. To layer just plugins onto your own settings, manually copy the `enabledPlugins` and `extraKnownMarketplaces` blocks from `claude/settings.json` into yours.
 
 If `gum` is unavailable and you decline to install it, the installer falls back to a numbered text menu with the same choices.
 

@@ -43,9 +43,10 @@ err()   { printf "${RED}[error]${NC} %s\n" "$1"; }
 # Component catalogue (parallel arrays for bash 3.2 compatibility)
 # ============================================================
 
-KEYS=(claude skills ghostty shaders cmux discord nvm yesplease)
+KEYS=(claude memory skills ghostty shaders cmux discord nvm yesplease)
 TITLES=(
   "Claude Code config (REPLACES existing)"
+  "Memory subsystem (additive: hooks + rules + loader)"
   "Anthropic Skills (additive, safe alongside existing setup)"
   "Ghostty terminal look"
   "Ghostty visual effects (shaders)"
@@ -55,7 +56,8 @@ TITLES=(
   "'yesplease' shortcut (re-run installer)"
 )
 DESCS=(
-  "Your global Claude Code brain: REPLACES ~/.claude/CLAUDE.md, settings.json (with our plugin list - Impeccable, Figma, Sentry, Supabase, Discord, plus 9 more), safety hooks, status line, and shared memory files. Existing files are backed up to .backups/ but the active versions become ours. Skip if you already have your own CLAUDE.md and settings.json that you want to keep - then pick 'skills' alone to add UI-polish capability without touching your config. (Plugin-list merging into an existing settings.json is a TODO; for now you'd manually copy enabledPlugins from claude/settings.json into yours.)"
+  "Your global Claude Code brain: REPLACES ~/.claude/CLAUDE.md, settings.json (with our plugin list - Impeccable, Figma, Sentry, Supabase, Discord, plus 9 more), safety hooks, status line, and shared memory files. Existing files are backed up to .backups/ but the active versions become ours. Skip if you already have your own CLAUDE.md and settings.json that you want to keep - then pick 'memory' and 'skills' alone to add memory capability and UI-polish capability without touching your config. (Plugin-list merging into an existing settings.json is a TODO; for now you'd manually copy enabledPlugins from claude/settings.json into yours.)"
+  "ADDITIVE memory subsystem: appends our Memory Discipline rules (loading order, per-task updates, file format) to your CLAUDE.md between marker comments, JSON-merges three hooks (SessionStart loader, PreCompact reminder, PostCompact reload) into your settings.json, and symlinks the startup-check.sh loader. Does NOT replace or overwrite anything - all changes are marker-guarded so re-runs are no-ops, and the markers can be removed cleanly if you ever want to undo. Pick this if your team wants to beef up an existing Claude Code with persistent memory capability without losing their config."
   "Adds Anthropic Skills to ~/.claude/skills/ via npx, fully additive. Currently bundles make-interfaces-feel-better (tactical UI polish: concentric border radius, scale 0.96 on press, tabular nums, optical alignment, auto-triggers on UI keywords). Does NOT touch your CLAUDE.md, settings.json, hooks, or statusline. Safe to pick standalone if you have your own Claude Code config and just want the skill capability."
   "Your Ghostty terminal's appearance: PolySans Neutral Mono font, custom 256-color palette, transparency, and blur. Skip if you don't use Ghostty as your terminal."
   "The cinematic Ghostty effects: CRT curvature, TFT pixel grid, and a blazing cursor trail. Also clones a wider community shader library you can swap into the chain. Skip if you picked Ghostty but want it to look plain."
@@ -64,7 +66,7 @@ DESCS=(
   "A small one-line addition to your zsh config that fixes a specific issue some setups hit: opening a new terminal and getting 'claude not found in PATH' even though Claude is installed. The fix only activates if your zsh config already loads nvm (Node Version Manager) - on most machines this is a harmless no-op, so it's safe to leave on. If 'claude' already runs fine in fresh terminals on your machine, you can skip this."
   "Adds a one-word shortcut to your zsh config: type 'yesplease' in any terminal to pull the latest dotfiles from GitHub and re-launch this installer. Useful for syncing across machines or re-picking components without remembering the path. Pass through args like 'yesplease --yes' or 'yesplease --preset minimal'."
 )
-PICKS=(1 1 1 1 1 1 1 1)
+PICKS=(1 1 1 1 1 1 1 1 1)
 
 key_index() {
   local target="$1" i
@@ -111,7 +113,7 @@ apply_preset() {
   case "$1" in
     all)     set_all 1 ;;
     none)    set_all 0 ;;
-    minimal) set_all 0; set_pick claude 1; set_pick skills 1; set_pick nvm 1 ;;
+    minimal) set_all 0; set_pick claude 1; set_pick memory 1; set_pick skills 1; set_pick nvm 1 ;;
     *)       err "Unknown preset: $1 (valid: all, minimal, none)"; exit 2 ;;
   esac
 }
@@ -132,7 +134,7 @@ Usage:
   ./install.sh --yes            Non-interactive, install everything
   ./install.sh --preset NAME    Non-interactive preset: all | minimal | none
   ./install.sh --only KEYS      Non-interactive, comma-separated keys
-                                (claude, skills, ghostty, shaders, cmux, discord, nvm, yesplease)
+                                (claude, memory, skills, ghostty, shaders, cmux, discord, nvm, yesplease)
   ./install.sh --dry-run        Print resolved picks and exit
   ./install.sh --help           Show this help
 EOF
@@ -348,7 +350,111 @@ if picked claude; then
 fi
 
 # ============================================================
-# 2. Anthropic Skills (additive, no config touched)
+# 2. Memory subsystem (additive: rules + hooks + loader)
+# ============================================================
+# Three surgical, idempotent operations:
+#   (a) Symlink startup-check.sh into ~/.claude/ (no-op if already linked)
+#   (b) Append the Memory Discipline section from our CLAUDE.md (extracted
+#       between marker comments) to the user's ~/.claude/CLAUDE.md.
+#       Marker-guarded so re-runs detect presence and skip.
+#   (c) JSON-merge three hooks (SessionStart, PreCompact, PostCompact) into
+#       the user's ~/.claude/settings.json without disturbing their other
+#       config. Marker strings in the hook commands make this idempotent.
+# All three are no-ops if the user already picked `claude` (which symlinked
+# our full CLAUDE.md and settings.json).
+
+if picked memory; then
+  echo ""
+  info "--- Memory subsystem ---"
+  mkdir -p "$CLAUDE_DIR"
+
+  # (a) startup-check.sh symlink
+  make_symlink "$REPO_DIR/claude/startup-check.sh" "$CLAUDE_DIR/startup-check.sh"
+  chmod +x "$REPO_DIR/claude/startup-check.sh"
+
+  # (b) CLAUDE.md memory-discipline section append
+  MEMORY_BEGIN_MARKER='<!-- claude-dotfiles:memory-discipline:begin -->'
+  MEMORY_END_MARKER='<!-- claude-dotfiles:memory-discipline:end -->'
+  USER_CLAUDE_MD="$CLAUDE_DIR/CLAUDE.md"
+
+  if [ -f "$USER_CLAUDE_MD" ] && grep -Fq "$MEMORY_BEGIN_MARKER" "$USER_CLAUDE_MD"; then
+    ok "$USER_CLAUDE_MD already contains the Memory Discipline section"
+  else
+    if [ ! -e "$USER_CLAUDE_MD" ]; then
+      info "$USER_CLAUDE_MD does not exist - creating with just the Memory Discipline section"
+      touch "$USER_CLAUDE_MD"
+    else
+      info "Appending Memory Discipline section to $USER_CLAUDE_MD"
+    fi
+    # Extract the marker-bounded block from our CLAUDE.md (inclusive of markers).
+    awk "/$MEMORY_BEGIN_MARKER/,/$MEMORY_END_MARKER/" "$REPO_DIR/claude/CLAUDE.md" \
+      | { printf '\n'; cat; } >> "$USER_CLAUDE_MD"
+    ok "Memory Discipline section added to $USER_CLAUDE_MD"
+  fi
+
+  # (c) settings.json hook JSON-merge (Python: stdlib only)
+  USER_SETTINGS="$CLAUDE_DIR/settings.json"
+  if [ ! -e "$USER_SETTINGS" ]; then
+    info "$USER_SETTINGS does not exist - creating with just the memory hooks"
+    echo '{}' > "$USER_SETTINGS"
+  fi
+
+  if command -v python3 >/dev/null 2>&1; then
+    if [ ! -L "$USER_SETTINGS" ]; then
+      backup_if_exists "$USER_SETTINGS"
+    fi
+    python3 - "$USER_SETTINGS" <<'PY'
+import json, sys
+path = sys.argv[1]
+with open(path) as f:
+    data = json.load(f)
+hooks = data.setdefault('hooks', {})
+LOADER_MARKER = 'startup-check.sh'
+PRECOMPACT_MARKER = 'PreCompact: flushing pending memory'
+
+def already_present(entries, marker):
+    return any(marker in json.dumps(e) for e in entries)
+
+ss = hooks.setdefault('SessionStart', [])
+if not already_present(ss, LOADER_MARKER):
+    ss.append({'hooks': [{
+        'type': 'command',
+        'command': 'SESSION_CWD="$(pwd)" ~/.claude/startup-check.sh',
+        'timeout': 10,
+        'statusMessage': 'Loading memory...'
+    }]})
+
+pc = hooks.setdefault('PreCompact', [])
+if not already_present(pc, PRECOMPACT_MARKER):
+    pc.append({'hooks': [{
+        'type': 'command',
+        'command': "printf '%s' '{\"systemMessage\":\"PreCompact: flushing pending memory\",\"hookSpecificOutput\":{\"hookEventName\":\"PreCompact\",\"additionalContext\":\"PRE-COMPACT: Before this context compresses, write any pending session memory entries to .claude/memory/ per CLAUDE.md memory discipline. Do this NOW.\"}}'",
+        'timeout': 5,
+        'statusMessage': 'Flushing memory before compact...'
+    }]})
+
+poc = hooks.setdefault('PostCompact', [])
+if not already_present(poc, LOADER_MARKER):
+    poc.append({'hooks': [{
+        'type': 'command',
+        'command': 'SESSION_CWD="$(pwd)" ~/.claude/startup-check.sh',
+        'timeout': 10,
+        'statusMessage': 'Reloading memory after compaction...'
+    }]})
+
+with open(path, 'w') as f:
+    json.dump(data, f, indent=2)
+    f.write('\n')
+PY
+    ok "Memory hooks merged into $USER_SETTINGS"
+  else
+    warn "python3 not found - skipping settings.json hook merge."
+    warn "Add SessionStart, PreCompact, PostCompact hooks manually using $REPO_DIR/claude/settings.json as a reference."
+  fi
+fi
+
+# ============================================================
+# 3. Anthropic Skills (additive, no config touched)
 # ============================================================
 # Skills install into ~/.claude/skills/ via the npx skills CLI. They do not
 # replace or modify your CLAUDE.md, settings.json, hooks, or statusline -
@@ -374,7 +480,7 @@ if picked skills; then
 fi
 
 # ============================================================
-# 3. Ghostty shaders (community library + in-repo chain)
+# 4. Ghostty shaders (community library + in-repo chain)
 # ============================================================
 
 if picked shaders; then
@@ -403,7 +509,7 @@ if picked shaders; then
 fi
 
 # ============================================================
-# 4. Ghostty config
+# 5. Ghostty config
 # ============================================================
 
 if picked ghostty; then
@@ -433,7 +539,7 @@ if picked ghostty; then
 fi
 
 # ============================================================
-# 5. cmux config
+# 6. cmux config
 # ============================================================
 
 if picked cmux; then
@@ -447,7 +553,7 @@ if picked cmux; then
 fi
 
 # ============================================================
-# 6. Discord Chat Agent launcher (zsh only, idempotent)
+# 7. Discord Chat Agent launcher (zsh only, idempotent)
 # ============================================================
 
 if picked discord; then
@@ -474,7 +580,7 @@ if picked discord; then
 fi
 
 # ============================================================
-# 7. nvm default auto-activation (zsh only, idempotent)
+# 8. nvm default auto-activation (zsh only, idempotent)
 # ============================================================
 # Homebrew's nvm install sources nvm.sh but does NOT activate a default Node
 # version. That leaves claude, node, npm, npx out of PATH in fresh shells, so
@@ -501,7 +607,7 @@ if picked nvm; then
 fi
 
 # ============================================================
-# 8. yesplease vanity shortcut (zsh only, idempotent)
+# 9. yesplease vanity shortcut (zsh only, idempotent)
 # ============================================================
 # Defines a zsh function `yesplease` that cd's into the dotfiles repo, pulls
 # latest, and re-launches install.sh. Forwards any args, so you can do
@@ -570,6 +676,7 @@ fi
 
 echo "What was installed:"
 picked claude   && echo "  - Claude Code: CLAUDE.md, settings.json, hooks, statusline, memory, discord-chat-launcher (REPLACED any existing files; backed up to .backups/)"
+picked memory   && echo "  - Memory subsystem: startup-check.sh + Memory Discipline section appended to CLAUDE.md + 3 hooks merged into settings.json (additive, marker-guarded)"
 picked skills   && echo "  - Anthropic Skills: make-interfaces-feel-better (tactical UI polish; auto-triggers on UI work)"
 picked ghostty  && echo "  - Ghostty: config.ghostty (copied from repo - re-run install.sh to sync edits)"
 picked shaders  && echo "  - Ghostty shaders: in-repo chain at $REPO_DIR/shaders, plus library at ~/Documents/Github/ghostty-shaders"
