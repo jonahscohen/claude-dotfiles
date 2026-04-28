@@ -59,8 +59,15 @@ Or if you've already cloned the repo (anywhere):
 
 ```bash
 cd /path/to/claude-dotfiles
-./install.sh
+make                        # interactive TUI (sexier than ./install.sh)
+make all                    # install everything non-interactively
+make minimal                # claude + memory + skills + nvm
+make memory                 # just the memory subsystem
+make memory skills          # several at once (combined into --only)
+make help                   # full target list
 ```
+
+`./install.sh` still works directly if you prefer; `make` is just the friendlier entry point.
 
 ### Cloning to a custom location
 
