@@ -38,8 +38,6 @@ curl -fsSL https://raw.githubusercontent.com/jonahscohen/claude-dotfiles/main/bo
 
 One curl. One shortcut installed: `ampersand`. Type it from any terminal to launch the component picker. Type `ampersand --pull` to pull the latest from GitHub first.
 
-The shortcut is the "&" - it's how you keep saying yes to what's next without leaving the terminal.
-
 Already cloned? `cd` into the repo:
 
 ```bash
@@ -70,7 +68,7 @@ The version-controlled answer to "how is Yes& running Claude Code right now." Wh
 
 ### What's in the box (the ten components)
 
-Ten components. Pick any combination. Defaults are all on, so most Yes& devs just hit enter.
+Seven components. Pick any combination. Defaults are all on, so most Yes& devs just hit enter.
 
 | Component | One-line | Touches |
 |---|---|---|
@@ -78,10 +76,7 @@ Ten components. Pick any combination. Defaults are all on, so most Yes& devs jus
 | `memory` | Memory rules + 3 lifecycle hooks + loader script (additive) | Appends to your CLAUDE.md, JSON-merges into settings.json |
 | `skills` | Anthropic Skills (currently: make-interfaces-feel-better) | Adds to `~/.claude/skills/` only |
 | `statusline` | Custom prompt-bar render | Symlinks `~/.claude/statusline-command.sh` |
-| `ghostty` | Ghostty terminal look (font, palette, transparency, blur) | Renders config into Application Support |
-| `shaders` | CRT curvature, TFT pixel grid, blazing cursor trail + community library | In-repo `shaders/*.glsl` + clones ghostty-shaders |
 | `cmux` | Split-pane terminal config (powers in-app browser preview) | Symlinks `~/.config/cmux/settings.json` |
-| `discord` | Optional Discord channel attach when launching `claude` | Marker-guarded line in `~/.zshrc` |
 | `nvm` | Optional fix for "claude: command not found" in fresh terminals | Marker-guarded line in `~/.zshrc` |
 | `ampersand` | The `ampersand` zsh shortcut (`ampersand` to re-run, `ampersand --pull` to sync first). `yesplease` aliased for back-compat | Marker-guarded block in `~/.zshrc` |
 
@@ -161,10 +156,7 @@ When the installer launches you get a checkbox TUI listing ten components. Each 
 | `memory`  | **Additive.** Bolts our memory subsystem onto an existing Claude Code: appends Memory Discipline rules to your `CLAUDE.md` between marker comments, JSON-merges three lifecycle hooks into your `settings.json`, symlinks the loader script. Marker-guarded - re-runs are no-ops, removable cleanly | Symlinks `startup-check.sh`; appends to `CLAUDE.md`; merges into `settings.json` |
 | `skills`  | **Additive.** Installs Anthropic Skills via `npx skills add`. Currently bundles `make-interfaces-feel-better` (tactical UI polish that auto-triggers on UI keywords). Touches nothing else | Adds to `~/.claude/skills/` only |
 | `statusline` | Custom prompt-bar render. The `statusLine` command in `settings.json` is tolerant of a missing script - unticking falls back cleanly to Claude Code's default | Symlinks `~/.claude/statusline-command.sh` |
-| `ghostty` | The Ghostty terminal look: PolySans Neutral Mono, custom 256-color palette, transparency, blur | Renders `config.ghostty` into `~/Library/Application Support/com.mitchellh.ghostty/` with `__DOTFILES_DIR__` substituted |
-| `shaders` | Cinematic Ghostty effects: CRT curvature, TFT pixel grid, blazing cursor trail. Plus the wider community shader library | In-repo `shaders/*.glsl` referenced by Ghostty config, plus clones [ghostty-shaders](https://github.com/0xhckr/ghostty-shaders) |
 | `cmux`    | cmux split-pane terminal config. Powers the in-app browser preview Claude uses to verify UI work | Symlinks `~/.config/cmux/settings.json` |
-| `discord` | One-line wrapper added to your zsh config so when you run `claude`, it asks if you want to connect this session to your Discord channel | Marker-guarded source line in `~/.zshrc` |
 | `nvm`     | Optional fix for "claude not found in PATH" in fresh terminals on machines where Homebrew's nvm doesn't auto-activate. Harmless no-op on machines that don't use nvm | Appends `nvm use default --silent` to `~/.zshrc` (only if `nvm.sh` is already sourced) |
 | `ampersand` | The `ampersand` zsh shortcut. `ampersand` re-launches the installer from any directory; `ampersand --pull` pulls latest from GitHub first. Forwards every other flag. `yesplease` is kept as a back-compat alias mapping to `ampersand --pull`. Auto-migrates older installs (yesplease-only or yesplease+ampersand combined blocks) | Marker-guarded shortcuts block in `~/.zshrc` |
 
@@ -619,7 +611,7 @@ CLAUDE_DOTFILES_DIR=~/code/dots CLAUDE_DOTFILES_REPO=https://github.com/your-for
 ./install.sh --help             # full usage
 ```
 
-Valid component keys: `claude`, `memory`, `skills`, `statusline`, `ghostty`, `shaders`, `cmux`, `discord`, `nvm`, `ampersand`.
+Valid component keys: `claude`, `memory`, `skills`, `statusline`, `cmux`, `nvm`, `ampersand`.
 
 ### Presets
 
@@ -657,7 +649,6 @@ Edit `claude/CLAUDE.md` in the repo. It's the source of truth. Changes propagate
 | `~/.claude/hooks/*.sh` | Symlink to repo | Same |
 | `~/.claude/memory/*.md` | Symlink to repo | Memory edits via Claude write directly into the repo working tree, ready to commit |
 | `~/.claude/skills/<skill>/` | npx-installed (not symlinked) | Skills are versioned by their own repo, not ours |
-| `~/Library/Application Support/com.mitchellh.ghostty/config.ghostty` | sed-rendered copy (not symlink) | Ghostty silently ignores symlinks in its Application Support directory; `__DOTFILES_DIR__` placeholder gets substituted to the actual repo path at install time |
 | `~/.config/cmux/settings.json` | Symlink to repo | Same as Claude Code config |
 | `~/.zshrc` | Marker-guarded append (never overwrite) | Your shell config is yours; we add labeled blocks that can be sed-deleted cleanly |
 
@@ -668,7 +659,7 @@ Five hooks fire automatically once `claude/settings.json` is symlinked into `~/.
 | Event | Hook | Purpose |
 |---|---|---|
 | `PreToolUse(Bash)` | `~/.claude/hooks/bash-guard.sh` (5s) | Blocks AI-coauthor attribution lines in commands, force-push to main/master, `rm` against `.claude/memory`, legacy model IDs |
-| `PreToolUse(Write\|Edit)` | `~/.claude/hooks/content-guard.sh` (5s) | Blocks the same patterns inside file content being written, plus emdashes/endashes and emoji unicode ranges |
+| `PreToolUse(Write\|Edit\|MultiEdit)` | `~/.claude/hooks/content-guard.sh` (5s) | Blocks the same patterns inside file content being written, plus emdashes/endashes and emoji unicode ranges |
 | `SessionStart` | `~/.claude/startup-check.sh` (10s, "Loading memory...") | Loads memory at session start |
 | `PreCompact` | inline command (5s, "Flushing memory before compact...") | Reminds Claude to flush pending memory before context compresses |
 | `PostCompact` | `~/.claude/startup-check.sh` (10s, "Reloading memory after compaction...") | Re-loads memory after compression |
@@ -681,7 +672,7 @@ Every section of `install.sh` is idempotent:
 
 - **Symlinks**: `make_symlink` checks if the target already points where we want; if so, no-op. Otherwise backs up any pre-existing real file, removes stale symlinks, creates fresh.
 - **Ghostty config**: always re-rendered from the repo template via `sed`. The deployed file gets overwritten, but the repo template is the canonical source so this is intentional.
-- **`.zshrc` appends** (discord, nvm, shortcuts): marker-guarded with grep checks. If the marker is present, no-op. The shortcuts block (ampersand) also self-heals: if the marker is present but the baked `cd "$REPO_DIR"` doesn't match the current `$REPO_DIR`, the entire block is sed-deleted and re-appended at the new path. Lets you move the repo on a machine and have shortcuts auto-refresh. Same self-heal also handles legacy formats (yesplease-only, or yesplease+ampersand combined) and migrates them to the current format.
+- **`.zshrc` appends** (nvm, shortcuts): marker-guarded with grep checks. If the marker is present, no-op. The shortcuts block (ampersand) also self-heals: if the marker is present but the baked `cd "$REPO_DIR"` doesn't match the current `$REPO_DIR`, the entire block is sed-deleted and re-appended at the new path. Lets you move the repo on a machine and have shortcuts auto-refresh. Same self-heal also handles legacy formats (yesplease-only, or yesplease+ampersand combined) and migrates them to the current format.
 - **Memory hooks JSON-merge**: marker-based detection on substrings (`startup-check.sh`, `PreCompact: flushing pending memory`). If detected, no-op. Otherwise python3 reads the existing settings.json, adds the missing hook entries, writes back.
 - **CLAUDE.md memory-discipline append**: marker-guarded on `<!-- claude-dotfiles:memory-discipline:begin -->`. If present, no-op. Otherwise awk-extract the block from our CLAUDE.md and append.
 - **npx skills add**: idempotent via the skills CLI's own logic.
@@ -715,23 +706,11 @@ Cause: shell functions defined inside install.sh's child process don't escape in
 
 Fix: `source ~/.zshrc` once, or open a new terminal window. Subsequent shells read `.zshrc` at startup so this only happens once per machine.
 
-### Ghostty shaders don't render
-
-Cause: the Ghostty config references `__DOTFILES_DIR__/shaders/*.glsl`. If the installer didn't run with the `ghostty` component picked, the placeholder might not have been substituted, or the path baked in might point at a clone that no longer exists at that location.
-
-Fix: `ampersand --only ghostty` to re-render the config with the current `$REPO_DIR`. Restart Ghostty.
-
 ### Permissions prompts on every markdown write
 
 Cause: should not happen with `defaultMode: bypassPermissions` set, but Claude Code or its harness sometimes escalates anyway.
 
 Fix: `claude/settings.json` already includes explicit `Write(**/*.md)`, `Edit(**/*.md)`, `MultiEdit(**/*.md)` allow rules. If you're still seeing prompts, restart your Claude Code session - permissions are loaded at session start. If they persist, broaden the allow list.
-
-### Discord wrapper doesn't fire when launching from Claude Desktop
-
-Cause: the Discord launcher is a zsh function that shadows the `claude` shell command. Claude Desktop launches Claude Code via the app, not via your shell, so the wrapper never gets a chance to run.
-
-Fix: launch Claude Code from a terminal (`claude`) when you want the Discord prompt. The Desktop app's Claude Code panel will get every other dotfiles benefit (CLAUDE.md, plugins, hooks, skills, memory) - just not the Discord auto-attach.
 
 ### gum not installed and I don't want to install it
 
@@ -778,7 +757,7 @@ We don't ship an automated uninstaller because it would require us to know which
 
 1. Add the key to `KEYS=(...)` in `install.sh` and add a TITLE + DESC in the same arrays. Bump the PICKS array length.
 2. Add an apply block (`if picked <key>; then ... fi`) in the appropriate numbered section. Renumber subsequent sections to stay sequential.
-3. If the component modifies `~/.zshrc`, use a marker-guarded append pattern (see the `discord`, `nvm`, or `ampersand` blocks for examples). Always include path-drift self-heal logic if the block bakes in `$REPO_DIR`.
+3. If the component modifies `~/.zshrc`, use a marker-guarded append pattern (see the `nvm` or `ampersand` blocks for examples). Always include path-drift self-heal logic if the block bakes in `$REPO_DIR`.
 4. If the component modifies `~/.claude/settings.json` JSON-style, use the python3 stdlib merge pattern from the `memory` component. Marker-detection is mandatory.
 5. Update `--help` valid keys list and the post-install summary's `picked <key> && echo "..."` line.
 6. Update the README component table.

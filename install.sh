@@ -49,16 +49,14 @@ err()   { printf "${RED}[error]${NC} %s\n" "$1"; }
 # Component catalogue (parallel arrays for bash 3.2 compatibility)
 # ============================================================
 
-KEYS=(claude memory skills statusline ghostty shaders cmux discord nvm ampersand)
+# Public components - shipped to all users.
+KEYS=(claude memory skills statusline cmux nvm ampersand)
 TITLES=(
   "Claude Code config (REPLACES existing)"
   "Memory subsystem (additive: hooks + rules + loader)"
   "Anthropic Skills (additive, safe alongside existing setup)"
   "Custom statusline (bottom-of-window prompt bar)"
-  "Ghostty terminal look"
-  "Ghostty visual effects (shaders)"
   "cmux split-pane terminal"
-  "Discord chat at Claude launch"
   "nvm fix (optional, only if needed)"
   "'ampersand' shell shortcut"
 )
@@ -67,14 +65,28 @@ DESCS=(
   "ADDITIVE memory subsystem: appends our Memory Discipline rules (loading order, per-task updates, file format) to your CLAUDE.md between marker comments, JSON-merges three hooks (SessionStart loader, PreCompact reminder, PostCompact reload) into your settings.json, and symlinks the startup-check.sh loader. Does NOT replace or overwrite anything - all changes are marker-guarded so re-runs are no-ops, and the markers can be removed cleanly if you ever want to undo. Pick this if your team wants to beef up an existing Claude Code with persistent memory capability without losing their config."
   "Adds Anthropic Skills to ~/.claude/skills/ via npx, fully additive. Currently bundles make-interfaces-feel-better (tactical UI polish: concentric border radius, scale 0.96 on press, tabular nums, optical alignment, auto-triggers on UI keywords). Does NOT touch your CLAUDE.md, settings.json, hooks, or statusline. Safe to pick standalone if you have your own Claude Code config and just want the skill capability."
   "Symlinks our statusline-command.sh into ~/.claude/. The settings.json statusLine command is tolerant of a missing script, so unticking this cleanly falls back to no custom statusline (Claude Code's default takes over). Pick this if you like our prompt-bar render; skip if you prefer Claude Code's default or a different statusline you've configured yourself."
-  "Your Ghostty terminal's appearance: PolySans Neutral Mono font, custom 256-color palette, transparency, and blur. Skip if you don't use Ghostty as your terminal."
-  "The cinematic Ghostty effects: CRT curvature, TFT pixel grid, and a blazing cursor trail. Also clones a wider community shader library you can swap into the chain. Skip if you picked Ghostty but want it to look plain."
   "Settings for cmux, the split-pane terminal that hosts the in-app browser preview Claude uses to verify your UI work. Skip if you don't use cmux."
-  "Adds a one-line wrapper to your zsh config so when you run 'claude', it asks if you want to connect this session to your Discord channel. Skip if you don't pair Claude with Discord."
   "A small one-line addition to your zsh config that fixes a specific issue some setups hit: opening a new terminal and getting 'claude not found in PATH' even though Claude is installed. The fix only activates if your zsh config already loads nvm (Node Version Manager) - on most machines this is a harmless no-op, so it's safe to leave on. If 'claude' already runs fine in fresh terminals on your machine, you can skip this."
   "Adds the 'ampersand' zsh function to your .zshrc. Type 'ampersand' from any terminal to re-launch this installer; type 'ampersand --pull' to pull the latest from GitHub first. Forwards every other flag ('ampersand --preset minimal', 'ampersand --pull --yes'). bootstrap.sh pre-installs this for new users so the curl one-liner is enough. Existing users with the legacy 'yesplease' command get an alias so 'yesplease' still works (mapped to 'ampersand --pull')."
 )
-PICKS=(1 1 1 1 1 1 1 1 1 1)
+PICKS=(1 1 1 1 1 1 1)
+
+# Personal components - hidden from public TUI and --help. Surfaced only when
+# the maintainer passes --personal (undocumented, undocumented-on-purpose).
+# Lets one human keep cross-machine sync for ghostty/shaders/discord without
+# exposing them as Yes&-team defaults.
+PERSONAL_KEYS=(ghostty shaders discord)
+PERSONAL_TITLES=(
+  "Ghostty terminal look"
+  "Ghostty visual effects (shaders)"
+  "Discord chat at Claude launch"
+)
+PERSONAL_DESCS=(
+  "Personal: Ghostty terminal appearance (PolySans Neutral Mono font, custom 256-color palette, transparency, blur)."
+  "Personal: cinematic Ghostty effects (CRT curvature, TFT pixel grid, blazing cursor trail). Also clones the wider community shader library."
+  "Personal: one-line wrapper added to .zshrc so 'claude' asks at launch whether to connect this session to a Discord channel."
+)
+PERSONAL_PICKS=(1 1 1)
 
 key_index() {
   local target="$1" i
@@ -142,11 +154,28 @@ Usage:
   ./install.sh --yes            Non-interactive, install everything
   ./install.sh --preset NAME    Non-interactive preset: all | minimal | none
   ./install.sh --only KEYS      Non-interactive, comma-separated keys
-                                (claude, memory, skills, statusline, ghostty, shaders, cmux, discord, nvm, ampersand)
+                                (claude, memory, skills, statusline, cmux, nvm, ampersand)
   ./install.sh --dry-run        Print resolved picks and exit
   ./install.sh --help           Show this help
 EOF
 }
+
+# Personal flag: undocumented on purpose. Adds three components (ghostty,
+# shaders, discord) to the active KEYS set. When unset, those components
+# are entirely invisible: not in TUI, not in --help, not valid in --only.
+# Pre-pass to capture --personal before --only/--preset run their validation.
+PERSONAL=0
+for arg in "$@"; do
+  case "$arg" in
+    --personal) PERSONAL=1 ;;
+  esac
+done
+if [[ "$PERSONAL" == "1" ]]; then
+  KEYS+=("${PERSONAL_KEYS[@]}")
+  TITLES+=("${PERSONAL_TITLES[@]}")
+  DESCS+=("${PERSONAL_DESCS[@]}")
+  PICKS+=("${PERSONAL_PICKS[@]}")
+fi
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -155,6 +184,7 @@ while [[ $# -gt 0 ]]; do
     --preset)       NONINTERACTIVE=1; apply_preset "${2:-}"; shift 2 ;;
     --dry-run|-n)   DRY_RUN=1; shift ;;
     --help|-h)      print_help; exit 0 ;;
+    --personal)     shift ;;  # already consumed in pre-pass, just shift past it
     *)              err "Unknown flag: $1"; print_help; exit 2 ;;
   esac
 done
