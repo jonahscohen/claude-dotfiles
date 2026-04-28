@@ -271,7 +271,10 @@ run_tui_gum() {
   local chosen
   chosen="$(printf '%s\n' "${KEYS[@]}" \
     | gum choose --no-limit --selected "$sel" \
-        --header "Space to toggle, enter to confirm")" || return 1
+        --header "Space to toggle, enter to confirm" \
+        --cursor.foreground "#a5b4fc" \
+        --selected.foreground "#a5b4fc" \
+        --item.foreground "#ffffff")" || return 1
 
   set_all 0
   local k
