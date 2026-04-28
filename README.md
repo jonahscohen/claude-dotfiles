@@ -36,7 +36,9 @@ The README is laid out in three tiers, so you can stop reading at any point and 
 curl -fsSL https://raw.githubusercontent.com/jonahscohen/claude-dotfiles/main/bootstrap.sh | bash
 ```
 
-Pick what you want in the checkbox TUI, hit enter, you're done. Open a new terminal and type `ampersand` from anywhere to re-launch the installer; type `yesplease` to pull the latest from GitHub first.
+That clones the repo and installs one thing: the `ampersand` shell shortcut. You'll see "Unpacking installer...complete." Open a new terminal (or `source ~/.zshrc`) and type `ampersand` to launch the component picker.
+
+From then on, `ampersand` re-launches the installer from any directory. `ampersand --pull` pulls the latest from GitHub first.
 
 Already cloned? `cd` into the repo and run:
 
@@ -56,7 +58,7 @@ That's it for the quick start. Everything below explains what just happened, wha
 
 ### What this is
 
-The version-controlled, single-source-of-truth answer to "how is Yes& running Claude Code right now." When one of us learns something durable - a CSS-detail rule, an icon-sourcing discipline, a way to make Claude remember yesterday - it lands in `claude/CLAUDE.md` or in the memory system, and the next time anyone runs `yesplease` it propagates to every machine. The dotfiles aren't a config; they're a memory of the team's earned practice.
+The version-controlled, single-source-of-truth answer to "how is Yes& running Claude Code right now." When one of us learns something durable - a CSS-detail rule, an icon-sourcing discipline, a way to make Claude remember yesterday - it lands in `claude/CLAUDE.md` or in the memory system, and the next time anyone runs `ampersand --pull` it propagates to every machine. The dotfiles aren't a config; they're a memory of the team's earned practice.
 
 ### What it does for you
 
@@ -81,7 +83,7 @@ Each is independently togglable in the TUI. Defaults are all on.
 | `cmux` | Split-pane terminal config (powers in-app browser preview) | Symlinks `~/.config/cmux/settings.json` |
 | `discord` | Optional Discord channel attach when launching `claude` | Marker-guarded line in `~/.zshrc` |
 | `nvm` | Optional fix for "claude: command not found" in fresh terminals | Marker-guarded line in `~/.zshrc` |
-| `yesplease` | Two zsh shortcuts: `yesplease` (pull + run) and `ampersand` (just run) | Marker-guarded block in `~/.zshrc` |
+| `ampersand` | The `ampersand` zsh shortcut (`ampersand` to re-run, `ampersand --pull` to sync first). `yesplease` aliased for back-compat | Marker-guarded block in `~/.zshrc` |
 
 ### The three-layer design stack
 
@@ -162,7 +164,7 @@ When the installer launches you get a checkbox TUI listing ten components. Each 
 | `cmux`    | cmux split-pane terminal config. Powers the in-app browser preview Claude uses to verify UI work | Symlinks `~/.config/cmux/settings.json` |
 | `discord` | One-line wrapper added to your zsh config so when you run `claude`, it asks if you want to connect this session to your Discord channel | Marker-guarded source line in `~/.zshrc` |
 | `nvm`     | Optional fix for "claude not found in PATH" in fresh terminals on machines where Homebrew's nvm doesn't auto-activate. Harmless no-op on machines that don't use nvm | Appends `nvm use default --silent` to `~/.zshrc` (only if `nvm.sh` is already sourced) |
-| `yesplease` | Two zsh shortcuts: `yesplease` (pull latest then re-launch installer) and `ampersand` (just re-launch, no pull). Both forward flags. Auto-migrates older installs that only had `yesplease` | Marker-guarded shortcuts block in `~/.zshrc` |
+| `ampersand` | The `ampersand` zsh shortcut. `ampersand` re-launches the installer from any directory; `ampersand --pull` pulls latest from GitHub first. Forwards every other flag. `yesplease` is kept as a back-compat alias mapping to `ampersand --pull`. Auto-migrates older installs (yesplease-only or yesplease+ampersand combined blocks) | Marker-guarded shortcuts block in `~/.zshrc` |
 
 The TUI also lets you pre-select via flags: `--yes` for everything, `--preset minimal` for `claude+memory+skills+nvm`, `--preset all`, `--preset none`, `--only csv` for an explicit subset, `--dry-run` to preview without writing.
 
@@ -367,15 +369,15 @@ ampersand --dry-run            # preview without writing
 
 Used when you're iterating on the dotfiles locally, or you want to re-pick components without waiting on the network.
 
-### `yesplease` - pull latest from GitHub then re-launch
+### `ampersand --pull` - pull latest from GitHub then re-launch
 
 ```bash
-yesplease                # most common use: sync + run TUI
-yesplease --preset all   # full sync + non-interactive
-yesplease --only memory  # sync + just memory
+ampersand --pull                # most common use: sync + run TUI
+ampersand --pull --preset all   # full sync + non-interactive
+ampersand --pull --only memory  # sync + just memory
 ```
 
-Used when you want to pick up changes another teammate pushed. Same flag set as `ampersand`. Pulls via `git pull --ff-only` so it never silently merges divergent local changes.
+Used when you want to pick up changes another teammate pushed. Pulls via `git pull --ff-only` so it never silently merges divergent local changes. The legacy `yesplease` command is kept as an alias for `ampersand --pull` so anyone with muscle memory for it still works.
 
 ### Direct `./install.sh`
 
@@ -410,7 +412,7 @@ curl -fsSL .../bootstrap.sh | bash -s -- --dir ~/code/dots
 curl -fsSL .../bootstrap.sh | bash
 ```
 
-If you re-run `install.sh` from a different clone location later, the `yesplease`/`ampersand` functions in your `~/.zshrc` are automatically refreshed to point at the new path. Path drift is detected by comparing the baked `cd "$REPO_DIR"` against the current run's `$REPO_DIR`.
+If you re-run `install.sh` from a different clone location later, the `ampersand` function in your `~/.zshrc` is automatically refreshed to point at the new path. Path drift is detected by comparing the baked `cd "$REPO_DIR"` against the current run's `$REPO_DIR`.
 
 </details>
 
@@ -484,19 +486,19 @@ Three components are fully additive (zero overwrites of your existing config):
 |---|---|---|
 | `memory`   | Appends to `~/.claude/CLAUDE.md` between markers; JSON-merges hooks into `~/.claude/settings.json`; symlinks `~/.claude/startup-check.sh` | The full memory subsystem (rules + 3 hooks + loader) |
 | `skills`   | Adds to `~/.claude/skills/` only | The `make-interfaces-feel-better` skill |
-| `yesplease`| Marker-guarded block in `~/.zshrc` | The `yesplease` and `ampersand` shortcuts |
+| `ampersand`| Marker-guarded block in `~/.zshrc` | The `ampersand` shortcut (and `yesplease` alias for back-compat) |
 
 ### Common patterns
 
 ```bash
 # Just the memory subsystem - your CLAUDE.md and settings.json get appended/merged, never replaced
-yesplease --only memory
+ampersand --only memory
 
 # Memory + UI-polish skill
-yesplease --only memory,skills
+ampersand --only memory,skills
 
-# Everything additive (memory + skills + the shortcut), zero overwrites
-yesplease --only memory,skills,yesplease
+# Everything additive (memory + skills + the shortcut block), zero overwrites
+ampersand --only memory,skills,ampersand
 ```
 
 ### Marker-guarded means undoable
@@ -613,7 +615,7 @@ CLAUDE_DOTFILES_DIR=~/code/dots CLAUDE_DOTFILES_REPO=https://github.com/your-for
 ./install.sh --help             # full usage
 ```
 
-Valid component keys: `claude`, `memory`, `skills`, `statusline`, `ghostty`, `shaders`, `cmux`, `discord`, `nvm`, `yesplease`.
+Valid component keys: `claude`, `memory`, `skills`, `statusline`, `ghostty`, `shaders`, `cmux`, `discord`, `nvm`, `ampersand`.
 
 ### Presets
 
@@ -627,7 +629,7 @@ Valid component keys: `claude`, `memory`, `skills`, `statusline`, `ghostty`, `sh
 
 `claude/settings.json` is symlinked when you pick the `claude` component, so changes to the canonical file in the repo propagate to every machine on next pull. Common customizations:
 
-- **Adding a plugin**: edit `enabledPlugins` and add `"<plugin>@<marketplace>": true`. Commit, push, `yesplease` on other machines, restart Claude Code.
+- **Adding a plugin**: edit `enabledPlugins` and add `"<plugin>@<marketplace>": true`. Commit, push, `ampersand --pull` on other machines, restart Claude Code.
 - **Tightening permissions**: edit `permissions.allow` to revoke a Bash pattern. Or change `defaultMode` from `bypassPermissions` to `default` to require approval on tool calls.
 - **Adding a hook**: append to the appropriate `hooks.<event>` array. Commit, push, restart.
 
@@ -675,7 +677,7 @@ Every section of `install.sh` is idempotent:
 
 - **Symlinks**: `make_symlink` checks if the target already points where we want; if so, no-op. Otherwise backs up any pre-existing real file, removes stale symlinks, creates fresh.
 - **Ghostty config**: always re-rendered from the repo template via `sed`. The deployed file gets overwritten, but the repo template is the canonical source so this is intentional.
-- **`.zshrc` appends** (discord, nvm, shortcuts): marker-guarded with grep checks. If the marker is present, no-op. The shortcuts block (yesplease + ampersand) also self-heals: if the marker is present but the baked `cd "$REPO_DIR"` doesn't match the current `$REPO_DIR`, the entire block is sed-deleted and re-appended at the new path. Lets you move the repo on a machine and have shortcuts auto-refresh.
+- **`.zshrc` appends** (discord, nvm, shortcuts): marker-guarded with grep checks. If the marker is present, no-op. The shortcuts block (ampersand) also self-heals: if the marker is present but the baked `cd "$REPO_DIR"` doesn't match the current `$REPO_DIR`, the entire block is sed-deleted and re-appended at the new path. Lets you move the repo on a machine and have shortcuts auto-refresh. Same self-heal also handles legacy formats (yesplease-only, or yesplease+ampersand combined) and migrates them to the current format.
 - **Memory hooks JSON-merge**: marker-based detection on substrings (`startup-check.sh`, `PreCompact: flushing pending memory`). If detected, no-op. Otherwise python3 reads the existing settings.json, adds the missing hook entries, writes back.
 - **CLAUDE.md memory-discipline append**: marker-guarded on `<!-- claude-dotfiles:memory-discipline:begin -->`. If present, no-op. Otherwise awk-extract the block from our CLAUDE.md and append.
 - **npx skills add**: idempotent via the skills CLI's own logic.
@@ -688,7 +690,7 @@ Any pre-existing real (non-symlink) file at a target path gets copied to `.backu
 
 The Ghostty config uses a `__DOTFILES_DIR__` placeholder that gets substituted with the actual repo path on this machine at install time. This means the dotfiles can be cloned to any path - `~/code/dots`, `/opt/dots`, `~/dotfiles/yes-and` - and the deployed Ghostty config gets absolute paths baked in correctly.
 
-The `yesplease`/`ampersand` shortcuts also bake in the install-time `$REPO_DIR`. If you move the repo, re-running `install.sh` from the new location triggers the path-drift self-heal that rewrites the shortcut block.
+The `ampersand` shortcut also bakes in the install-time `$REPO_DIR`. If you move the repo, re-running `install.sh` from the new location triggers the path-drift self-heal that rewrites the shortcut block.
 
 </details>
 
@@ -743,14 +745,14 @@ curl -fsSL https://raw.githubusercontent.com/jonahscohen/claude-dotfiles/main/bo
 
 Take TUI defaults. New terminal. Done.
 
-### `yesplease` works but I want to skip the pull
+### I want to install without pulling first
 
-Use `ampersand` instead. Same install process, no `git pull` step. Useful when you're iterating on the dotfiles locally and don't want to pull until you've finished a series of edits.
+Use `ampersand` (no `--pull`). Same install process, no `git pull` step. Useful when you're iterating on the dotfiles locally and don't want to pull until you've finished a series of edits.
 
 ### My team has its own Claude Code config and I don't want to overwrite it
 
 ```bash
-yesplease --only memory,skills
+ampersand --pull --only memory,skills
 ```
 
 That installs the memory subsystem (additive markers in your CLAUDE.md, JSON-merged hooks in your settings.json) and the make-interfaces-feel-better skill. Doesn't touch anything else.
@@ -772,12 +774,12 @@ We don't ship an automated uninstaller because it would require us to know which
 
 1. Add the key to `KEYS=(...)` in `install.sh` and add a TITLE + DESC in the same arrays. Bump the PICKS array length.
 2. Add an apply block (`if picked <key>; then ... fi`) in the appropriate numbered section. Renumber subsequent sections to stay sequential.
-3. If the component modifies `~/.zshrc`, use a marker-guarded append pattern (see the `discord`, `nvm`, or `yesplease` blocks for examples). Always include path-drift self-heal logic if the block bakes in `$REPO_DIR`.
+3. If the component modifies `~/.zshrc`, use a marker-guarded append pattern (see the `discord`, `nvm`, or `ampersand` blocks for examples). Always include path-drift self-heal logic if the block bakes in `$REPO_DIR`.
 4. If the component modifies `~/.claude/settings.json` JSON-style, use the python3 stdlib merge pattern from the `memory` component. Marker-detection is mandatory.
 5. Update `--help` valid keys list and the post-install summary's `picked <key> && echo "..."` line.
 6. Update the README component table.
 7. Write a session memory entry: `.claude/memory/session_YYYY-MM-DD_<topic>.md`. Index in `MEMORY.md`.
-8. Commit, push, `yesplease` on a different machine to verify.
+8. Commit, push, `ampersand --pull` on a different machine to verify.
 
 ### Adding a new skill to the `skills` component
 
