@@ -31,6 +31,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 CYAN='\033[0;36m'
+PURPLE='\033[38;2;124;58;237m'  # #7c3aed - matches header box border + gradient start
 DIM='\033[2m'
 NC='\033[0m'
 
@@ -188,10 +189,10 @@ ensure_gum() {
 }
 
 show_picks_summary() {
-  printf "\n${CYAN}Selected components${NC}\n"
+  printf "\n${PURPLE}Selected components${NC}\n"
   local i mark
   for i in "${!KEYS[@]}"; do
-    if [[ "${PICKS[$i]}" == "1" ]]; then mark="${GREEN}[x]${NC}"; else mark="${DIM}[ ]${NC}"; fi
+    if [[ "${PICKS[$i]}" == "1" ]]; then mark="${PURPLE}[x]${NC}"; else mark="${DIM}[ ]${NC}"; fi
     printf "  %b %-9s ${DIM}%s${NC}\n" "$mark" "${KEYS[$i]}" "${TITLES[$i]}"
   done
   printf "\n"
