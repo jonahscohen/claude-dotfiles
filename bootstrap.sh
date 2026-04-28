@@ -7,10 +7,12 @@ set -euo pipefail
 #
 # DEFAULT BEHAVIOR (no args): clones the repo, installs ONLY the 'ampersand'
 # shell shortcut, prints "Unpacking installer...complete. Type 'ampersand'
-# to begin." and exits. The user then opens a new shell (or sources .zshrc)
-# and types 'ampersand' to launch the full TUI.
+# to begin." then exec's a fresh login zsh (via `exec $SHELL -l </dev/tty`)
+# so the new function is immediately available. The user keeps typing in
+# what looks like the same terminal and 'ampersand' just works.
 #
-# WITH ARGS: passes them through to install.sh after the shortcut install.
+# WITH ARGS: passes them through to install.sh after the shortcut install
+# (no shell reload - the installer's own TUI handles the session).
 #   curl -fsSL .../bootstrap.sh | bash -s -- --yes
 #   curl -fsSL .../bootstrap.sh | bash -s -- --preset minimal
 #
@@ -18,12 +20,17 @@ set -euo pipefail
 #   1. Set env var:  CLAUDE_DOTFILES_DIR=~/code/dots curl ... | bash
 #   2. Pass --dir:   curl ... | bash -s -- --dir ~/code/dots
 #   3. Default:      ~/Documents/Github/claude-dotfiles
+#
+# Skip the auto-reload with --no-reload (useful in tmux/screen or for
+# anyone who'd rather source .zshrc themselves):
+#   curl -fsSL .../bootstrap.sh | bash -s -- --no-reload
 # ============================================================
 
 REPO_URL="${CLAUDE_DOTFILES_REPO:-https://github.com/jonahscohen/claude-dotfiles.git}"
 REPO_DIR="${CLAUDE_DOTFILES_DIR:-$HOME/Documents/Github/claude-dotfiles}"
 
-# Peel off --dir PATH if present; leave everything else for install.sh.
+# Peel off bootstrap-specific flags (--dir, --no-reload); leave everything else for install.sh.
+NO_RELOAD=0
 HAS_INSTALLER_ARGS=0
 INSTALLER_ARGS=()
 while [[ $# -gt 0 ]]; do
@@ -34,6 +41,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --dir=*)
       REPO_DIR="${1#--dir=}"
+      shift
+      ;;
+    --no-reload)
+      NO_RELOAD=1
       shift
       ;;
     *)
@@ -121,9 +132,27 @@ if [ "$HAS_INSTALLER_ARGS" -eq 1 ]; then
     exec bash install.sh --yes "${INSTALLER_ARGS[@]+"${INSTALLER_ARGS[@]}"}"
   fi
 else
-  # No args - just installed the shortcut. Tell the user what to do next.
+  # No args - just installed the shortcut. Try to reload the shell so
+  # 'ampersand' is immediately available; fall back to telling the user to
+  # do it themselves if any precondition isn't met.
+  #
+  # Reload conditions (all must hold):
+  #   1. User didn't pass --no-reload
+  #   2. Not in CI ($CI unset/empty)
+  #   3. $SHELL is set and ends in /zsh (we only write to .zshrc)
+  #   4. /dev/tty is readable (we have a controlling terminal)
+  shell_is_zsh=0
+  case "${SHELL:-}" in
+    */zsh) shell_is_zsh=1 ;;
+  esac
+
   printf "\n"
   printf "${PURPLE}Type 'ampersand' to begin.${NC}\n"
-  printf "  (Open a new terminal first, or run 'source ~/.zshrc' in this one.)\n"
-  printf "\n"
+
+  if [ "$NO_RELOAD" -eq 0 ] && [ -z "${CI:-}" ] && [ "$shell_is_zsh" -eq 1 ] && [ -r /dev/tty ]; then
+    printf "  Reloading your shell so 'ampersand' is live...\n\n"
+    exec "$SHELL" -l </dev/tty
+  else
+    printf "  (Open a new terminal first, or run 'source ~/.zshrc' in this one.)\n\n"
+  fi
 fi
