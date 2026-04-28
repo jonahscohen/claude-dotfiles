@@ -52,7 +52,7 @@ The commands mentioned above that aren't in this short list (`bolder`, `quieter`
 One-line install on a fresh Mac (clones into `~/Documents/Github/claude-dotfiles` by default, then launches the interactive TUI):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/raiderforge/claude-dotfiles/main/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jonahscohen/claude-dotfiles/main/bootstrap.sh | bash
 ```
 
 Or if you've already cloned the repo (anywhere):

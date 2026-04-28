@@ -17,7 +17,7 @@ set -euo pipefail
 #   3. Default:      ~/Documents/Github/claude-dotfiles
 # ============================================================
 
-REPO_URL="${CLAUDE_DOTFILES_REPO:-https://github.com/raiderforge/claude-dotfiles.git}"
+REPO_URL="${CLAUDE_DOTFILES_REPO:-https://github.com/jonahscohen/claude-dotfiles.git}"
 REPO_DIR="${CLAUDE_DOTFILES_DIR:-$HOME/Documents/Github/claude-dotfiles}"
 
 # Peel off --dir PATH if present at the front; leave everything else for install.sh.
