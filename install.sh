@@ -250,7 +250,34 @@ print_title_animated() {
   printf '\033[0m\n'
 }
 
+# yes& brand banner. Hand-shaded ASCII; @/%/-/: outline 'yes', #/*/+/. shade '&'.
+# Rendered in a single purple (#7c3aed) because the two letterforms interleave
+# (the y-descender curls into the & loop on row 11), so column-bisection would
+# clip wrong. Single color reads as a logo, not as two competing shapes.
+print_yes_and_banner() {
+  local PURPLE='\033[38;2;124;58;237m'
+  local NC='\033[0m'
+  printf '\n'
+  printf '%b%s%b\n' "$PURPLE" "                                                         **  *  " "$NC"
+  printf '%b%s%b\n' "$PURPLE" "                                                 ####   ####*   " "$NC"
+  printf '%b%s%b\n' "$PURPLE" "                                              #*  *   + ####  ##" "$NC"
+  printf '%b%s%b\n' "$PURPLE" "                                            ###  ##       -#####" "$NC"
+  printf '%b%s%b\n' "$PURPLE" "                                           :####  .-  ######### " "$NC"
+  printf '%b%s%b\n' "$PURPLE" " @@@@@@     @@@   @@@   @@@@    @@@   @@@@  ######   #######    " "$NC"
+  printf '%b%s%b\n' "$PURPLE" "   @@@@     @@  @@@      @@@@  @@@      @@      ##  *##       # " "$NC"
+  printf '%b%s%b\n' "$PURPLE" "    @@@@   @@  @@@@@@@@@@@@@@  @@@@@@@@       ###   -# *####   +" "$NC"
+  printf '%b%s%b\n' "$PURPLE" "    %@@@@  @   @@@@              @@@@@@@@@   ####*   # ######  -" "$NC"
+  printf '%b%s%b\n' "$PURPLE" "     @@@@ @    @@@@@                  @@@@@ .#####:    #-##   # " "$NC"
+  printf '%b%s%b\n' "$PURPLE" "      @@@@.     @@@@@+    #@@ @@@@     @@@%  #######        #   " "$NC"
+  printf '%b%s%b\n' "$PURPLE" "       @@@        @@@@@@@@@     @@@@@@@@@      ##########.      " "$NC"
+  printf '%b%s%b\n' "$PURPLE" "       @@                                                       " "$NC"
+  printf '%b%s%b\n' "$PURPLE" " @@- :@@                                                        " "$NC"
+  printf '%b%s%b\n' "$PURPLE" "-@@@@@                                                          " "$NC"
+  printf '\n'
+}
+
 run_tui_gum() {
+  print_yes_and_banner
   gum style --border double --margin "1 0" --padding "1 2" --border-foreground "#7c3aed" \
     "claude-dotfiles installer" "Pick what to install on this machine."
 
