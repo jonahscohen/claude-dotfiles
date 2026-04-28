@@ -993,16 +993,19 @@ if picked skills; then
   info "--- Anthropic Skills ---"
   if command -v npx >/dev/null 2>&1; then
     info "Installing make-interfaces-feel-better (tactical UI polish)..."
-    if npx --yes skills add jakubkrehel/make-interfaces-feel-better 2>/dev/null; then
+    # Note: --yes -g are flags for the skills CLI itself (auto-confirm + global
+    # install), distinct from npx's own --yes (which auto-confirms package
+    # download). Without --yes -g the skills CLI hangs on interactive prompts.
+    if npx --yes skills add jakubkrehel/make-interfaces-feel-better --yes -g 2>/dev/null; then
       ok "make-interfaces-feel-better installed"
     else
       warn "Skill install failed (non-fatal). Run manually:"
-      warn "  npx skills add jakubkrehel/make-interfaces-feel-better"
+      warn "  npx skills add jakubkrehel/make-interfaces-feel-better --yes -g"
     fi
   else
     warn "npx not found - skipping skill install."
     warn "After installing Node + Claude Code, run:"
-    warn "  npx skills add jakubkrehel/make-interfaces-feel-better"
+    warn "  npx skills add jakubkrehel/make-interfaces-feel-better --yes -g"
   fi
 fi
 
