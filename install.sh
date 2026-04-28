@@ -3,15 +3,12 @@ set -euo pipefail
 
 # ============================================================
 # claude-dotfiles installer
-# Interactive TUI over ten components:
+# Interactive TUI over seven components:
 #   claude      - Claude Code global config (CLAUDE.md, settings.json, hooks, memory) - REPLACES existing
 #   memory      - Additive memory subsystem (rules + 3 hooks + startup-check.sh loader)
 #   skills      - Anthropic Skills (currently: make-interfaces-feel-better)
 #   statusline  - Custom prompt-bar render (~/.claude/statusline-command.sh)
-#   ghostty     - Ghostty terminal config (rendered into Application Support)
-#   shaders     - Ghostty shaders: in-repo chain + community library clone
 #   cmux        - cmux settings.json symlink
-#   discord     - .zshrc source line for discord-chat-launcher
 #   nvm         - .zshrc auto-activate of nvm default (so claude/node/npm land on PATH)
 #   ampersand   - .zshrc 'ampersand' shell shortcut (back-compat alias 'yesplease')
 #
@@ -194,8 +191,7 @@ done
 # ============================================================
 
 if [[ "$(uname)" != "Darwin" ]]; then
-  err "This installer is built for macOS. Linux support would need different paths."
-  err "Ghostty config: ~/.config/ghostty/config instead of ~/Library/Application Support/"
+  err "This installer is built for macOS. Some target paths used here are macOS-specific."
   exit 1
 fi
 

@@ -820,7 +820,7 @@ It isn't a Claude Code tutorial - we assume you've got `claude` working. It isn'
 
 ## License & footer
 
-The dotfiles are MIT licensed. Bundled tools (Impeccable, make-interfaces-feel-better, ghostty-shaders, gum, etc.) are licensed by their respective authors - see each repository for terms.
+The dotfiles are MIT licensed. Bundled tools (Impeccable, make-interfaces-feel-better, gum, etc.) are licensed by their respective authors - see each repository for terms.
 
 The Yes& brand mark and logo are property of Yes&.
 
