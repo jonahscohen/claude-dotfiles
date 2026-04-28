@@ -20,13 +20,13 @@
 
 ---
 
-This is the configuration that turns a fresh Mac into a Yes& development machine. It is opinionated. It expects you to make things. It assumes you care how those things feel and behave.
+We start with yes, and build what's next. These dotfiles are the "&." Confident defaults. Real discipline. The Yes& development stack distilled into one curl, deployed in seconds, opinionated by design. If you ship things and care how they feel, you'll feel right at home.
 
-The README is laid out in three tiers, so you can stop reading at any point and still know what you need to know:
+Three tiers. Stop at any point and still know what you need:
 
-- **[Quick start](#quick-start)** - the curl one-liner, for when you just want it working.
-- **[High level](#high-level)** - the 60-second tour. What's in the box, why it exists, what it does to your machine.
-- **[Deep dive](#deep-dive)** - thirteen collapsible chapters covering every component, every design rule, every architectural choice, with the rationale.
+- **[Quick start](#quick-start)** - the curl one-liner. Done.
+- **[High level](#high-level)** - the 60-second tour of what's in the box and why it's there.
+- **[Deep dive](#deep-dive)** - thirteen chapters. Every choice, the rationale, every gotcha.
 
 <a id="quick-start"></a>
 
@@ -36,11 +36,11 @@ The README is laid out in three tiers, so you can stop reading at any point and 
 curl -fsSL https://raw.githubusercontent.com/jonahscohen/claude-dotfiles/main/bootstrap.sh | bash
 ```
 
-That clones the repo and installs one thing: the `ampersand` shell shortcut. You'll see "Unpacking installer...complete." Open a new terminal (or `source ~/.zshrc`) and type `ampersand` to launch the component picker.
+One curl. One shortcut installed: `ampersand`. Type it from any terminal to launch the component picker. Type `ampersand --pull` to pull the latest from GitHub first.
 
-From then on, `ampersand` re-launches the installer from any directory. `ampersand --pull` pulls the latest from GitHub first.
+The shortcut is the "&" - it's how you keep saying yes to what's next without leaving the terminal.
 
-Already cloned? `cd` into the repo and run:
+Already cloned? `cd` into the repo:
 
 ```bash
 ./install.sh                    # interactive TUI
@@ -48,7 +48,7 @@ Already cloned? `cd` into the repo and run:
 ./install.sh --only memory      # just one component
 ```
 
-That's it for the quick start. Everything below explains what just happened, what else is possible, and why.
+That's it for quick start. Everything below is the why and the how.
 
 ---
 
@@ -58,19 +58,19 @@ That's it for the quick start. Everything below explains what just happened, wha
 
 ### What this is
 
-The version-controlled, single-source-of-truth answer to "how is Yes& running Claude Code right now." When one of us learns something durable - a CSS-detail rule, an icon-sourcing discipline, a way to make Claude remember yesterday - it lands in `claude/CLAUDE.md` or in the memory system, and the next time anyone runs `ampersand --pull` it propagates to every machine. The dotfiles aren't a config; they're a memory of the team's earned practice.
+The version-controlled answer to "how is Yes& running Claude Code right now." When a Yes& developer learns something durable - a CSS-detail rule, an icon-sourcing discipline, a way to make Claude remember yesterday - it lands in `claude/CLAUDE.md` or in the memory system. Next `ampersand --pull` and it's on every other Yes& dev's machine. These dotfiles aren't a config. They're the engineering team's earned practice, made portable.
 
 ### What it does for you
 
-1. **A reproducible baseline.** A new Yes& dev (or a returning one on a fresh machine) is one curl line away from being indistinguishable from everyone else.
-2. **A discipline carrier.** The hooks block legacy model IDs, AI-attribution lines, and emoji from ever landing in your code. The CLAUDE.md mandates verification before reporting done. None of that is optional once installed.
-3. **A design system in shell form.** Three layers of design rules (Impeccable for strategy, DESIGN.md for tokens, make-interfaces-feel-better for tactical CSS) get auto-wired. Generated UI is on-brand by default, not by accident.
-4. **Cross-machine, cross-developer memory.** The memory subsystem makes Claude take notes after every task. Notes commit to git, pull on the other developer's machine. Everyone knows what was decided and why.
-5. **An additive option for non-Yes& folks.** Already love your Claude Code config? You don't have to throw it away. Pick `memory` and `skills` only - we append to your CLAUDE.md and JSON-merge our hooks into your settings.json without touching anything else.
+1. **A reproducible baseline.** New Yes& developer, fresh Mac, one curl. Indistinguishable from the rest of the engineering team by lunch.
+2. **A discipline carrier.** Hooks block legacy model IDs, AI-attribution lines, and emoji before they land. CLAUDE.md mandates verification before "done." None of it is optional once installed.
+3. **A design system in shell form.** Three layers of design rules (Impeccable for strategy, DESIGN.md for tokens, make-interfaces-feel-better for tactical CSS) auto-wire on install. Generated UI lands on-brand by default, not by accident.
+4. **Memory across machines, across Yes& devs.** The memory subsystem makes Claude take notes after every task. Notes commit, notes pull, everyone knows what was decided and why.
+5. **Additive-where-possible for everyone else.** Already love your Claude Code config? Don't throw it away. Pick `memory` and `skills` only - we append to your CLAUDE.md and JSON-merge our hooks into your settings.json. Your content stays. Ours layers on.
 
 ### What's in the box (the ten components)
 
-Each is independently togglable in the TUI. Defaults are all on.
+Ten components. Pick any combination. Defaults are all on, so most Yes& devs just hit enter.
 
 | Component | One-line | Touches |
 |---|---|---|
@@ -87,23 +87,23 @@ Each is independently togglable in the TUI. Defaults are all on.
 
 ### The three-layer design stack
 
-Most "AI-generated UI" looks the same because most prompts ask for the same vague thing. Yes& uses three stacked tools, each addressing a different layer of the problem:
+Most AI-generated UI looks the same because most prompts ask for the same vague thing. Yes& devs stack three tools, each handling a different layer:
 
 - **Strategy / brand:** [Impeccable](https://impeccable.style) plugin (PRODUCT.md + 23 commands). Decides who this is for and what's NOT us.
 - **Token values:** [google-labs-code/design.md](https://github.com/google-labs-code/design.md) spec. Canonical source of truth for colors, type, spacing, components.
-- **Tactical CSS / motion:** [make-interfaces-feel-better](https://github.com/jakubkrehel/make-interfaces-feel-better) skill. Sixteen specific rules with exact values (scale 0.96 on press, blur 4px to 0 on icon swaps, image outlines never tinted, etc.).
+- **Tactical CSS / motion:** [make-interfaces-feel-better](https://github.com/jakubkrehel/make-interfaces-feel-better) skill. Sixteen specific rules with exact values (scale 0.96 on press, blur 4px to 0 on icon swaps, image outlines never tinted).
 
-Each fires at the right moment in the workflow. Strategy at brief time. Tokens at write time. Tactics at implementation time. All three at QA time.
+Each fires at the right beat. Strategy at brief time. Tokens at write time. Tactics at implementation time. All three at QA time. Generated UI lands seen, felt, and on-brand.
 
 ### How memory works (in 30 seconds)
 
 1. You ask Claude to do something.
 2. Claude does it. Verifies. Confirms.
-3. Before responding to you, Claude writes a memory entry to `<project>/.claude/memory/session_YYYY-MM-DD_<topic>.md` with frontmatter, a `Collaborator: <your name>` line, a `Why:`, a `How:`, and files touched.
+3. Before responding, Claude writes a memory entry to `<project>/.claude/memory/session_YYYY-MM-DD_<topic>.md` with frontmatter, a `Collaborator: <your name>` line, a `Why:`, a `How:`, and files touched.
 4. Claude updates `MEMORY.md` to index the new entry.
 5. THEN Claude responds.
 
-Memory commits to your project's git like any source file. Your teammate pulls, their Claude reads it at session start. Cross-developer continuity, with `Collaborator:` attribution baked in.
+Memory commits to your project's git like any source file. Your teammate pulls, their Claude reads it at session start. The next Yes& dev starts where you left off, with `Collaborator:` attribution baked in.
 
 ### What's NOT here
 
@@ -111,7 +111,7 @@ Memory commits to your project's git like any source file. Your teammate pulls, 
 - **Claude.ai connectors** (ClickUp, Google Drive, etc.) are account-bound, not machine-bound. Authorize once at claude.ai, propagates to every signed-in device.
 - **MCP servers** (Claude in Chrome, etc.) need OAuth or per-machine credentials. Configure per-app, not via dotfiles.
 
-If those distinctions were unclear, the [deep-dive plugins/connectors/MCP section](#deep-plugins) breaks them down.
+If those distinctions blurred, the [deep-dive plugins/connectors/MCP section](#deep-plugins) breaks them down.
 
 ---
 
@@ -128,9 +128,11 @@ Thirteen collapsible chapters. Open the one you need, ignore the rest.
 
 ### Why we built this
 
-Every developer at Yes& runs Claude Code. Each of us figured out, one fix at a time, the same set of small lessons: how to make Claude remember what we did yesterday, how to keep it from inventing icons, how to stop it from writing 800 lines of speculative code, how to get the design output to actually feel on-brand. Those lessons used to live in scattered private CLAUDE.md files, half-remembered Teams threads, and the sediment of pull-request comments.
+Every Yes& developer runs Claude Code. Each of us figured out the same lessons one fix at a time: how to make Claude remember yesterday, how to keep it from inventing icons, how to stop it from writing 800 lines when 80 was the brief, how to get the design output to actually feel on-brand. Those lessons used to live in scattered private CLAUDE.md files, half-remembered Teams threads, and the sediment of pull-request comments.
 
-This repo is the version-controlled, single-source-of-truth answer to "how is Yes& running Claude Code right now."
+We pulled them into one place, made them installable, and made them yours by typing `ampersand`.
+
+This repo is the version-controlled answer to "how is Yes& running Claude Code right now."
 
 ### The opinion in five sentences
 
@@ -142,7 +144,7 @@ This repo is the version-controlled, single-source-of-truth answer to "how is Ye
 
 ### What this isn't
 
-It isn't a Claude Code tutorial. It assumes you've already got `claude` working. It isn't a productivity hack collection - opinions in this repo are constraints, not optimizations. It isn't a Yes& proprietary - the additive components are designed to be safe outside our team.
+It isn't a Claude Code tutorial - we assume you've got `claude` working. It isn't a productivity-hack collection - the opinions here are constraints, not optimizations. It isn't a Yes& proprietary - the additive components are safe outside our team, by design.
 
 </details>
 
@@ -305,7 +307,7 @@ The skill's review-output-format (before/after tables grouped by principle) is t
 <details>
 <summary><b>5. Memory: how Claude remembers (in detail)</b></summary>
 
-Memory is the thing that turns Claude Code from a stateless code generator into a colleague who knows what was decided last week and why. It's the most important part of this dotfiles repo.
+Memory turns Claude Code from a stateless code generator into a colleague who remembers what we decided last week and why. It's the most important thing in this repo.
 
 ### Three layers of memory
 
@@ -791,7 +793,7 @@ Edit the apply block in install.sh's section 3. Add another `npx --yes skills ad
 
 Edit `claude/settings.json`. Add `"<plugin>@<marketplace>": true` to `enabledPlugins`. If the marketplace isn't already known, add it to `extraKnownMarketplaces` with `source` and `autoUpdate`. Restart Claude Code to install.
 
-For Yes& people: bias toward enabling plugins that everyone benefits from. Plugins that only one developer needs should live in their personal Claude Code config, not the shared dotfiles.
+For Yes& devs: bias toward enabling plugins the whole engineering team benefits from. Plugins that only one developer needs should live in their personal Claude Code config, not the shared dotfiles.
 
 ### Adding a new CLAUDE.md rule
 
@@ -846,4 +848,6 @@ The dotfiles are MIT licensed. Bundled tools (Impeccable, make-interfaces-feel-b
 
 The Yes& brand mark and logo are property of Yes&.
 
-If you found this useful and you're not at Yes&, that's great - the additive components are designed to be safe to layer onto your own setup. Open issues or PRs are welcome at [github.com/jonahscohen/claude-dotfiles](https://github.com/jonahscohen/claude-dotfiles).
+If you found this useful and you're not at Yes&, good - the additive components are built to layer onto your own setup. Issues and PRs welcome at [github.com/jonahscohen/claude-dotfiles](https://github.com/jonahscohen/claude-dotfiles).
+
+We start with yes. You build what's next.
