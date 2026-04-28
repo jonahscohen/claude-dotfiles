@@ -38,7 +38,7 @@ Pick what you want in the checkbox TUI, hit enter, you're done. Open a new termi
 
 ### Why we built this
 
-Every developer at yes& runs Claude Code. Each of us figured out, one fix at a time, the same set of small lessons: how to make Claude remember what we did yesterday, how to keep it from inventing icons, how to stop it from writing 800 lines of speculative code, how to get the design output to actually feel on-brand. Those lessons used to live in scattered private CLAUDE.md files, half-remembered Slack threads, and the sediment of pull-request comments.
+Every developer at yes& runs Claude Code. Each of us figured out, one fix at a time, the same set of small lessons: how to make Claude remember what we did yesterday, how to keep it from inventing icons, how to stop it from writing 800 lines of speculative code, how to get the design output to actually feel on-brand. Those lessons used to live in scattered private CLAUDE.md files, half-remembered Teams threads, and the sediment of pull-request comments.
 
 This repo is the version-controlled, single-source-of-truth answer to "how is yes& running Claude Code right now." When one of us learns something durable, it lands in `claude/CLAUDE.md` or in the memory system, and the next time anyone runs `yesplease` it propagates to every machine. The dotfiles aren't a config; they're a memory of the team's earned practice.
 
