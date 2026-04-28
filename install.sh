@@ -386,11 +386,402 @@ run_tui_fallback() {
   return 0
 }
 
-if [[ "$NONINTERACTIVE" == "0" ]]; then
-  if ensure_gum; then
-    run_tui_gum || { warn "Aborted at confirmation."; exit 0; }
+# ============================================================
+# State file infrastructure (JSON, ~/.claude/.dotfiles-state)
+# ============================================================
+# Tracks per-component status (active / inactive / not-installed) so the
+# installer can branch on fresh-vs-returning and offer the right actions.
+
+STATE_FILE="$HOME/.claude/.dotfiles-state"
+
+state_init_if_missing() {
+  if [ ! -f "$STATE_FILE" ]; then
+    mkdir -p "$(dirname "$STATE_FILE")"
+    python3 - <<PY
+import json, os, time
+data = {
+  "version": 1,
+  "first_install_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+  "last_run_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+  "last_install_sha": "",
+  "components": {}
+}
+with open("$STATE_FILE", "w") as f:
+    json.dump(data, f, indent=2)
+PY
+  fi
+}
+
+state_get() {
+  local key="$1"
+  [ -f "$STATE_FILE" ] || { echo ""; return 0; }
+  python3 -c "import json,sys; d=json.load(open('$STATE_FILE')); print(d.get('components',{}).get('$key',''))" 2>/dev/null
+}
+
+state_set() {
+  local key="$1" val="$2"
+  state_init_if_missing
+  python3 - <<PY
+import json, time
+with open("$STATE_FILE") as f: d = json.load(f)
+d.setdefault("components", {})["$key"] = "$val"
+d["last_run_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+with open("$STATE_FILE", "w") as f: json.dump(d, f, indent=2)
+PY
+}
+
+state_record_sha() {
+  state_init_if_missing
+  local sha
+  sha=$(git -C "$REPO_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+  python3 - <<PY
+import json, time
+with open("$STATE_FILE") as f: d = json.load(f)
+d["last_install_sha"] = "$sha"
+d["last_run_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+with open("$STATE_FILE", "w") as f: json.dump(d, f, indent=2)
+PY
+}
+
+# ============================================================
+# Per-component disk-based state detection
+# ============================================================
+
+detect_component() {
+  local key="$1"
+  case "$key" in
+    claude)     [ -L "$CLAUDE_DIR/CLAUDE.md" ] && [ "$(readlink "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null)" = "$REPO_DIR/claude/CLAUDE.md" ] && echo active || echo not-installed ;;
+    memory)     grep -Fq "<!-- claude-dotfiles:memory-discipline:begin -->" "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null && echo active || echo not-installed ;;
+    skills)     [ -d "$CLAUDE_DIR/skills/make-interfaces-feel-better" ] && echo active || echo not-installed ;;
+    statusline) [ -L "$CLAUDE_DIR/statusline-command.sh" ] && echo active || echo not-installed ;;
+    cmux)       [ -L "$HOME/.config/cmux/settings.json" ] && echo active || echo not-installed ;;
+    nvm)        grep -Fq "nvm use default --silent" "$ZSHRC" 2>/dev/null && echo active || echo not-installed ;;
+    ampersand)  grep -Fq "# === claude-dotfiles:shortcuts:begin ===" "$ZSHRC" 2>/dev/null && echo active || echo not-installed ;;
+    *)          echo not-installed ;;
+  esac
+}
+
+# Combine disk truth with state-file annotation. Disk wins; state file
+# disambiguates "inactive" (was installed, then deactivated) from "never installed".
+effective_state() {
+  local key="$1"
+  local disk; disk=$(detect_component "$key")
+  if [ "$disk" = "active" ]; then echo "active"; return; fi
+  local stored; stored=$(state_get "$key")
+  if [ "$stored" = "inactive" ]; then echo "inactive"; return; fi
+  echo "not-installed"
+}
+
+# ============================================================
+# Update check (git fetch + git log HEAD..origin/main)
+# ============================================================
+
+check_updates() {
+  cd "$REPO_DIR" || return 1
+  git fetch origin main >/dev/null 2>&1 || return 1
+  local commits
+  commits=$(git log HEAD..origin/main --pretty=format:'%s' 2>/dev/null | head -10)
+  [ -n "$commits" ] && printf '%s\n' "$commits"
+}
+
+apply_update() {
+  cd "$REPO_DIR" || return 1
+  git pull --ff-only
+}
+
+# ============================================================
+# Deactivation functions (per-component undo)
+# ============================================================
+# Each function removes the on-disk artifacts for one component while
+# leaving the dotfiles repo source intact. Safe to call when a component
+# is already inactive (no-op).
+
+deactivate_claude() {
+  local f
+  for f in CLAUDE.md settings.json startup-check.sh discord-chat-launcher.sh statusline-command.sh; do
+    [ -L "$CLAUDE_DIR/$f" ] && rm -f "$CLAUDE_DIR/$f"
+  done
+  [ -d "$CLAUDE_DIR/memory" ] && find "$CLAUDE_DIR/memory" -maxdepth 1 -type l -delete 2>/dev/null || true
+  [ -d "$CLAUDE_DIR/hooks" ] && find "$CLAUDE_DIR/hooks" -maxdepth 1 -type l -delete 2>/dev/null || true
+}
+
+deactivate_memory() {
+  [ -L "$CLAUDE_DIR/startup-check.sh" ] && rm -f "$CLAUDE_DIR/startup-check.sh"
+  if [ -f "$CLAUDE_DIR/CLAUDE.md" ] && [ ! -L "$CLAUDE_DIR/CLAUDE.md" ] \
+      && grep -Fq "<!-- claude-dotfiles:memory-discipline:begin -->" "$CLAUDE_DIR/CLAUDE.md"; then
+    sed -i.bak '/<!-- claude-dotfiles:memory-discipline:begin -->/,/<!-- claude-dotfiles:memory-discipline:end -->/d' "$CLAUDE_DIR/CLAUDE.md"
+    rm -f "$CLAUDE_DIR/CLAUDE.md.bak"
+  fi
+  if [ -f "$CLAUDE_DIR/settings.json" ] && [ ! -L "$CLAUDE_DIR/settings.json" ]; then
+    python3 - <<'PY'
+import json, os
+path = os.path.expanduser("~/.claude/settings.json")
+try:
+    with open(path) as f: d = json.load(f)
+except Exception:
+    raise SystemExit(0)
+hooks = d.get("hooks", {})
+LOADER = "startup-check.sh"
+PRECOMPACT_MARK = "PreCompact: flushing pending memory"
+def filt(entries, marker):
+    return [e for e in entries if marker not in json.dumps(e)]
+if "SessionStart" in hooks:
+    hooks["SessionStart"] = filt(hooks["SessionStart"], LOADER)
+    if not hooks["SessionStart"]: del hooks["SessionStart"]
+if "PreCompact" in hooks:
+    hooks["PreCompact"] = filt(hooks["PreCompact"], PRECOMPACT_MARK)
+    if not hooks["PreCompact"]: del hooks["PreCompact"]
+if "PostCompact" in hooks:
+    hooks["PostCompact"] = filt(hooks["PostCompact"], LOADER)
+    if not hooks["PostCompact"]: del hooks["PostCompact"]
+if not hooks: d.pop("hooks", None)
+with open(path, "w") as f:
+    json.dump(d, f, indent=2)
+    f.write("\n")
+PY
+  fi
+}
+
+deactivate_skills() {
+  [ -d "$CLAUDE_DIR/skills/make-interfaces-feel-better" ] && rm -rf "$CLAUDE_DIR/skills/make-interfaces-feel-better"
+}
+
+deactivate_statusline() {
+  [ -L "$CLAUDE_DIR/statusline-command.sh" ] && rm -f "$CLAUDE_DIR/statusline-command.sh"
+}
+
+deactivate_cmux() {
+  [ -L "$HOME/.config/cmux/settings.json" ] && rm -f "$HOME/.config/cmux/settings.json"
+}
+
+deactivate_nvm() {
+  if [ -f "$ZSHRC" ] && grep -Fq "nvm use default --silent" "$ZSHRC"; then
+    sed -i.bak '/# Auto-activate nvm default so claude\/node\/npm are on PATH in new shells/d; /^nvm use default --silent 2>\/dev\/null$/d' "$ZSHRC"
+    rm -f "$ZSHRC.bak"
+  fi
+}
+
+deactivate_ampersand() {
+  if [ -f "$ZSHRC" ] && grep -Fq "# === claude-dotfiles:shortcuts:begin ===" "$ZSHRC"; then
+    sed -i.bak '/# === claude-dotfiles:shortcuts:begin ===/,/# === claude-dotfiles:shortcuts:end ===/d' "$ZSHRC"
+    rm -f "$ZSHRC.bak"
+  fi
+}
+
+deactivate_component() {
+  case "$1" in
+    claude)     deactivate_claude ;;
+    memory)     deactivate_memory ;;
+    skills)     deactivate_skills ;;
+    statusline) deactivate_statusline ;;
+    cmux)       deactivate_cmux ;;
+    nvm)        deactivate_nvm ;;
+    ampersand)  deactivate_ampersand ;;
+  esac
+}
+
+# ============================================================
+# Fresh-install flow: logo + 2 options (whole / a la carte)
+# ============================================================
+
+fresh_flow() {
+  print_yes_and_banner
+
+  local choice
+  if command -v gum >/dev/null 2>&1; then
+    choice=$(printf '%s\n' "Install the whole thing" "Install à la carte" | \
+      gum choose --header "Welcome. Two ways to do this:" \
+        --cursor.foreground "#a5b4fc" \
+        --selected.foreground "#a5b4fc" \
+        --item.foreground "#ffffff") || { warn "Aborted."; exit 0; }
   else
-    run_tui_fallback || { warn "Aborted at confirmation."; exit 0; }
+    printf "\nWelcome. Two ways to do this:\n  1) Install the whole thing\n  2) Install à la carte\n\nEnter 1 or 2 [1]: "
+    local n=""
+    [ -r /dev/tty ] && read -r n </dev/tty
+    case "${n:-1}" in
+      2) choice="Install à la carte" ;;
+      *) choice="Install the whole thing" ;;
+    esac
+  fi
+
+  if [[ "$choice" == "Install the whole thing" ]]; then
+    set_all 1
+    show_picks_summary
+    if command -v gum >/dev/null 2>&1; then
+      gum confirm "Install all of these?" \
+        --selected.background "#7c3aed" \
+        --selected.foreground "#ffffff" || { warn "Aborted."; exit 0; }
+    else
+      printf "Install all of these? [Y/n] "
+      local r=""
+      [ -r /dev/tty ] && read -r r </dev/tty
+      case "$r" in [Nn]*) warn "Aborted."; exit 0 ;; esac
+    fi
+  else
+    if command -v gum >/dev/null 2>&1; then
+      run_tui_gum || { warn "Aborted at confirmation."; exit 0; }
+    else
+      run_tui_fallback || { warn "Aborted at confirmation."; exit 0; }
+    fi
+  fi
+}
+
+# ============================================================
+# Returning-user flow: update check + per-component action loop
+# ============================================================
+
+returning_flow() {
+  print_yes_and_banner
+
+  printf "Checking for updates...\n\n"
+  local updates
+  updates=$(check_updates 2>/dev/null || true)
+  if [ -n "$updates" ]; then
+    printf "${GREEN}Updates available:${NC}\n"
+    printf "%s\n" "$updates" | sed 's/^/  + /'
+    printf "\n"
+
+    local apply_choice="no"
+    if command -v gum >/dev/null 2>&1; then
+      gum confirm "Pull updates now?" \
+        --selected.background "#7c3aed" \
+        --selected.foreground "#ffffff" \
+        && apply_choice=yes || apply_choice=no
+    else
+      printf "Pull updates now? [Y/n] "
+      local r=""
+      [ -r /dev/tty ] && read -r r </dev/tty
+      case "$r" in [Nn]*) apply_choice=no ;; *) apply_choice=yes ;; esac
+    fi
+
+    if [[ "$apply_choice" == "yes" ]]; then
+      apply_update
+      ok "Updates applied."
+      printf "\n${PURPLE}Restart 'ampersand' to pick up the new version.${NC}\n\n"
+      exit 0
+    fi
+  else
+    ok "Up to date."
+  fi
+
+  # Action loop
+  local did_install=0
+  while true; do
+    printf "\n${PURPLE}Components${NC}\n"
+    local i status display
+    for i in "${!KEYS[@]}"; do
+      status=$(effective_state "${KEYS[$i]}")
+      case "$status" in
+        active)        display="${GREEN}active${NC}" ;;
+        inactive)      display="${YELLOW}inactive${NC}" ;;
+        not-installed) display="${DIM}not installed${NC}" ;;
+      esac
+      printf "  %-12s %b\n" "${KEYS[$i]}" "$display"
+    done
+    printf "\n"
+
+    local options=()
+    for k in "${KEYS[@]}"; do options+=("$k"); done
+    options+=("(quit)")
+
+    local pick=""
+    if command -v gum >/dev/null 2>&1; then
+      pick=$(printf '%s\n' "${options[@]}" | \
+        gum choose --header "Pick a component, or quit" \
+          --cursor.foreground "#a5b4fc" \
+          --selected.foreground "#a5b4fc" \
+          --item.foreground "#ffffff") || break
+    else
+      printf "Components: %s\nPick (or 'quit'): " "${KEYS[*]}"
+      [ -r /dev/tty ] && read -r pick </dev/tty || break
+    fi
+    [[ -z "$pick" || "$pick" == "(quit)" || "$pick" == "quit" ]] && break
+
+    if [[ "$(key_index "$pick")" == "-1" ]]; then
+      warn "Unknown component: $pick"
+      continue
+    fi
+
+    local current; current=$(effective_state "$pick")
+    local actions=()
+    case "$current" in
+      active)        actions=("deactivate") ;;
+      inactive)      actions=("activate" "remove from state") ;;
+      not-installed) actions=("install") ;;
+    esac
+    actions+=("(back)")
+
+    local action=""
+    if command -v gum >/dev/null 2>&1; then
+      action=$(printf '%s\n' "${actions[@]}" | \
+        gum choose --header "What do you want to do with '$pick'? (currently $current)" \
+          --cursor.foreground "#a5b4fc" \
+          --selected.foreground "#a5b4fc" \
+          --item.foreground "#ffffff") || continue
+    else
+      printf "'%s' is %s. Actions: %s\nPick: " "$pick" "$current" "${actions[*]}"
+      [ -r /dev/tty ] && read -r action </dev/tty || continue
+    fi
+    [[ -z "$action" || "$action" == "(back)" ]] && continue
+
+    case "$action" in
+      install|activate)
+        # Set PICKS to just this component, fall through to apply phase below the loop.
+        # We mark did_install so the script knows to run the apply phase, then exit.
+        set_all 0
+        set_pick "$pick" 1
+        did_install=1
+        break
+        ;;
+      deactivate)
+        deactivate_component "$pick"
+        state_set "$pick" "inactive"
+        ok "$pick deactivated."
+        ;;
+      "remove from state")
+        state_set "$pick" "not-installed"
+        ok "$pick cleared from state."
+        ;;
+    esac
+  done
+
+  if [ "$did_install" -eq 0 ]; then
+    state_record_sha
+    printf "\n"
+    exit 0
+  fi
+  # else: fall through to existing apply phase, which will install the picked component
+}
+
+# ============================================================
+# Entry point: dispatch to fresh, returning, or non-interactive flag path
+# ============================================================
+
+if [[ "$NONINTERACTIVE" == "0" ]]; then
+  ensure_gum >/dev/null 2>&1 || true
+
+  # If any component is already active on disk but the state file is missing,
+  # the user is a returning user from before the state file was introduced.
+  # Bootstrap the state file from on-disk reality before dispatching.
+  if [ ! -f "$STATE_FILE" ]; then
+    any_active=0
+    for k in "${KEYS[@]}"; do
+      [ "$(detect_component "$k")" = "active" ] && { any_active=1; break; }
+    done
+    if [ "$any_active" -eq 1 ]; then
+      info "First run with state-file tracking - detecting existing components..."
+      state_init_if_missing
+      for k in "${KEYS[@]}"; do
+        state_set "$k" "$(detect_component "$k")"
+      done
+      state_record_sha
+    fi
+  fi
+
+  if [ -f "$STATE_FILE" ]; then
+    returning_flow
+  else
+    fresh_flow
   fi
 fi
 
@@ -978,3 +1369,16 @@ if [ "$SHORTCUTS_NEW" -eq 1 ]; then
   fi
   echo ""
 fi
+
+# ============================================================
+# Final: update state file with what's now active.
+# ============================================================
+# Persist per-component status so future runs know it's a returning user
+# and can show accurate active/inactive/not-installed states.
+
+state_init_if_missing
+for k in "${KEYS[@]}"; do
+  s=$(detect_component "$k")
+  state_set "$k" "$s"
+done
+state_record_sha
