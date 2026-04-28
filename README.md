@@ -58,16 +58,13 @@ curl -fsSL https://raw.githubusercontent.com/raiderforge/claude-dotfiles/main/bo
 Or if you've already cloned the repo (anywhere):
 
 ```bash
-cd /path/to/claude-dotfiles
-make                        # interactive TUI (sexier than ./install.sh)
-make all                    # install everything non-interactively
-make minimal                # claude + memory + skills + nvm
-make memory                 # just the memory subsystem
-make memory skills          # several at once (combined into --only)
-make help                   # full target list
+ampersand                  # re-launch the installer TUI from any directory (no pull)
+ampersand --preset minimal # claude + memory + skills + nvm
+ampersand --only memory    # just the memory subsystem
+yesplease                  # same as ampersand but pulls latest from GitHub first
 ```
 
-`./install.sh` still works directly if you prefer; `make` is just the friendlier entry point.
+Both shortcuts are zsh functions added to your `~/.zshrc` by the `yesplease` component. `./install.sh` still works directly if you prefer.
 
 ### Cloning to a custom location
 
@@ -101,7 +98,7 @@ A checkbox TUI (rendered with [gum](https://github.com/charmbracelet/gum); insta
 | `cmux`    | cmux split-pane terminal config (powers the in-app browser preview Claude uses) | Symlinks `~/.config/cmux/settings.json` |
 | `discord` | When you run `claude`, asks if you want to connect this session to your Discord channel | Appends one line to `~/.zshrc` (marker-guarded) |
 | `nvm`     | Optional fix for a specific issue: if a new terminal greets you with "claude not found in PATH" even though Claude is installed, this resolves it. Harmless no-op on machines that don't use nvm. Skip if `claude` already works in fresh terminals on your machine | Appends `nvm use default --silent` to `~/.zshrc` (only fires if your zsh config already sources `nvm.sh`) |
-| `yesplease` | A one-word shortcut. Type `yesplease` in any terminal to pull the latest dotfiles from GitHub and re-launch this installer. Forwards args, so `yesplease --yes` or `yesplease --preset minimal` work too | Appends a `function yesplease()` definition to `~/.zshrc` |
+| `yesplease` | Two one-word shortcuts: `yesplease` (pull latest from GitHub + re-launch installer) and `ampersand` (just re-launch installer, no pull). Both forward flags. Auto-migrates older installs that only had `yesplease` | Appends a marker-guarded shortcuts block to `~/.zshrc` |
 
 ### Boost an existing Claude Code setup without overwriting it
 

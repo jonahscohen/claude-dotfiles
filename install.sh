@@ -55,7 +55,7 @@ TITLES=(
   "cmux split-pane terminal"
   "Discord chat at Claude launch"
   "nvm fix (optional, only if needed)"
-  "'yesplease' shortcut (re-run installer)"
+  "Shell shortcuts (yesplease + ampersand)"
 )
 DESCS=(
   "Your global Claude Code brain: REPLACES ~/.claude/CLAUDE.md, settings.json (with our plugin list - Impeccable, Figma, Sentry, Supabase, Discord, plus 9 more), safety hooks, and shared memory files. Existing files are backed up to .backups/ but the active versions become ours. Skip if you already have your own CLAUDE.md and settings.json that you want to keep - then pick 'memory' and 'skills' alone to add memory capability and UI-polish capability without touching your config. (Plugin-list merging into an existing settings.json is a TODO; for now you'd manually copy enabledPlugins from claude/settings.json into yours.)"
@@ -67,7 +67,7 @@ DESCS=(
   "Settings for cmux, the split-pane terminal that hosts the in-app browser preview Claude uses to verify your UI work. Skip if you don't use cmux."
   "Adds a one-line wrapper to your zsh config so when you run 'claude', it asks if you want to connect this session to your Discord channel. Skip if you don't pair Claude with Discord."
   "A small one-line addition to your zsh config that fixes a specific issue some setups hit: opening a new terminal and getting 'claude not found in PATH' even though Claude is installed. The fix only activates if your zsh config already loads nvm (Node Version Manager) - on most machines this is a harmless no-op, so it's safe to leave on. If 'claude' already runs fine in fresh terminals on your machine, you can skip this."
-  "Adds a one-word shortcut to your zsh config: type 'yesplease' in any terminal to pull the latest dotfiles from GitHub and re-launch this installer. Useful for syncing across machines or re-picking components without remembering the path. Pass through args like 'yesplease --yes' or 'yesplease --preset minimal'."
+  "Adds two one-word shortcuts to your zsh config. 'yesplease' = pull latest from GitHub then re-launch the installer (sync + run). 'ampersand' = re-launch the installer with no pull (just run, fast). Both work from any terminal, both forward flags ('ampersand --preset minimal', 'yesplease --yes'). Auto-migrates older installs that only had yesplease."
 )
 PICKS=(1 1 1 1 1 1 1 1 1 1)
 
@@ -683,55 +683,67 @@ if picked nvm; then
 fi
 
 # ============================================================
-# 10. yesplease vanity shortcut (zsh only, idempotent)
+# 10. Shell shortcuts: yesplease + ampersand (zsh only, idempotent)
 # ============================================================
-# Defines a zsh function `yesplease` that cd's into the dotfiles repo, pulls
-# latest, and re-launches install.sh. Forwards any args, so you can do
-# `yesplease --preset minimal` or `yesplease --yes`.
+# Defines two zsh functions in the user's .zshrc:
+#   yesplease  - cd into repo, git pull, re-launch installer (sync + run)
+#   ampersand  - cd into repo, re-launch installer (just run, no pull)
+# Both forward args, so `ampersand --preset minimal` or `yesplease --yes` work.
+# Migrates old installs that have just the yesplease block by stripping it
+# and appending a fresh combined block.
 
 if picked yesplease; then
   echo ""
-  info "--- yesplease shortcut ---"
+  info "--- Shell shortcuts (yesplease + ampersand) ---"
 
-  YESPLEASE_MARKER="# claude-dotfiles vanity command: pull latest and re-launch installer"
+  SHORTCUT_BEGIN="# === claude-dotfiles:shortcuts:begin ==="
+  SHORTCUT_END="# === claude-dotfiles:shortcuts:end ==="
+  LEGACY_YESPLEASE_MARKER="# claude-dotfiles vanity command: pull latest and re-launch installer"
+
+  append_shortcuts() {
+    cat >> "$ZSHRC" <<EOF
+
+$SHORTCUT_BEGIN
+function yesplease() {
+  ( cd "$REPO_DIR" && git pull --ff-only && ./install.sh "\$@" )
+}
+function ampersand() {
+  ( cd "$REPO_DIR" && ./install.sh "\$@" )
+}
+$SHORTCUT_END
+EOF
+  }
 
   if [ -f "$ZSHRC" ]; then
-    if grep -Fq "$YESPLEASE_MARKER" "$ZSHRC"; then
-      # Our marker is present. Check whether the baked path still matches REPO_DIR.
+    if grep -Fq "$SHORTCUT_BEGIN" "$ZSHRC"; then
+      # New combined block present. Check baked path.
       if grep -Fq "cd \"$REPO_DIR\"" "$ZSHRC"; then
-        ok "$ZSHRC (already defines 'yesplease' for $REPO_DIR)"
+        ok "$ZSHRC (yesplease + ampersand already defined for $REPO_DIR)"
       else
-        warn "'yesplease' in $ZSHRC points at a different repo location. Refreshing to $REPO_DIR."
-        # Strip the existing marker comment + function block, then append fresh.
-        # Range: from marker line through the next standalone closing brace.
-        sed -i.bak "/$YESPLEASE_MARKER/,/^}$/d" "$ZSHRC"
+        warn "Shortcuts in $ZSHRC point at a different repo location. Refreshing to $REPO_DIR."
+        sed -i.bak "/$SHORTCUT_BEGIN/,/$SHORTCUT_END/d" "$ZSHRC"
         rm -f "$ZSHRC.bak"
-        cat >> "$ZSHRC" <<EOF
-
-$YESPLEASE_MARKER
-function yesplease() {
-  ( cd "$REPO_DIR" && git pull --ff-only && ./install.sh "\$@" )
-}
-EOF
-        ok "Refreshed 'yesplease' in $ZSHRC -> $REPO_DIR"
+        append_shortcuts
+        ok "Refreshed shortcuts in $ZSHRC -> $REPO_DIR"
         warn "Run 'source $ZSHRC' or open a new shell to pick up the new path."
       fi
-    elif grep -Eq '^(function[[:space:]]+yesplease|alias[[:space:]]+yesplease=)' "$ZSHRC"; then
-      # Some other yesplease (manually defined, no marker). Don't touch it.
-      warn "$ZSHRC already defines 'yesplease' without our marker - leaving it alone."
+    elif grep -Fq "$LEGACY_YESPLEASE_MARKER" "$ZSHRC"; then
+      # Legacy yesplease-only block. Migrate to combined block.
+      warn "Migrating legacy yesplease block to yesplease + ampersand"
+      sed -i.bak "/$LEGACY_YESPLEASE_MARKER/,/^}$/d" "$ZSHRC"
+      rm -f "$ZSHRC.bak"
+      append_shortcuts
+      ok "Migrated $ZSHRC: yesplease + ampersand now defined"
+      warn "Run 'source $ZSHRC' or open a new shell to use 'ampersand'."
+    elif grep -Eq '^(function[[:space:]]+(yesplease|ampersand)|alias[[:space:]]+(yesplease|ampersand)=)' "$ZSHRC"; then
+      warn "$ZSHRC already defines yesplease or ampersand without our marker - leaving it alone."
     else
-      cat >> "$ZSHRC" <<EOF
-
-$YESPLEASE_MARKER
-function yesplease() {
-  ( cd "$REPO_DIR" && git pull --ff-only && ./install.sh "\$@" )
-}
-EOF
-      ok "Added 'yesplease' function to $ZSHRC"
-      warn "Run 'source $ZSHRC' or open a new shell to use 'yesplease'."
+      append_shortcuts
+      ok "Added shortcuts (yesplease, ampersand) to $ZSHRC"
+      warn "Run 'source $ZSHRC' or open a new shell to use them."
     fi
   else
-    warn "$ZSHRC not found - skipping yesplease shortcut (zsh only)."
+    warn "$ZSHRC not found - skipping shell shortcuts (zsh only)."
   fi
 fi
 
@@ -760,7 +772,7 @@ picked shaders  && echo "  - Ghostty shaders: in-repo chain at $REPO_DIR/shaders
 picked cmux     && echo "  - cmux: settings.json"
 picked discord  && echo "  - .zshrc: source line for discord-chat-launcher (added once, marker-guarded)"
 picked nvm      && echo "  - .zshrc: nvm default auto-activation"
-picked yesplease && echo "  - .zshrc: 'yesplease' shortcut (type 'yesplease' to re-run installer)"
+picked yesplease && echo "  - .zshrc: 'yesplease' (pull + re-run installer) and 'ampersand' (just re-run, no pull)"
 echo ""
 echo "Manual steps remaining:"
 echo "  1. Install Claude Code if not already present:"
