@@ -2,60 +2,154 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/yes-and-logo-dark.png">
     <source media="(prefers-color-scheme: light)" srcset="assets/yes-and-logo-light.png">
-    <img alt="yes&" src="assets/yes-and-logo-light.png" width="320">
+    <img alt="Yes&" src="assets/yes-and-logo-light.png" width="320">
   </picture>
 </p>
 
 <h1 align="center">claude-dotfiles</h1>
 
-<p align="center"><i>The yes& Claude Code stack. One curl, ten components, the way we think about agentic coding.</i></p>
+<p align="center"><i>The Yes& Claude Code stack. One curl, ten components, the way we think about agentic coding.</i></p>
 
 <p align="center">
-  <a href="#install-the-one-liner">Install</a> ·
-  <a href="#the-components">Components</a> ·
-  <a href="#the-design-stack">Design stack</a> ·
-  <a href="#memory">Memory</a> ·
-  <a href="#for-yes-teams">For teams</a> ·
-  <a href="#troubleshooting">Troubleshooting</a>
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#high-level">High level</a> ·
+  <a href="#deep-dive">Deep dive</a> ·
+  <a href="#troubleshooting">Troubleshooting</a> ·
+  <a href="#license--footer">License</a>
 </p>
 
 ---
 
-This is the configuration that turns a fresh Mac into a yes& development machine. It is opinionated. It expects you to make things. It assumes you care how those things feel and behave. If that sounds like you, the next paragraph is the only one you have to read to get started.
+This is the configuration that turns a fresh Mac into a Yes& development machine. It is opinionated. It expects you to make things. It assumes you care how those things feel and behave.
 
-## Install (the one-liner)
+The README is laid out in three tiers, so you can stop reading at any point and still know what you need to know:
+
+- **[Quick start](#quick-start)** - the curl one-liner, for when you just want it working.
+- **[High level](#high-level)** - the 60-second tour. What's in the box, why it exists, what it does to your machine.
+- **[Deep dive](#deep-dive)** - thirteen collapsible chapters covering every component, every design rule, every architectural choice, with the rationale.
+
+<a id="quick-start"></a>
+
+## Quick start
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jonahscohen/claude-dotfiles/main/bootstrap.sh | bash
 ```
 
-Pick what you want in the checkbox TUI, hit enter, you're done. Open a new terminal and type `ampersand` from anywhere to re-launch the installer; type `yesplease` to pull the latest from GitHub first. Everything else on this page explains the *why* and the *deeper how*.
+Pick what you want in the checkbox TUI, hit enter, you're done. Open a new terminal and type `ampersand` from anywhere to re-launch the installer; type `yesplease` to pull the latest from GitHub first.
+
+Already cloned? `cd` into the repo and run:
+
+```bash
+./install.sh                    # interactive TUI
+./install.sh --preset minimal   # claude + memory + skills + nvm
+./install.sh --only memory      # just one component
+```
+
+That's it for the quick start. Everything below explains what just happened, what else is possible, and why.
 
 ---
 
+<a id="high-level"></a>
+
+## High level
+
+### What this is
+
+The version-controlled, single-source-of-truth answer to "how is Yes& running Claude Code right now." When one of us learns something durable - a CSS-detail rule, an icon-sourcing discipline, a way to make Claude remember yesterday - it lands in `claude/CLAUDE.md` or in the memory system, and the next time anyone runs `yesplease` it propagates to every machine. The dotfiles aren't a config; they're a memory of the team's earned practice.
+
+### What it does for you
+
+1. **A reproducible baseline.** A new Yes& dev (or a returning one on a fresh machine) is one curl line away from being indistinguishable from everyone else.
+2. **A discipline carrier.** The hooks block legacy model IDs, AI-attribution lines, and emoji from ever landing in your code. The CLAUDE.md mandates verification before reporting done. None of that is optional once installed.
+3. **A design system in shell form.** Three layers of design rules (Impeccable for strategy, DESIGN.md for tokens, make-interfaces-feel-better for tactical CSS) get auto-wired. Generated UI is on-brand by default, not by accident.
+4. **Cross-machine, cross-developer memory.** The memory subsystem makes Claude take notes after every task. Notes commit to git, pull on the other developer's machine. Everyone knows what was decided and why.
+5. **An additive option for non-Yes& folks.** Already love your Claude Code config? You don't have to throw it away. Pick `memory` and `skills` only - we append to your CLAUDE.md and JSON-merge our hooks into your settings.json without touching anything else.
+
+### What's in the box (the ten components)
+
+Each is independently togglable in the TUI. Defaults are all on.
+
+| Component | One-line | Touches |
+|---|---|---|
+| `claude` | Claude Code config: instructions, settings, plugins, hooks, memory | Replaces `~/.claude/` files (backs up first) |
+| `memory` | Memory rules + 3 lifecycle hooks + loader script (additive) | Appends to your CLAUDE.md, JSON-merges into settings.json |
+| `skills` | Anthropic Skills (currently: make-interfaces-feel-better) | Adds to `~/.claude/skills/` only |
+| `statusline` | Custom prompt-bar render | Symlinks `~/.claude/statusline-command.sh` |
+| `ghostty` | Ghostty terminal look (font, palette, transparency, blur) | Renders config into Application Support |
+| `shaders` | CRT curvature, TFT pixel grid, blazing cursor trail + community library | In-repo `shaders/*.glsl` + clones ghostty-shaders |
+| `cmux` | Split-pane terminal config (powers in-app browser preview) | Symlinks `~/.config/cmux/settings.json` |
+| `discord` | Optional Discord channel attach when launching `claude` | Marker-guarded line in `~/.zshrc` |
+| `nvm` | Optional fix for "claude: command not found" in fresh terminals | Marker-guarded line in `~/.zshrc` |
+| `yesplease` | Two zsh shortcuts: `yesplease` (pull + run) and `ampersand` (just run) | Marker-guarded block in `~/.zshrc` |
+
+### The three-layer design stack
+
+Most "AI-generated UI" looks the same because most prompts ask for the same vague thing. Yes& uses three stacked tools, each addressing a different layer of the problem:
+
+- **Strategy / brand:** [Impeccable](https://impeccable.style) plugin (PRODUCT.md + 23 commands). Decides who this is for and what's NOT us.
+- **Token values:** [google-labs-code/design.md](https://github.com/google-labs-code/design.md) spec. Canonical source of truth for colors, type, spacing, components.
+- **Tactical CSS / motion:** [make-interfaces-feel-better](https://github.com/jakubkrehel/make-interfaces-feel-better) skill. Sixteen specific rules with exact values (scale 0.96 on press, blur 4px to 0 on icon swaps, image outlines never tinted, etc.).
+
+Each fires at the right moment in the workflow. Strategy at brief time. Tokens at write time. Tactics at implementation time. All three at QA time.
+
+### How memory works (in 30 seconds)
+
+1. You ask Claude to do something.
+2. Claude does it. Verifies. Confirms.
+3. Before responding to you, Claude writes a memory entry to `<project>/.claude/memory/session_YYYY-MM-DD_<topic>.md` with frontmatter, a `Collaborator: <your name>` line, a `Why:`, a `How:`, and files touched.
+4. Claude updates `MEMORY.md` to index the new entry.
+5. THEN Claude responds.
+
+Memory commits to your project's git like any source file. Your teammate pulls, their Claude reads it at session start. Cross-developer continuity, with `Collaborator:` attribution baked in.
+
+### What's NOT here
+
+- **Claude Desktop config** is mostly the same runtime as Claude Code now (Desktop bundles Claude Code), so most dotfiles benefits apply automatically. The Discord launcher is the exception - it's a shell wrapper, and Desktop doesn't go through your shell.
+- **Claude.ai connectors** (ClickUp, Google Drive, etc.) are account-bound, not machine-bound. Authorize once at claude.ai, propagates to every signed-in device.
+- **MCP servers** (Claude in Chrome, etc.) need OAuth or per-machine credentials. Configure per-app, not via dotfiles.
+
+If those distinctions were unclear, the [deep-dive plugins/connectors/MCP section](#deep-plugins) breaks them down.
+
+---
+
+<a id="deep-dive"></a>
+
+## Deep dive
+
+Thirteen collapsible chapters. Open the one you need, ignore the rest.
+
+<a id="deep-opinion"></a>
+
 <details>
-<summary><b>The opinion (why this exists)</b></summary>
+<summary><b>1. The opinion (the long version of why this exists)</b></summary>
 
 ### Why we built this
 
-Every developer at yes& runs Claude Code. Each of us figured out, one fix at a time, the same set of small lessons: how to make Claude remember what we did yesterday, how to keep it from inventing icons, how to stop it from writing 800 lines of speculative code, how to get the design output to actually feel on-brand. Those lessons used to live in scattered private CLAUDE.md files, half-remembered Teams threads, and the sediment of pull-request comments.
+Every developer at Yes& runs Claude Code. Each of us figured out, one fix at a time, the same set of small lessons: how to make Claude remember what we did yesterday, how to keep it from inventing icons, how to stop it from writing 800 lines of speculative code, how to get the design output to actually feel on-brand. Those lessons used to live in scattered private CLAUDE.md files, half-remembered Teams threads, and the sediment of pull-request comments.
 
-This repo is the version-controlled, single-source-of-truth answer to "how is yes& running Claude Code right now." When one of us learns something durable, it lands in `claude/CLAUDE.md` or in the memory system, and the next time anyone runs `yesplease` it propagates to every machine. The dotfiles aren't a config; they're a memory of the team's earned practice.
+This repo is the version-controlled, single-source-of-truth answer to "how is Yes& running Claude Code right now."
 
-### The five things this repo is for
+### The opinion in five sentences
 
-1. **A reproducible baseline.** A new yes& dev (or a returning one on a fresh machine) is one curl line away from being indistinguishable from everyone else. No "ugh, Jonah's machine has the good shaders."
-2. **A discipline carrier.** The hooks block legacy model IDs, AI-attribution lines, and emoji from ever landing in your code. The CLAUDE.md mandates verification before reporting done. None of that is optional once installed.
-3. **A design system in shell form.** Three layers of design rules (Impeccable for strategy, DESIGN.md for tokens, make-interfaces-feel-better for tactical CSS) get auto-wired. Generated UI is on-brand by default, not by accident.
-4. **Cross-machine, cross-developer memory.** The memory subsystem makes Claude take notes after every task. Notes commit to git. Notes pull on the other developer's machine. Now everyone knows what was decided and why.
-5. **An additive option for non-yes& folks.** If you already love your Claude Code config, you don't have to throw it away. Pick `memory` and `skills` only. We append to your CLAUDE.md and JSON-merge our hooks into your settings.json without touching anything else.
+1. **Discipline beats cleverness.** Hooks that mechanically refuse certain patterns (legacy model IDs, AI-attribution lines, emoji, force-push to main) are more reliable than hoping the model behaves.
+2. **Memory beats context.** A version-controlled record of what we decided yesterday is more useful than re-explaining the project to Claude every session.
+3. **Three-layer design beats one-layer prompting.** Impeccable handles strategy, DESIGN.md handles tokens, make-interfaces-feel-better handles tactics. Stack them.
+4. **Verification beats vibes.** UI work isn't done until it's screenshotted and checked. Non-UI work isn't done until each step has a runnable verify clause.
+5. **Additive beats wholesale.** Other devs and teams should be able to take what they want and leave the rest. The `memory` and `skills` components don't touch your existing config.
+
+### What this isn't
+
+It isn't a Claude Code tutorial. It assumes you've already got `claude` working. It isn't a productivity hack collection - opinions in this repo are constraints, not optimizations. It isn't a Yes& proprietary - the additive components are designed to be safe outside our team.
 
 </details>
 
-<details>
-<summary><b>The components (ten of them)</b></summary>
+<a id="deep-components"></a>
 
-When the installer launches you get a checkbox TUI listing ten components. Each one is independently togglable. Defaults are all on, but every component is honest about whether it overwrites your existing config.
+<details>
+<summary><b>2. The components (full table with what they do)</b></summary>
+
+When the installer launches you get a checkbox TUI listing ten components. Each is independently togglable. Defaults are all on, but every component is honest about whether it overwrites your existing config.
 
 | Component | Plain-English | What changes on disk |
 |-----------|---------------|----------------------|
@@ -74,8 +168,10 @@ The TUI also lets you pre-select via flags: `--yes` for everything, `--preset mi
 
 </details>
 
+<a id="deep-brain"></a>
+
 <details>
-<summary><b>The Claude Code brain (CLAUDE.md walkthrough)</b></summary>
+<summary><b>3. The Claude Code brain (CLAUDE.md walkthrough)</b></summary>
 
 `~/.claude/CLAUDE.md` is the global instruction file Claude reads at the start of every session in every project on this machine. Picking the `claude` component symlinks our canonical version into place. Picking `memory` instead appends just the Memory Discipline section between markers without touching the rest. Here's what's in our canonical file, section by section.
 
@@ -150,10 +246,12 @@ Documents `cmux browser screenshot`, `navigate`, `snapshot --interactive` comman
 
 </details>
 
-<details>
-<summary><b>The three-layer design stack</b></summary>
+<a id="deep-design-stack"></a>
 
-Most "AI-generated UI" looks the same because most prompts ask for the same vague thing. yes& uses three stacked tools that each address a different layer of the design problem:
+<details>
+<summary><b>4. The three-layer design stack (in detail)</b></summary>
+
+Most "AI-generated UI" looks the same because most prompts ask for the same vague thing. Yes& uses three stacked tools that each address a different layer of the design problem:
 
 | Layer | Owner | Answers |
 |---|---|---|
@@ -196,12 +294,14 @@ An Anthropic Skill auto-installed via `npx skills add jakubkrehel/make-interface
 - `will-change` only on transform/opacity/filter, sparingly
 - Minimum 40x40px hit area, never let two hit areas overlap
 
-The skill's review-output-format (before/after tables grouped by principle) is the canonical UI-change summary across all yes& work.
+The skill's review-output-format (before/after tables grouped by principle) is the canonical UI-change summary across all Yes& work.
 
 </details>
 
+<a id="deep-memory"></a>
+
 <details>
-<summary><b>Memory: how Claude remembers</b></summary>
+<summary><b>5. Memory: how Claude remembers (in detail)</b></summary>
 
 Memory is the thing that turns Claude Code from a stateless code generator into a colleague who knows what was decided last week and why. It's the most important part of this dotfiles repo.
 
@@ -209,7 +309,7 @@ Memory is the thing that turns Claude Code from a stateless code generator into 
 
 **Project root memory** (`<project>/.claude/memory/`) is the canonical record for that specific project. Session files (`session_YYYY-MM-DD_<topic>.md`), feedback files (`feedback_<topic>.md`), reference files (`reference_<topic>.md`). Indexed by `MEMORY.md`. Committed to the project's git repo. Pulled and read by every collaborator's Claude.
 
-**Global cross-project memory** (`~/.claude/memory/`) is per-machine, durable across all projects you open with Claude Code. Things like the attribution policy, yes&-wide feedback, hook verification discipline. Symlinked from the dotfiles repo when you tick the `claude` component, so every yes& dev's machine has the same baseline.
+**Global cross-project memory** (`~/.claude/memory/`) is per-machine, durable across all projects you open with Claude Code. Things like the attribution policy, Yes&-wide feedback, hook verification discipline. Symlinked from the dotfiles repo when you tick the `claude` component, so every Yes& dev's machine has the same baseline.
 
 **Per-project global memory** (`~/.claude/projects/<project-path>/memory/`) is automatically written by Claude Code itself for telemetry-style state. Secondary context, read at session start.
 
@@ -233,7 +333,7 @@ Three lifecycle hooks make this concrete:
 
 Memory files are markdown in your project's `.claude/memory/` directory. They get committed and pushed like any other source file. When a teammate pulls, their Claude reads the same memory at session start. The `Collaborator:` line baked into every entry by CLAUDE.md's rule lets you see who did what at a glance, layered on top of `git log` / `git blame` for ironclad attribution.
 
-For ironclad team-wide enforcement, drop a project-root `CLAUDE.md` that re-states the memory + collaborator rules. Project-level CLAUDE.md is read by Claude Code regardless of whether the teammate has the dotfiles installed, so even teammates without yes&-dotfiles get the discipline applied in that repo.
+For ironclad team-wide enforcement, drop a project-root `CLAUDE.md` that re-states the memory + collaborator rules. Project-level CLAUDE.md is read by Claude Code regardless of whether the teammate has the dotfiles installed, so even teammates without Yes&-dotfiles get the discipline applied in that repo.
 
 ### What memory is NOT for
 
@@ -247,8 +347,10 @@ These exclusions apply even when a user explicitly asks Claude to "save this." M
 
 </details>
 
+<a id="deep-workflows"></a>
+
 <details>
-<summary><b>Day-to-day workflows</b></summary>
+<summary><b>6. Day-to-day workflows</b></summary>
 
 The shortcuts you'll actually type once the dotfiles are installed.
 
@@ -312,8 +414,10 @@ If you re-run `install.sh` from a different clone location later, the `yesplease
 
 </details>
 
+<a id="deep-teams"></a>
+
 <details>
-<summary><b>For yes& teams</b></summary>
+<summary><b>7. For Yes& teams (collaboration & attribution)</b></summary>
 
 The collaboration story for two or more humans working on the same codebase with Claude Code on both sides.
 
@@ -347,28 +451,30 @@ Include:
 
 Update `.claude/memory/MEMORY.md` to index the new file.
 
-This applies regardless of whether the developer has yes&-dotfiles installed.
+This applies regardless of whether the developer has Yes&-dotfiles installed.
 ```
 
 ### Merge conflict patterns to expect
 
 The most contention-prone file is `MEMORY.md` (the index). Two devs working on the same day both want to add an index line. The convention "append at the bottom, one line per entry" makes most of these auto-merge cleanly. Session files themselves rarely conflict because the file naming includes the topic, so two devs working on different topics never touch the same file.
 
-### Onboarding a new yes& dev
+### Onboarding a new Yes& dev
 
 1. They run `curl -fsSL https://raw.githubusercontent.com/jonahscohen/claude-dotfiles/main/bootstrap.sh | bash`.
 2. They take TUI defaults or pick `--preset all`.
 3. New terminal or `source ~/.zshrc`.
-4. They open any yes& project. Claude reads its own `~/.claude/CLAUDE.md`, plus the project's root `CLAUDE.md`, plus the project's `.claude/memory/` files. They have full context the moment they start.
+4. They open any Yes& project. Claude reads its own `~/.claude/CLAUDE.md`, plus the project's root `CLAUDE.md`, plus the project's `.claude/memory/` files. They have full context the moment they start.
 
 That's the entire onboarding. Same machine state as everyone else, same disciplines applied, same memory loaded.
 
 </details>
 
-<details>
-<summary><b>Boost an existing Claude Code (no overwrites)</b></summary>
+<a id="deep-additive"></a>
 
-For developers who already have a Claude Code setup they like and want to layer in specific yes& capabilities without losing their config.
+<details>
+<summary><b>8. Boost an existing Claude Code (no overwrites)</b></summary>
+
+For developers who already have a Claude Code setup they like and want to layer in specific Yes& capabilities without losing their config.
 
 ### The additive components
 
@@ -414,8 +520,10 @@ The plugin list. `enabledPlugins` and `extraKnownMarketplaces` live inside `clau
 
 </details>
 
+<a id="deep-plugins"></a>
+
 <details>
-<summary><b>Plugins, connectors, MCP servers, Skills (the four-tier explanation)</b></summary>
+<summary><b>9. Plugins, connectors, MCP servers, Skills (the four-tier explanation)</b></summary>
 
 People conflate these. They're four different mechanisms with four different config surfaces.
 
@@ -440,7 +548,7 @@ The `claude` component enables 14 plugins:
 | `typescript-lsp` | TypeScript Language Server integration |
 | `security-guidance` | Defensive security context |
 | `discord` | Discord channel integration for chat sessions |
-| `impeccable` | The yes& design brain (PRODUCT.md, /impeccable commands) |
+| `impeccable` | The Yes& design brain (PRODUCT.md, /impeccable commands) |
 
 And explicitly disables 4: `github`, `learning-output-style`, `semgrep`, `vercel`. (Disabled means "the marketplace knows about it, but don't enable it on this machine.")
 
@@ -466,7 +574,7 @@ The `skills` component installs `make-interfaces-feel-better`. The dotfiles' ski
 
 | If you want... | You configure... |
 |---|---|
-| The yes& design brain on Claude Code | Plugin (settings.json - `claude` component) |
+| The Yes& design brain on Claude Code | Plugin (settings.json - `claude` component) |
 | Drag-drop Figma URLs into a chat | Plugin (`figma`) |
 | ClickUp tasks accessible to Claude.ai | Connector (claude.ai UI, account-bound) |
 | Local browser automation in a chat | MCP server (per-app config) |
@@ -474,8 +582,10 @@ The `skills` component installs `make-interfaces-feel-better`. The dotfiles' ski
 
 </details>
 
+<a id="deep-customization"></a>
+
 <details>
-<summary><b>Customization (env vars, flags, deep config)</b></summary>
+<summary><b>10. Customization (env vars, flags, deep config)</b></summary>
 
 ### Bootstrap-time flags
 
@@ -527,8 +637,10 @@ Edit `claude/CLAUDE.md` in the repo. It's the source of truth. Changes propagate
 
 </details>
 
+<a id="deep-architecture"></a>
+
 <details>
-<summary><b>Architecture (under the hood)</b></summary>
+<summary><b>11. Architecture (under the hood)</b></summary>
 
 ### Symlink-vs-copy strategy
 
@@ -580,8 +692,10 @@ The `yesplease`/`ampersand` shortcuts also bake in the install-time `$REPO_DIR`.
 
 </details>
 
+<a id="troubleshooting"></a>
+
 <details>
-<summary><b>Troubleshooting</b></summary>
+<summary><b>12. Troubleshooting</b></summary>
 
 ### "claude: command not found" in fresh terminals
 
@@ -649,8 +763,10 @@ We don't ship an automated uninstaller because it would require us to know which
 
 </details>
 
+<a id="deep-contributing"></a>
+
 <details>
-<summary><b>Contributing (for yes& devs)</b></summary>
+<summary><b>13. Contributing (for Yes& devs)</b></summary>
 
 ### Adding a new component
 
@@ -671,7 +787,7 @@ Edit the apply block in install.sh's section 3. Add another `npx --yes skills ad
 
 Edit `claude/settings.json`. Add `"<plugin>@<marketplace>": true` to `enabledPlugins`. If the marketplace isn't already known, add it to `extraKnownMarketplaces` with `source` and `autoUpdate`. Restart Claude Code to install.
 
-For yes& people: bias toward enabling plugins that everyone benefits from. Plugins that only one developer needs should live in their personal Claude Code config, not the shared dotfiles.
+For Yes& people: bias toward enabling plugins that everyone benefits from. Plugins that only one developer needs should live in their personal Claude Code config, not the shared dotfiles.
 
 ### Adding a new CLAUDE.md rule
 
@@ -718,10 +834,12 @@ Branch from `main`. Squash-merge with a clear title. Don't take credit in commit
 
 ---
 
+<a id="license--footer"></a>
+
 ## License & footer
 
 The dotfiles are MIT licensed. Bundled tools (Impeccable, make-interfaces-feel-better, ghostty-shaders, gum, etc.) are licensed by their respective authors - see each repository for terms.
 
-The yes& brand mark and logo are property of yes&.
+The Yes& brand mark and logo are property of Yes&.
 
-If you found this useful and you're not at yes&, that's great - the additive components are designed to be safe to layer onto your own setup. Open issues or PRs are welcome at [github.com/jonahscohen/claude-dotfiles](https://github.com/jonahscohen/claude-dotfiles).
+If you found this useful and you're not at Yes&, that's great - the additive components are designed to be safe to layer onto your own setup. Open issues or PRs are welcome at [github.com/jonahscohen/claude-dotfiles](https://github.com/jonahscohen/claude-dotfiles).
