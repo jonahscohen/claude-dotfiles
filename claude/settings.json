@@ -6,7 +6,10 @@
     "allow": [
       "Bash(npx create-next-app@latest:*)",
       "Bash(claude mcp:*)",
-      "mcp__pencil"
+      "mcp__pencil",
+      "Write(**/*.md)",
+      "Edit(**/*.md)",
+      "MultiEdit(**/*.md)"
     ],
     "defaultMode": "bypassPermissions"
   },
