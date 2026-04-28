@@ -274,7 +274,10 @@ run_tui_gum() {
         --header "Space to toggle, enter to confirm" \
         --cursor.foreground "#a5b4fc" \
         --selected.foreground "#a5b4fc" \
-        --item.foreground "#ffffff")" || return 1
+        --item.foreground "#ffffff" \
+        --cursor-prefix "[ ] " \
+        --selected-prefix "[✓] " \
+        --unselected-prefix "[ ] ")" || return 1
 
   set_all 0
   local k
