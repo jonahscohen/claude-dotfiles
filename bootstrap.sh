@@ -29,12 +29,48 @@ set -euo pipefail
 REPO_URL="${CLAUDE_DOTFILES_REPO:-https://github.com/jonahscohen/claude-dotfiles.git}"
 REPO_DIR="${CLAUDE_DOTFILES_DIR:-$HOME/Documents/Github/claude-dotfiles}"
 
-# Peel off bootstrap-specific flags (--dir, --no-reload); leave everything else for install.sh.
+print_help() {
+  cat <<'HELP'
+claude-dotfiles bootstrap
+
+Default flow (no args):
+  Clones the repo, installs the 'ampersand' shell shortcut, and reloads
+  your zsh so 'ampersand' is immediately live. Then exits.
+
+Args (passed through to install.sh after the shortcut is installed):
+  --yes                  full non-interactive install of every component
+  --preset NAME          all | minimal | none
+  --only KEYS            comma-separated component keys
+  --dry-run              preview without writing
+
+Bootstrap-specific flags:
+  --dir PATH             clone repo to PATH instead of the default
+  --no-reload            skip the post-install zsh reload (useful in tmux/screen)
+  --help, -h             show this help and exit (no side effects)
+
+Environment overrides:
+  CLAUDE_DOTFILES_REPO   git URL to clone (default: jonahscohen/claude-dotfiles)
+  CLAUDE_DOTFILES_DIR    target path (default: ~/Documents/Github/claude-dotfiles)
+
+Examples:
+  curl -fsSL .../bootstrap.sh | bash
+  curl -fsSL .../bootstrap.sh | bash -s -- --yes
+  curl -fsSL .../bootstrap.sh | bash -s -- --preset minimal
+  curl -fsSL .../bootstrap.sh | bash -s -- --dir ~/code/dots
+HELP
+}
+
+# Peel off bootstrap-specific flags (--dir, --no-reload, --help);
+# leave everything else for install.sh.
 NO_RELOAD=0
 HAS_INSTALLER_ARGS=0
 INSTALLER_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --help|-h)
+      print_help
+      exit 0
+      ;;
     --dir)
       REPO_DIR="$2"
       shift 2

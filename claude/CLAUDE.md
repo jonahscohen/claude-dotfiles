@@ -126,6 +126,16 @@ Small, obviously-trivial edits (a one-line copy tweak, a named-token swap) can s
 
 Backend logic, non-UI refactors, build-tool work, infrastructure changes. Do not load `/impeccable` for those.
 
+## Permission Posture (deliberate choice)
+
+This machine ships with `defaultMode: bypassPermissions` and `skipDangerousModePermissionPrompt: true` in `~/.claude/settings.json`. That means every tool call - Bash, Write, Edit, MultiEdit, all of them - auto-approves without prompting, AND Claude Code's own "are you sure" warning on the bypass mode is suppressed.
+
+This is intentional for a personal Yes& workstation. The team has decided the friction of every-tool-prompt outweighs the safety it adds, and the PreToolUse hooks (`bash-guard.sh`, `content-guard.sh`) already block the specific categories we care about: AI-attribution lines, force-pushes to main/master, `rm` against `.claude/memory`, legacy model IDs, emojis, emdashes.
+
+If you (a different developer, a forked install, a public reuse) want different defaults: edit `claude/settings.json` and change `defaultMode` to `default` (per-tool prompting) or `acceptEdits` (auto-approve edits but not bash). Remove `skipDangerousModePermissionPrompt` if you want Claude Code's own warning to show. Both changes are local to settings.json and propagate through the dotfiles symlink.
+
+The hook layer stays useful regardless of `defaultMode` - hooks fire BEFORE the permission prompt would, so they continue blocking forbidden patterns even in fully-prompting mode.
+
 ## Code Quality
 
 - When the request has multiple plausible interpretations, name them and ask. Don't silently pick one and run with it.

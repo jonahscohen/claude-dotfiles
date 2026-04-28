@@ -6,10 +6,10 @@
     "allow": [
       "Bash(npx create-next-app@latest:*)",
       "Bash(claude mcp:*)",
-      "mcp__pencil",
       "Write(**/*.md)",
       "Edit(**/*.md)",
-      "MultiEdit(**/*.md)"
+      "MultiEdit(**/*.md)",
+      "mcp__pencil"
     ],
     "defaultMode": "bypassPermissions"
   },
@@ -26,7 +26,7 @@
         ]
       },
       {
-        "matcher": "Write|Edit",
+        "matcher": "Write|Edit|MultiEdit",
         "hooks": [
           {
             "type": "command",

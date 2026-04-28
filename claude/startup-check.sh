@@ -144,15 +144,58 @@ append "$PREVIEW_TEXT
 
 "
 
-# --- 2. Global memory files (full content - user prefs, references) ---
-# Skip environment-specific files that are now handled by detection above
+# Loader order matches CLAUDE.md's Memory Discipline contract:
+#   1. Project root memory (MEMORY.md index + session files) - canonical for THIS project
+#   2. Global project memory (~/.claude/projects/<sanitized>/memory/, auto-tracked state)
+#   3. Global cross-project memory (~/.claude/memory/, e.g. attribution policy, feedback)
+# Within each tier, the MEMORY.md index loads first so it's never truncated out
+# by the MAX_CHARS budget when newer session files are large.
+
+emit_dir() {
+  # Emit a single memory dir: MEMORY.md index, then up to N newest session files.
+  local dir="$1" label="$2" max_sessions="$3"
+  [ -d "$dir" ] || return 0
+
+  if [ -f "$dir/MEMORY.md" ]; then
+    local idx
+    idx=$(cat "$dir/MEMORY.md" 2>/dev/null)
+    append "=== ${label} MEMORY INDEX ($dir/) ===
+$idx
+
+" || return 0
+  fi
+
+  local sessions
+  sessions=$(find "$dir" -maxdepth 1 -name 'session_*.md' -type f 2>/dev/null | sort -r | head -n "$max_sessions")
+  [ -n "$sessions" ] || return 0
+
+  while IFS= read -r f; do
+    [ -f "$f" ] || continue
+    local fname content
+    fname=$(basename "$f")
+    content=$(cat "$f" 2>/dev/null)
+    append "--- ${label} SESSION: $fname ---
+$content
+
+" || return 0
+  done <<< "$sessions"
+}
+
+# --- 2. Project root memory (highest priority per CLAUDE.md) ---
+emit_dir "$ROOT_MEMORY_DIR" "PROJECT ROOT" 12
+
+# --- 3. Global project memory (auto-tracked per-project state) ---
+emit_dir "$PROJECT_MEMORY_DIR" "PROJECT" 6
+
+# --- 4. Global cross-project memory: emit non-session files (feedback,
+#       reference, etc.) for full content first, then index + newest sessions ---
 if [ -d "$GLOBAL_MEMORY_DIR" ]; then
   for f in "$GLOBAL_MEMORY_DIR"/*.md; do
     [ -f "$f" ] || continue
     fname=$(basename "$f")
     [ "$fname" = "MEMORY.md" ] || [ "$fname" = "README.md" ] && continue
-    # Skip browser/preview reference files - environment detection handles this now
     case "$fname" in
+      session_*) continue ;;  # sessions handled by emit_dir below
       *cmux*|*browser*|*preview*) continue ;;
     esac
     content=$(cat "$f" 2>/dev/null)
@@ -162,43 +205,7 @@ $content
 " || true
   done
 fi
-
-# --- 3. Session files (newest first, across all dirs) ---
-ALL_SESSIONS=""
-for dir in "$ROOT_MEMORY_DIR" "$PROJECT_MEMORY_DIR" "$GLOBAL_MEMORY_DIR"; do
-  [ -d "$dir" ] || continue
-  sessions=$(find "$dir" -maxdepth 1 -name 'session_*.md' -type f 2>/dev/null)
-  if [ -n "$sessions" ]; then
-    ALL_SESSIONS="${ALL_SESSIONS}
-${sessions}"
-  fi
-done
-
-if [ -n "$ALL_SESSIONS" ]; then
-  sorted=$(echo "$ALL_SESSIONS" | grep -v '^$' | sort -t/ -k"$(echo "$ALL_SESSIONS" | grep -v '^$' | head -1 | tr '/' '\n' | wc -l | tr -d ' ')" -r | head -20)
-  while IFS= read -r f; do
-    [ -f "$f" ] || continue
-    fname=$(basename "$f")
-    content=$(cat "$f" 2>/dev/null)
-    append "--- SESSION: $fname ---
-$content
-
-" || break
-  done <<< "$sorted"
-fi
-
-# --- 4. MEMORY.md indexes ---
-for dir_label in "$ROOT_MEMORY_DIR:PROJECT ROOT" "$PROJECT_MEMORY_DIR:PROJECT" "$GLOBAL_MEMORY_DIR:GLOBAL"; do
-  dir="${dir_label%%:*}"
-  label="${dir_label##*:}"
-  if [ -f "$dir/MEMORY.md" ]; then
-    content=$(cat "$dir/MEMORY.md" 2>/dev/null)
-    append "=== ${label} MEMORY INDEX ($dir/) ===
-$content
-
-"
-  fi
-done
+emit_dir "$GLOBAL_MEMORY_DIR" "GLOBAL" 4
 
 # --- Header ---
 HEADER="SESSION CONTEXT (project reference docs are in CLAUDE.md - already loaded):

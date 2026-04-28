@@ -3,19 +3,23 @@ set -euo pipefail
 
 # ============================================================
 # claude-dotfiles installer
-# Interactive TUI over six components:
-#   claude   - Claude Code global config (CLAUDE.md, settings.json, hooks, statusline, memory)
-#   ghostty  - Ghostty terminal config (copied into Application Support)
-#   shaders  - Ghostty shaders: in-repo chain + community library clone
-#   cmux     - cmux settings.json
-#   discord  - .zshrc source line for discord-chat-launcher
-#   nvm      - .zshrc auto-activate of nvm default (so claude/node/npm land on PATH)
+# Interactive TUI over ten components:
+#   claude      - Claude Code global config (CLAUDE.md, settings.json, hooks, memory) - REPLACES existing
+#   memory      - Additive memory subsystem (rules + 3 hooks + startup-check.sh loader)
+#   skills      - Anthropic Skills (currently: make-interfaces-feel-better)
+#   statusline  - Custom prompt-bar render (~/.claude/statusline-command.sh)
+#   ghostty     - Ghostty terminal config (rendered into Application Support)
+#   shaders     - Ghostty shaders: in-repo chain + community library clone
+#   cmux        - cmux settings.json symlink
+#   discord     - .zshrc source line for discord-chat-launcher
+#   nvm         - .zshrc auto-activate of nvm default (so claude/node/npm land on PATH)
+#   ampersand   - .zshrc 'ampersand' shell shortcut (back-compat alias 'yesplease')
 #
 # Flags:
 #   --yes              non-interactive, pick all components
-#   --only KEYS        non-interactive, pick comma-separated keys (e.g. claude,ghostty)
+#   --only KEYS        non-interactive, pick comma-separated keys (e.g. claude,memory)
 #   --preset NAME      non-interactive preset: all | minimal | none
-#                      minimal = claude + nvm
+#                      minimal = claude + memory + skills + nvm
 #   --dry-run          print picks and exit; touches no files
 #   --help             print usage
 #
@@ -844,7 +848,7 @@ picked discord   && NEED_SHELL_RELOAD=1
 picked nvm       && NEED_SHELL_RELOAD=1
 # Suppress the generic "source .zshrc" bullet when the prominent shortcut box
 # is firing - that box covers the same instruction more visibly.
-[ "$SHORTCUTS_NEW" -eq 0 ] && picked yesplease && NEED_SHELL_RELOAD=1
+[ "$SHORTCUTS_NEW" -eq 0 ] && picked ampersand && NEED_SHELL_RELOAD=1
 
 # Render Manual Steps only if at least one bullet would fire.
 TOTAL_STEPS=$((NEED_CC + NEED_PLUGINS + NEED_FONT + NEED_GHOSTTY_RESTART + NEED_CMUX_RESTART + NEED_SHELL_RELOAD))

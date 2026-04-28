@@ -1,6 +1,6 @@
 #!/bin/bash
-# PreToolUse hook for Write|Edit. Blocks file content matching forbidden patterns
-# from CLAUDE.md: emojis, emdashes, attribution lines, legacy model IDs.
+# PreToolUse hook for Write|Edit|MultiEdit. Blocks file content matching forbidden
+# patterns from CLAUDE.md: emojis, emdashes, attribution lines, legacy model IDs.
 # Reads hook input JSON from stdin, emits permissionDecision JSON to stdout.
 
 INPUT=$(cat)
@@ -19,6 +19,9 @@ if tool == "Write":
     content = inp.get("content", "")
 elif tool == "Edit":
     content = inp.get("new_string", "")
+elif tool == "MultiEdit":
+    edits = inp.get("edits", []) or []
+    content = "\n".join((e or {}).get("new_string", "") for e in edits)
 else:
     print("{}"); sys.exit(0)
 

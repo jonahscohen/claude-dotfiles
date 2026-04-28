@@ -138,7 +138,7 @@ This repo is the version-controlled, single-source-of-truth answer to "how is Ye
 2. **Memory beats context.** A version-controlled record of what we decided yesterday is more useful than re-explaining the project to Claude every session.
 3. **Three-layer design beats one-layer prompting.** Impeccable handles strategy, DESIGN.md handles tokens, make-interfaces-feel-better handles tactics. Stack them.
 4. **Verification beats vibes.** UI work isn't done until it's screenshotted and checked. Non-UI work isn't done until each step has a runnable verify clause.
-5. **Additive beats wholesale.** Other devs and teams should be able to take what they want and leave the rest. The `memory` and `skills` components don't touch your existing config.
+5. **Additive-where-possible beats wholesale.** Other devs and teams should be able to take what they want and leave the rest. The `memory` component appends to your existing CLAUDE.md and JSON-merges into your existing settings.json (your other content stays); the `skills` component writes only to `~/.claude/skills/` and never touches your config files.
 
 ### What this isn't
 
@@ -390,7 +390,9 @@ cd /path/to/claude-dotfiles
 
 ### `bootstrap.sh`: the curl-friendly entrypoint
 
-This is what the curl one-liner runs. It clones (or pulls) the repo, then re-execs `install.sh` with `</dev/tty` so the interactive TUI works through a pipe. Same flags pass through:
+This is what the curl one-liner runs. By default (no args) it clones the repo, installs ONLY the `ampersand` shell shortcut, prints "Unpacking installer...complete." and then `exec`s a fresh login zsh so `ampersand` is immediately available. The TUI does NOT auto-launch in this mode - the user types `ampersand` themselves to pick components.
+
+If you pass installer args through the curl|bash, bootstrap installs the shortcut, then re-execs `install.sh` with those args (and a TTY restored from `/dev/tty` so the TUI works through the pipe). Same flag set passes through:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jonahscohen/claude-dotfiles/main/bootstrap.sh | bash -s -- --preset minimal
@@ -478,9 +480,9 @@ That's the entire onboarding. Same machine state as everyone else, same discipli
 
 For developers who already have a Claude Code setup they like and want to layer in specific Yes& capabilities without losing their config.
 
-### The additive components
+### The additive-where-possible components
 
-Three components are fully additive (zero overwrites of your existing config):
+Three components are designed to NOT replace your existing config. The `memory` component does mutate your CLAUDE.md and settings.json (it has to - that's where the rules and hooks live), but it appends and JSON-merges, never overwrites. `skills` and `ampersand` only write to namespaces we control:
 
 | Component | Touches | What it adds |
 |---|---|---|

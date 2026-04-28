@@ -1,6 +1,14 @@
 #!/bin/sh
 input=$(cat)
 
+# Graceful degradation: if jq isn't installed, render a minimal statusline
+# instead of failing the hook with command-not-found errors. Claude Code
+# would otherwise spam the prompt with errors on every render.
+if ! command -v jq >/dev/null 2>&1; then
+  printf 'no-jq | install with: brew install jq'
+  exit 0
+fi
+
 # Project name: use session_name if set, else basename of project_dir
 project_name=$(echo "$input" | jq -r '.session_name // empty')
 if [ -z "$project_name" ]; then
