@@ -248,7 +248,7 @@ print_title_animated() {
 }
 
 run_tui_gum() {
-  gum style --border double --margin "1 0" --padding "1 2" --border-foreground 212 \
+  gum style --border double --margin "1 0" --padding "1 2" --border-foreground "#7c3aed" \
     "claude-dotfiles installer" "Pick what to install on this machine."
 
   local i
