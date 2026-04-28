@@ -1,8 +1,8 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/yes-and-logo-dark.png">
-    <source media="(prefers-color-scheme: light)" srcset="assets/yes-and-logo-light.png">
-    <img alt="Yes&" src="assets/yes-and-logo-light.png" width="320">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/yes-and-logo-dark.webp">
+    <source media="(prefers-color-scheme: light)" srcset="assets/yes-and-logo-light.webp">
+    <img alt="Yes&" src="assets/yes-and-logo-light.webp" width="320">
   </picture>
 </p>
 
