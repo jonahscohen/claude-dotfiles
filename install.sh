@@ -345,6 +345,7 @@ run_tui_gum() {
     set_pick "$k" 1
   done <<< "$chosen"
 
+  clear
   show_picks_summary
   gum confirm "Proceed with these components?" \
     --selected.background "#7c3aed" \
@@ -375,6 +376,7 @@ run_tui_fallback() {
     fi
   done
 
+  clear
   show_picks_summary
   printf "Proceed? [Y/n] "
   local reply=""
@@ -585,6 +587,7 @@ deactivate_component() {
 # ============================================================
 
 fresh_flow() {
+  clear
   print_yes_and_banner
 
   local choice
@@ -606,6 +609,7 @@ fresh_flow() {
 
   if [[ "$choice" == "Install the whole thing" ]]; then
     set_all 1
+    clear
     show_picks_summary
     if command -v gum >/dev/null 2>&1; then
       gum confirm "Install all of these?" \
@@ -631,6 +635,7 @@ fresh_flow() {
 # ============================================================
 
 returning_flow() {
+  clear
   print_yes_and_banner
 
   printf "Checking for updates...\n\n"
