@@ -10,7 +10,7 @@ set -euo pipefail
 #   statusline  - Custom prompt-bar render (~/.claude/statusline-command.sh)
 #   cmux        - cmux settings.json symlink
 #   nvm         - .zshrc auto-activate of nvm default (so claude/node/npm land on PATH)
-#   ampersand   - .zshrc 'ampersand' shell shortcut (back-compat alias 'yesplease')
+#   ampersand   - .zshrc 'ampersand' shell shortcut
 #
 # Flags:
 #   --yes              non-interactive, pick all components
@@ -64,7 +64,7 @@ DESCS=(
   "Symlinks our statusline-command.sh into ~/.claude/. The settings.json statusLine command is tolerant of a missing script, so unticking this cleanly falls back to no custom statusline (Claude Code's default takes over). Pick this if you like our prompt-bar render; skip if you prefer Claude Code's default or a different statusline you've configured yourself."
   "Settings for cmux, the split-pane terminal that hosts the in-app browser preview Claude uses to verify your UI work. Skip if you don't use cmux."
   "A small one-line addition to your zsh config that fixes a specific issue some setups hit: opening a new terminal and getting 'claude not found in PATH' even though Claude is installed. The fix only activates if your zsh config already loads nvm (Node Version Manager) - on most machines this is a harmless no-op, so it's safe to leave on. If 'claude' already runs fine in fresh terminals on your machine, you can skip this."
-  "Adds the 'ampersand' zsh function to your .zshrc. Type 'ampersand' from any terminal to re-launch this installer; type 'ampersand --pull' to pull the latest from GitHub first. Forwards every other flag ('ampersand --preset minimal', 'ampersand --pull --yes'). bootstrap.sh pre-installs this for new users so the curl one-liner is enough. Existing users with the legacy 'yesplease' command get an alias so 'yesplease' still works (mapped to 'ampersand --pull')."
+  "Adds the 'ampersand' zsh function to your .zshrc. Type 'ampersand' from any terminal to re-launch this installer; type 'ampersand --pull' to pull the latest from GitHub first. Forwards every other flag ('ampersand --preset minimal', 'ampersand --pull --yes'). bootstrap.sh pre-installs this for new users so the curl one-liner is enough."
 )
 PICKS=(1 1 1 1 1 1 1)
 
@@ -1159,12 +1159,12 @@ fi
 #   ampersand          - cd into repo, re-launch installer (no pull)
 #   ampersand --pull   - cd into repo, git pull, re-launch installer (sync + run)
 # Forwards every other arg, so `ampersand --preset minimal` and
-# `ampersand --pull --yes` work. Also defines a `yesplease` alias mapping
-# to `ampersand --pull` for back-compat with users who learned that name.
+# `ampersand --pull --yes` work.
 #
-# Migrates older installs that had a separate yesplease function by stripping
-# the old block (any of: pre-shortcuts marker, combined yesplease+ampersand
-# block) and appending the new ampersand-only block.
+# Migration: detects and refreshes any older block format we ever shipped
+# (pre-shortcuts vanity marker, combined yesplease+ampersand block, or the
+# previous ampersand block that still carried a yesplease back-compat alias).
+# All three get rewritten to the current ampersand-only block on next run.
 
 if picked ampersand; then
   echo ""
@@ -1194,21 +1194,20 @@ function ampersand() {
     ( cd "$REPO_DIR" && ./install.sh "\${args[@]}" )
   fi
 }
-# Back-compat: 'yesplease' used to be a separate function. Now an alias.
-alias yesplease='ampersand --pull'
 $SHORTCUT_END
 EOF
   }
 
-  # Detect whether the existing block is the new ampersand-only format.
-  # Heuristic: presence of both the begin marker AND the literal "--pull" in the block.
-  is_new_format() {
-    awk "/$SHORTCUT_BEGIN/,/$SHORTCUT_END/" "$ZSHRC" 2>/dev/null | grep -Fq -- "--pull"
+  # Block is current iff it has the SHORTCUT_BEGIN marker, has --pull in the
+  # function body, AND does NOT carry the deprecated yesplease alias.
+  is_current_format() {
+    awk "/$SHORTCUT_BEGIN/,/$SHORTCUT_END/" "$ZSHRC" 2>/dev/null | grep -Fq -- "--pull" \
+      && ! awk "/$SHORTCUT_BEGIN/,/$SHORTCUT_END/" "$ZSHRC" 2>/dev/null | grep -Fq "alias yesplease="
   }
 
   if [ -f "$ZSHRC" ]; then
-    if grep -Fq "$SHORTCUT_BEGIN" "$ZSHRC" && is_new_format; then
-      # New ampersand-only format present. Check baked path.
+    if grep -Fq "$SHORTCUT_BEGIN" "$ZSHRC" && is_current_format; then
+      # Current format present. Check baked path.
       if grep -Fq "cd \"$REPO_DIR\"" "$ZSHRC"; then
         ok "$ZSHRC ('ampersand' already defined for $REPO_DIR)"
       else
@@ -1220,23 +1219,22 @@ EOF
         ok "Refreshed 'ampersand' in $ZSHRC -> $REPO_DIR"
       fi
     elif grep -Fq "$SHORTCUT_BEGIN" "$ZSHRC"; then
-      # Old combined yesplease+ampersand block. Migrate.
-      warn "Migrating combined yesplease+ampersand block to ampersand-only (with yesplease alias)"
+      # Older format with our marker (combined block, or current-with-deprecated-alias).
+      # Sed-replace the whole range with the current format.
       sed -i.bak "/$SHORTCUT_BEGIN/,/$SHORTCUT_END/d" "$ZSHRC"
       rm -f "$ZSHRC.bak"
       append_shortcuts
       SHORTCUTS_NEW=1
-      ok "Migrated $ZSHRC: 'ampersand' (with --pull) now defined; 'yesplease' aliased"
+      ok "Refreshed 'ampersand' in $ZSHRC (cleaned up legacy block)"
     elif grep -Fq "$LEGACY_VANITY_MARKER" "$ZSHRC"; then
-      # Oldest legacy format (yesplease-only with vanity marker). Migrate.
-      warn "Migrating legacy yesplease block to 'ampersand' (with --pull) + yesplease alias"
+      # Pre-marker format. Sed-replace through to the next standalone closing brace.
       sed -i.bak "/$LEGACY_VANITY_MARKER/,/^}$/d" "$ZSHRC"
       rm -f "$ZSHRC.bak"
       append_shortcuts
       SHORTCUTS_NEW=1
-      ok "Migrated $ZSHRC: 'ampersand' now defined; 'yesplease' aliased"
-    elif grep -Eq '^(function[[:space:]]+(yesplease|ampersand)|alias[[:space:]]+(yesplease|ampersand)=)' "$ZSHRC"; then
-      warn "$ZSHRC already defines yesplease or ampersand without our marker - leaving it alone."
+      ok "Migrated $ZSHRC to current 'ampersand' format"
+    elif grep -Eq '^(function[[:space:]]+ampersand|alias[[:space:]]+ampersand=)' "$ZSHRC"; then
+      warn "$ZSHRC already defines 'ampersand' without our marker - leaving it alone."
     else
       append_shortcuts
       SHORTCUTS_NEW=1
@@ -1277,7 +1275,7 @@ picked shaders  && echo "  - Ghostty shaders: in-repo chain at $REPO_DIR/shaders
 picked cmux     && echo "  - cmux: settings.json"
 picked discord  && echo "  - .zshrc: source line for discord-chat-launcher (added once, marker-guarded)"
 picked nvm      && echo "  - .zshrc: nvm default auto-activation"
-picked ampersand && echo "  - .zshrc: 'ampersand' shortcut (type 'ampersand' to re-run installer; 'ampersand --pull' to sync first). 'yesplease' kept as a back-compat alias for 'ampersand --pull'"
+picked ampersand && echo "  - .zshrc: 'ampersand' shortcut (type 'ampersand' to re-run installer; 'ampersand --pull' to sync first)"
 echo ""
 # Resolve which post-install guidance is actually relevant based on picks.
 NEED_CC=0; NEED_PLUGINS=0; NEED_FONT=0
@@ -1369,10 +1367,10 @@ if [ "$SHORTCUTS_NEW" -eq 1 ]; then
     gum style --border double --margin "1 0" --padding "1 2" --border-foreground "#7c3aed" \
       "ONE MORE STEP" \
       "" \
-      "The 'ampersand' and 'yesplease' shortcuts were just added to ~/.zshrc," \
-      "but your current shell hasn't loaded them yet." \
+      "The 'ampersand' shortcut was just added to ~/.zshrc," \
+      "but your current shell hasn't loaded it yet." \
       "" \
-      "Run this now to use them in this terminal:" \
+      "Run this now to use it in this terminal:" \
       "    source ~/.zshrc" \
       "" \
       "Or open a new terminal window. After that, type 'ampersand' from" \
@@ -1383,10 +1381,10 @@ if [ "$SHORTCUTS_NEW" -eq 1 ]; then
     printf "${PURPLE}╔══════════════════════════════════════════════════════════════════╗${NC}\n"
     printf "${PURPLE}║${NC}  ONE MORE STEP                                                   ${PURPLE}║${NC}\n"
     printf "${PURPLE}║${NC}                                                                  ${PURPLE}║${NC}\n"
-    printf "${PURPLE}║${NC}  'ampersand' and 'yesplease' were just added to ~/.zshrc, but    ${PURPLE}║${NC}\n"
-    printf "${PURPLE}║${NC}  your current shell hasn't loaded them yet.                      ${PURPLE}║${NC}\n"
+    printf "${PURPLE}║${NC}  'ampersand' was just added to ~/.zshrc, but your current        ${PURPLE}║${NC}\n"
+    printf "${PURPLE}║${NC}  shell hasn't loaded it yet.                                     ${PURPLE}║${NC}\n"
     printf "${PURPLE}║${NC}                                                                  ${PURPLE}║${NC}\n"
-    printf "${PURPLE}║${NC}  Run this now to use them in this terminal:                      ${PURPLE}║${NC}\n"
+    printf "${PURPLE}║${NC}  Run this now to use it in this terminal:                        ${PURPLE}║${NC}\n"
     printf "${PURPLE}║${NC}      source ~/.zshrc                                             ${PURPLE}║${NC}\n"
     printf "${PURPLE}║${NC}                                                                  ${PURPLE}║${NC}\n"
     printf "${PURPLE}║${NC}  Or open a new terminal window. After that, 'ampersand'          ${PURPLE}║${NC}\n"

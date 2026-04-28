@@ -86,7 +86,7 @@ Seven components. Pick any combination. Defaults are all on, so most Yes& devs j
 | `statusline` | Custom prompt-bar render | Symlinks `~/.claude/statusline-command.sh` |
 | `cmux` | Split-pane terminal config (powers in-app browser preview) | Symlinks `~/.config/cmux/settings.json` |
 | `nvm` | Optional fix for "claude: command not found" in fresh terminals | Marker-guarded line in `~/.zshrc` |
-| `ampersand` | The `ampersand` zsh shortcut (`ampersand` to re-run, `ampersand --pull` to sync first). `yesplease` aliased for back-compat | Marker-guarded block in `~/.zshrc` |
+| `ampersand` | The `ampersand` zsh shortcut (`ampersand` to re-run, `ampersand --pull` to sync first) | Marker-guarded block in `~/.zshrc` |
 
 ### What's NOT here
 
@@ -183,7 +183,7 @@ ampersand --pull --preset all   # full sync + non-interactive
 ampersand --pull --only memory  # sync + just memory
 ```
 
-Used when you want to pick up changes another teammate pushed. Pulls via `git pull --ff-only` so it never silently merges divergent local changes. The legacy `yesplease` command is kept as an alias for `ampersand --pull` so anyone with muscle memory for it still works.
+Used when you want to pick up changes another teammate pushed. Pulls via `git pull --ff-only` so it never silently merges divergent local changes.
 
 #### Direct `./install.sh`
 
@@ -273,7 +273,7 @@ Three components are designed to NOT replace your existing config. The `memory` 
 |---|---|---|
 | `memory`   | Appends to `~/.claude/CLAUDE.md` between markers; JSON-merges hooks into `~/.claude/settings.json`; symlinks `~/.claude/startup-check.sh` | The full memory subsystem (rules + 3 hooks + loader) |
 | `skills`   | Adds to `~/.claude/skills/` only | The `make-interfaces-feel-better` skill |
-| `ampersand`| Marker-guarded block in `~/.zshrc` | The `ampersand` shortcut (and `yesplease` alias for back-compat) |
+| `ampersand`| Marker-guarded block in `~/.zshrc` | The `ampersand` shortcut |
 
 #### Common patterns
 
@@ -330,7 +330,7 @@ When the installer launches you get a checkbox TUI listing seven components. Eac
 | `statusline` | Custom prompt-bar render. The `statusLine` command in `settings.json` is tolerant of a missing script - unticking falls back cleanly to Claude Code's default | Symlinks `~/.claude/statusline-command.sh` |
 | `cmux`    | cmux split-pane terminal config. Powers the in-app browser preview Claude uses to verify UI work | Symlinks `~/.config/cmux/settings.json` |
 | `nvm`     | Optional fix for "claude not found in PATH" in fresh terminals on machines where Homebrew's nvm doesn't auto-activate. Harmless no-op on machines that don't use nvm | Appends `nvm use default --silent` to `~/.zshrc` (only if `nvm.sh` is already sourced) |
-| `ampersand` | The `ampersand` zsh shortcut. `ampersand` re-launches the installer from any directory; `ampersand --pull` pulls latest from GitHub first. Forwards every other flag. `yesplease` is kept as a back-compat alias mapping to `ampersand --pull`. Auto-migrates older installs (yesplease-only or yesplease+ampersand combined blocks) | Marker-guarded shortcuts block in `~/.zshrc` |
+| `ampersand` | The `ampersand` zsh shortcut. `ampersand` re-launches the installer from any directory; `ampersand --pull` pulls latest from GitHub first. Forwards every other flag. Auto-migrates older block formats from prior versions of the installer | Marker-guarded shortcuts block in `~/.zshrc` |
 
 The TUI also lets you pre-select via flags: `--yes` for everything, `--preset minimal` for `claude+memory+skills+nvm`, `--preset all`, `--preset none`, `--only csv` for an explicit subset, `--dry-run` to preview without writing.
 
@@ -656,7 +656,7 @@ All hooks are pipe-tested before they ship - the bash-guard hook discipline (ver
 Every section of `install.sh` is idempotent:
 
 - **Symlinks**: `make_symlink` checks if the target already points where we want; if so, no-op. Otherwise backs up any pre-existing real file, removes stale symlinks, creates fresh.
-- **`.zshrc` appends** (nvm, shortcuts): marker-guarded with grep checks. If the marker is present, no-op. The shortcuts block (ampersand) also self-heals: if the marker is present but the baked `cd "$REPO_DIR"` doesn't match the current `$REPO_DIR`, the entire block is sed-deleted and re-appended at the new path. Lets you move the repo on a machine and have shortcuts auto-refresh. Same self-heal also handles legacy formats (yesplease-only, or yesplease+ampersand combined) and migrates them to the current format.
+- **`.zshrc` appends** (nvm, shortcuts): marker-guarded with grep checks. If the marker is present, no-op. The shortcuts block (ampersand) also self-heals: if the marker is present but the baked `cd "$REPO_DIR"` doesn't match the current `$REPO_DIR`, the entire block is sed-deleted and re-appended at the new path. The same self-heal recognizes any older block format we ever shipped and rewrites it to the current one.
 - **Memory hooks JSON-merge**: marker-based detection on substrings (`startup-check.sh`, `PreCompact: flushing pending memory`). If detected, no-op. Otherwise python3 reads the existing settings.json, adds the missing hook entries, writes back.
 - **CLAUDE.md memory-discipline append**: marker-guarded on `<!-- claude-dotfiles:memory-discipline:begin -->`. If present, no-op. Otherwise awk-extract the block from our CLAUDE.md and append.
 - **npx skills add**: idempotent via the skills CLI's own logic.
