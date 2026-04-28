@@ -25,6 +25,7 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKUP_DIR="$REPO_DIR/.backups/$(date +%Y%m%d-%H%M%S)"
 BACKED_UP=0
+SHORTCUTS_NEW=0  # Set to 1 when the .zshrc shortcut block is newly written/migrated/refreshed this run
 
 # Colors
 RED='\033[0;31m'
@@ -724,8 +725,8 @@ EOF
         sed -i.bak "/$SHORTCUT_BEGIN/,/$SHORTCUT_END/d" "$ZSHRC"
         rm -f "$ZSHRC.bak"
         append_shortcuts
+        SHORTCUTS_NEW=1
         ok "Refreshed shortcuts in $ZSHRC -> $REPO_DIR"
-        warn "Run 'source $ZSHRC' or open a new shell to pick up the new path."
       fi
     elif grep -Fq "$LEGACY_YESPLEASE_MARKER" "$ZSHRC"; then
       # Legacy yesplease-only block. Migrate to combined block.
@@ -733,14 +734,14 @@ EOF
       sed -i.bak "/$LEGACY_YESPLEASE_MARKER/,/^}$/d" "$ZSHRC"
       rm -f "$ZSHRC.bak"
       append_shortcuts
+      SHORTCUTS_NEW=1
       ok "Migrated $ZSHRC: yesplease + ampersand now defined"
-      warn "Run 'source $ZSHRC' or open a new shell to use 'ampersand'."
     elif grep -Eq '^(function[[:space:]]+(yesplease|ampersand)|alias[[:space:]]+(yesplease|ampersand)=)' "$ZSHRC"; then
       warn "$ZSHRC already defines yesplease or ampersand without our marker - leaving it alone."
     else
       append_shortcuts
+      SHORTCUTS_NEW=1
       ok "Added shortcuts (yesplease, ampersand) to $ZSHRC"
-      warn "Run 'source $ZSHRC' or open a new shell to use them."
     fi
   else
     warn "$ZSHRC not found - skipping shell shortcuts (zsh only)."
@@ -801,3 +802,43 @@ echo "    and optionally DESIGN.md at the project root. Every /impeccable comman
 echo "    reads those files, so skipping this step produces generic output."
 echo "  - Run '/impeccable' with no argument to see the full 23-command menu."
 echo ""
+
+# ============================================================
+# Final callout: shortcut-block was newly written this run
+# ============================================================
+# zsh only reads .zshrc at shell startup, so a function appended during
+# install.sh isn't live in the parent shell yet. Print a prominent box
+# so a new user knows to source.zshrc once before typing `ampersand`.
+
+if [ "$SHORTCUTS_NEW" -eq 1 ]; then
+  echo ""
+  if command -v gum >/dev/null 2>&1; then
+    gum style --border double --margin "1 0" --padding "1 2" --border-foreground "#7c3aed" \
+      "ONE MORE STEP" \
+      "" \
+      "The 'ampersand' and 'yesplease' shortcuts were just added to ~/.zshrc," \
+      "but your current shell hasn't loaded them yet." \
+      "" \
+      "Run this now to use them in this terminal:" \
+      "    source ~/.zshrc" \
+      "" \
+      "Or open a new terminal window. After that, type 'ampersand' from" \
+      "anywhere to re-launch the installer."
+  else
+    PURPLE='\033[38;2;124;58;237m'
+    NC='\033[0m'
+    printf "${PURPLE}╔══════════════════════════════════════════════════════════════════╗${NC}\n"
+    printf "${PURPLE}║${NC}  ONE MORE STEP                                                   ${PURPLE}║${NC}\n"
+    printf "${PURPLE}║${NC}                                                                  ${PURPLE}║${NC}\n"
+    printf "${PURPLE}║${NC}  'ampersand' and 'yesplease' were just added to ~/.zshrc, but    ${PURPLE}║${NC}\n"
+    printf "${PURPLE}║${NC}  your current shell hasn't loaded them yet.                      ${PURPLE}║${NC}\n"
+    printf "${PURPLE}║${NC}                                                                  ${PURPLE}║${NC}\n"
+    printf "${PURPLE}║${NC}  Run this now to use them in this terminal:                      ${PURPLE}║${NC}\n"
+    printf "${PURPLE}║${NC}      source ~/.zshrc                                             ${PURPLE}║${NC}\n"
+    printf "${PURPLE}║${NC}                                                                  ${PURPLE}║${NC}\n"
+    printf "${PURPLE}║${NC}  Or open a new terminal window. After that, 'ampersand'          ${PURPLE}║${NC}\n"
+    printf "${PURPLE}║${NC}  works from any directory.                                       ${PURPLE}║${NC}\n"
+    printf "${PURPLE}╚══════════════════════════════════════════════════════════════════╝${NC}\n"
+  fi
+  echo ""
+fi
