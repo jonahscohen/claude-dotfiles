@@ -195,13 +195,63 @@ show_picks_summary() {
   printf "\n"
 }
 
+# Print a string with a one-shot shimmer reveal that settles into a static
+# purple-to-pink gradient. Replaces `gum style --foreground 212` for component
+# titles in the TUI. Endpoints: deep violet (#7c3aed) -> magenta (#ec4899),
+# with a brighter shimmer band (#fbcfe8) that sweeps left-to-right once.
+# Requires a 24-bit-color-capable terminal; falls back gracefully (text still
+# prints, just without the gradient) if escape codes are stripped.
+print_title_animated() {
+  local text="$1"
+  local len=${#text}
+  [ "$len" -eq 0 ] && return
+
+  local frames=6 frame i pos d intensity divisor
+  local shimmer_width=5
+  local r g b char
+  divisor=$(( len > 1 ? len - 1 : 1 ))
+
+  for ((frame=0; frame<frames; frame++)); do
+    pos=$(( -shimmer_width + (len + 2 * shimmer_width) * frame / (frames - 1) ))
+    printf '\r\033[K'
+    for ((i=0; i<len; i++)); do
+      char="${text:$i:1}"
+      r=$(( 124 + (236 - 124) * i / divisor ))
+      g=$(( 58  + ( 72 -  58) * i / divisor ))
+      b=$(( 237 + (153 - 237) * i / divisor ))
+      d=$(( i - pos ))
+      [ "$d" -lt 0 ] && d=$(( -d ))
+      if [ "$d" -lt "$shimmer_width" ]; then
+        intensity=$(( (shimmer_width - d) * 100 / shimmer_width ))
+        r=$(( r + (251 - r) * intensity / 100 ))
+        g=$(( g + (207 - g) * intensity / 100 ))
+        b=$(( b + (232 - b) * intensity / 100 ))
+      fi
+      printf '\033[38;2;%d;%d;%dm%s' "$r" "$g" "$b" "$char"
+    done
+    printf '\033[0m'
+    sleep 0.03
+  done
+
+  # Settle: pure static gradient, no shimmer.
+  printf '\r\033[K'
+  for ((i=0; i<len; i++)); do
+    char="${text:$i:1}"
+    r=$(( 124 + (236 - 124) * i / divisor ))
+    g=$(( 58  + ( 72 -  58) * i / divisor ))
+    b=$(( 237 + (153 - 237) * i / divisor ))
+    printf '\033[38;2;%d;%d;%dm%s' "$r" "$g" "$b" "$char"
+  done
+  printf '\033[0m\n'
+}
+
 run_tui_gum() {
   gum style --border double --margin "1 0" --padding "1 2" --border-foreground 212 \
     "claude-dotfiles installer" "Pick what to install on this machine."
 
   local i
   for i in "${!KEYS[@]}"; do
-    gum style --foreground 212 "${KEYS[$i]} - ${TITLES[$i]}"
+    print_title_animated "${KEYS[$i]} - ${TITLES[$i]}"
     gum style --faint "  ${DESCS[$i]}"
   done
   printf "\n"
