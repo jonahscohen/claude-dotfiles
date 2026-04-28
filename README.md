@@ -60,7 +60,7 @@ That's the whole quick start. Read on for what you got and why.
 
 ## What you get
 
-You've got it installed. Here's what's actually on your machine now.
+Everything the installer puts on your machine, summarized.
 
 ### What this is
 
