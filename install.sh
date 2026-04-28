@@ -287,7 +287,9 @@ run_tui_gum() {
   done <<< "$chosen"
 
   show_picks_summary
-  gum confirm "Proceed with these components?" || return 1
+  gum confirm "Proceed with these components?" \
+    --selected.background "#7c3aed" \
+    --selected.foreground "#ffffff" || return 1
   return 0
 }
 
