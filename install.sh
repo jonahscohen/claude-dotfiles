@@ -775,33 +775,82 @@ picked discord  && echo "  - .zshrc: source line for discord-chat-launcher (adde
 picked nvm      && echo "  - .zshrc: nvm default auto-activation"
 picked yesplease && echo "  - .zshrc: 'yesplease' (pull + re-run installer) and 'ampersand' (just re-run, no pull)"
 echo ""
-echo "Manual steps remaining:"
-echo "  1. Install Claude Code if not already present:"
-echo "     npm install -g @anthropic-ai/claude-code"
-echo "  2. Open Claude Code once - your enabled plugins (Impeccable, Figma,"
-echo "     Sentry, Supabase, Discord, hookify, superpowers, etc.) auto-install"
-echo "     from settings.json on first launch. Run 'claude /plugins' to confirm."
-echo "  3. Install the PolySans Neutral Mono font family (used by Ghostty config)."
-echo "  4. Restart Ghostty and cmux to pick up config changes."
-echo "  5. Open a new shell or 'source ~/.zshrc' to activate the .zshrc additions."
-echo ""
-echo "Connectors and MCP servers (NOT installed by this script - per-account):"
-echo "  - ClickUp: a Claude.ai connector. Sign in at claude.ai, go to"
-echo "    Settings -> Connectors, and authorize ClickUp once. It then works"
-echo "    in every Claude session signed in to that account."
-echo "  - Claude in Chrome: a Chrome extension. Install from the Chrome Web"
-echo "    Store, sign in to Claude, and it bridges to Claude Code automatically."
-echo "  These aren't portable through dotfiles because they need OAuth and"
-echo "  per-browser setup. Set them up once per machine."
-echo ""
-echo "Design workflow (Impeccable):"
-echo "  - The impeccable plugin is enabled in settings.json (autoUpdate on)."
-echo "  - CLAUDE.md routes all design and UI-QA work through /impeccable."
-echo "  - In each new project, run '/impeccable teach' once to seed PRODUCT.md"
-echo "    and optionally DESIGN.md at the project root. Every /impeccable command"
-echo "    reads those files, so skipping this step produces generic output."
-echo "  - Run '/impeccable' with no argument to see the full 23-command menu."
-echo ""
+# Resolve which post-install guidance is actually relevant based on picks.
+NEED_CC=0; NEED_PLUGINS=0; NEED_FONT=0
+NEED_GHOSTTY_RESTART=0; NEED_CMUX_RESTART=0; NEED_SHELL_RELOAD=0
+picked claude    && { NEED_CC=1; NEED_PLUGINS=1; }
+picked memory    && NEED_CC=1
+picked skills    && NEED_CC=1
+picked ghostty   && { NEED_FONT=1; NEED_GHOSTTY_RESTART=1; }
+picked cmux      && NEED_CMUX_RESTART=1
+picked discord   && NEED_SHELL_RELOAD=1
+picked nvm       && NEED_SHELL_RELOAD=1
+# Suppress the generic "source .zshrc" bullet when the prominent shortcut box
+# is firing - that box covers the same instruction more visibly.
+[ "$SHORTCUTS_NEW" -eq 0 ] && picked yesplease && NEED_SHELL_RELOAD=1
+
+# Render Manual Steps only if at least one bullet would fire.
+TOTAL_STEPS=$((NEED_CC + NEED_PLUGINS + NEED_FONT + NEED_GHOSTTY_RESTART + NEED_CMUX_RESTART + NEED_SHELL_RELOAD))
+if [ "$TOTAL_STEPS" -gt 0 ]; then
+  echo "Manual steps remaining:"
+  STEP=0
+  if [ "$NEED_CC" -eq 1 ]; then
+    STEP=$((STEP+1))
+    echo "  $STEP. Install Claude Code if not already present:"
+    echo "      npm install -g @anthropic-ai/claude-code"
+  fi
+  if [ "$NEED_PLUGINS" -eq 1 ]; then
+    STEP=$((STEP+1))
+    echo "  $STEP. Open Claude Code once - your enabled plugins (Impeccable, Figma,"
+    echo "      Sentry, Supabase, Discord, hookify, superpowers, etc.) auto-install"
+    echo "      from settings.json on first launch. Run 'claude /plugins' to confirm."
+  fi
+  if [ "$NEED_FONT" -eq 1 ]; then
+    STEP=$((STEP+1))
+    echo "  $STEP. Install the PolySans Neutral Mono font family (used by Ghostty config)."
+  fi
+  if [ "$NEED_GHOSTTY_RESTART" -eq 1 ] && [ "$NEED_CMUX_RESTART" -eq 1 ]; then
+    STEP=$((STEP+1))
+    echo "  $STEP. Restart Ghostty and cmux to pick up config changes."
+  elif [ "$NEED_GHOSTTY_RESTART" -eq 1 ]; then
+    STEP=$((STEP+1))
+    echo "  $STEP. Restart Ghostty to pick up config changes."
+  elif [ "$NEED_CMUX_RESTART" -eq 1 ]; then
+    STEP=$((STEP+1))
+    echo "  $STEP. Restart cmux to pick up config changes."
+  fi
+  if [ "$NEED_SHELL_RELOAD" -eq 1 ]; then
+    STEP=$((STEP+1))
+    echo "  $STEP. Open a new shell or 'source ~/.zshrc' to activate the .zshrc additions."
+  fi
+  echo ""
+fi
+
+# Connectors and MCP servers - only relevant if Claude Code is in play.
+if [ "$NEED_CC" -eq 1 ]; then
+  echo "Connectors and MCP servers (NOT installed by this script - per-account):"
+  echo "  - ClickUp: a Claude.ai connector. Sign in at claude.ai, go to"
+  echo "    Settings -> Connectors, and authorize ClickUp once. It then works"
+  echo "    in every Claude session signed in to that account."
+  echo "  - Claude in Chrome: a Chrome extension. Install from the Chrome Web"
+  echo "    Store, sign in to Claude, and it bridges to Claude Code automatically."
+  echo "  These aren't portable through dotfiles because they need OAuth and"
+  echo "  per-browser setup. Set them up once per machine."
+  echo ""
+fi
+
+# Impeccable workflow - only relevant when our full settings.json (with the
+# impeccable plugin enabled) is active, i.e., claude was picked.
+if picked claude; then
+  echo "Design workflow (Impeccable):"
+  echo "  - The impeccable plugin is enabled in settings.json (autoUpdate on)."
+  echo "  - CLAUDE.md routes all design and UI-QA work through /impeccable."
+  echo "  - In each new project, run '/impeccable teach' once to seed PRODUCT.md"
+  echo "    and optionally DESIGN.md at the project root. Every /impeccable command"
+  echo "    reads those files, so skipping this step produces generic output."
+  echo "  - Run '/impeccable' with no argument to see the full 23-command menu."
+  echo ""
+fi
 
 # ============================================================
 # Final callout: shortcut-block was newly written this run
