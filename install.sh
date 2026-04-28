@@ -672,7 +672,8 @@ returning_flow() {
   # Action loop
   local did_install=0
   while true; do
-    printf "\n${PURPLE}Components${NC}\n"
+    clear
+    printf "${PURPLE}Components${NC}\n"
     local i status display
     for i in "${!KEYS[@]}"; do
       status=$(effective_state "${KEYS[$i]}")
@@ -742,10 +743,12 @@ returning_flow() {
         deactivate_component "$pick"
         state_set "$pick" "inactive"
         ok "$pick deactivated."
+        sleep 0.8
         ;;
       "remove from state")
         state_set "$pick" "not-installed"
         ok "$pick cleared from state."
+        sleep 0.8
         ;;
     esac
   done
