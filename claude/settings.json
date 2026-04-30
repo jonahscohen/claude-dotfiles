@@ -15,6 +15,18 @@
       "Write(/Users/*/.claude/projects/**/memory/**)",
       "Edit(/Users/*/.claude/projects/**/memory/**)",
       "MultiEdit(/Users/*/.claude/projects/**/memory/**)",
+      "Write(/Users/**/memory/**)",
+      "Edit(/Users/**/memory/**)",
+      "MultiEdit(/Users/**/memory/**)",
+      "Write(/home/**/memory/**)",
+      "Edit(/home/**/memory/**)",
+      "MultiEdit(/home/**/memory/**)",
+      "Write(**/memory/**)",
+      "Edit(**/memory/**)",
+      "MultiEdit(**/memory/**)",
+      "Write(**/MEMORY.md)",
+      "Edit(**/MEMORY.md)",
+      "MultiEdit(**/MEMORY.md)",
       "mcp__pencil"
     ],
     "defaultMode": "bypassPermissions"
