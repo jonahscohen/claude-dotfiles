@@ -163,6 +163,23 @@ The script handles OGG/Opus (Discord), m4a (iOS), mp3, flac, and wav. It pre-con
 
 If `~/.claude/transcribe` is missing on a fresh machine, run `ampersand --only voice` to install. If it errors with "model missing" or "ffmpeg not found", the same install fixes both.
 
+## Discord Chat Agent (smart launcher + onboarding)
+
+The `discord` component adds a state-aware wrapper around `claude` so opening a session prompts intelligently based on what's already configured on the machine. Three states:
+
+- **Cold** (no bot token in macOS Keychain): the wrapper offers `[s] Set up now`, `[k] Skip this session`, `[n] Never ask again`. `s` runs `~/.claude/discord-onboard.sh`; `n` writes `~/.claude/channels/discord/.skip-launcher` so the prompt never reappears (delete the file to undo).
+- **Mid** (token configured but no users paired in `access.json`): the wrapper offers `[p] Pair now` (launches Claude with the Discord channel attached so the user can DM the bot) or `[s] Skip`.
+- **Warm** (token + at least one paired user): the familiar 5-second `Connect to Discord Chat Agent? (y/n)` prompt with default Yes.
+
+`~/.claude/discord-onboard.sh` is the interactive walkthrough. It runs `--status` to print state and exits, or interactively dispatches to one of two paths:
+
+1. "I already have a Discord bot": prompts for the bot token (hidden input), pipes it into `discord-setup.sh` to land in macOS Keychain.
+2. "Walk me through making a new one": numbered Developer Portal steps (create application, enable Message Content Intent, reset token, generate OAuth URL, authorize), with `Press enter when done` between each, then prompts for the token.
+
+Both paths end with the same pairing instructions: start a Claude session with the Discord channel attached, DM the bot to receive a 6-character pairing code, then run `/discord:access pair <code>` in a Claude terminal session.
+
+If a colleague asks how to set up Discord on their machine, point them at `bash ~/.claude/discord-onboard.sh` (after they've installed at least the `claude` component of the dotfiles).
+
 ## cmux Browser Pane (visual verification tool)
 
 `cmux` is the browser-surface CLI wired into this machine's Claude Code harness. Use it to take screenshots and drive a real browser pane for visual verification instead of (or in addition to) the `mcp__claude-in-chrome__*` tools. This is the preferred surface for verifying UI changes per the Verification Protocol above.
