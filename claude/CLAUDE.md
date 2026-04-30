@@ -149,6 +149,20 @@ The hook layer stays useful regardless of `defaultMode` - hooks fire BEFORE the 
 - NEVER draw, compose, approximate, or fabricate SVG icons. All icons must be sourced verbatim from established royalty-free icon libraries (Heroicons, Lucide, Tabler, Bootstrap Icons, Phosphor, Feather, Material Symbols). Copy the exact path data character-for-character from the library source. Do not rewrite, simplify, optimize, or "clean up" path data. If the path you are inserting does not match the library source byte-for-byte, you are breaking this rule. No exceptions.
 - NEVER use outdated or legacy model versions in any project. Always use the latest bleeding-edge model available. No gpt-4o, no gpt-4, no gpt-3.5, no gpt-4.1. If OpenAI is the provider, use the newest model (currently gpt-5.4). If Anthropic, use the newest Claude. If Google, use the newest Gemini. This applies globally across all projects, all folders, all directories. No exceptions.
 
+## Voice transcription (audio attachments)
+
+When a Discord (or any other) message arrives with an audio attachment - voice memo, recorded note, dictation - transcribe it before responding. Do not ask the user to retype what they said.
+
+The dotfiles' `voice` component installs whisper.cpp + ffmpeg locally and symlinks `~/.claude/transcribe`. Pipeline:
+
+1. Download the attachment (`mcp__plugin_discord_discord__download_attachment` for Discord, or read the path the user provided).
+2. Run `~/.claude/transcribe <path-to-audio>` via Bash. The transcript prints on stdout, diagnostics on stderr.
+3. Use the transcript as if the user had typed it. If the transcription is empty or obviously garbled, tell the user and ask them to retype - don't fabricate a guess.
+
+The script handles OGG/Opus (Discord), m4a (iOS), mp3, flac, and wav. It pre-converts to 16 kHz mono PCM via ffmpeg, then runs whisper-cli with the ggml-base.en model from `~/.cache/whisper/`. Override the model with `WHISPER_MODEL=/path/to/other.bin` if you need multilingual or higher-accuracy variants.
+
+If `~/.claude/transcribe` is missing on a fresh machine, run `ampersand --only voice` to install. If it errors with "model missing" or "ffmpeg not found", the same install fixes both.
+
 ## cmux Browser Pane (visual verification tool)
 
 `cmux` is the browser-surface CLI wired into this machine's Claude Code harness. Use it to take screenshots and drive a real browser pane for visual verification instead of (or in addition to) the `mcp__claude-in-chrome__*` tools. This is the preferred surface for verifying UI changes per the Verification Protocol above.

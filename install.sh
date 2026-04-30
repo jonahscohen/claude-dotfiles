@@ -3,7 +3,7 @@ set -euo pipefail
 
 # ============================================================
 # claude-dotfiles installer
-# Interactive TUI over seven components:
+# Interactive TUI over eight components:
 #   claude      - Claude Code global config (CLAUDE.md, settings.json, hooks, memory) - REPLACES existing
 #   memory      - Additive memory subsystem (rules + 3 hooks + startup-check.sh loader)
 #   skills      - Anthropic Skills (currently: make-interfaces-feel-better)
@@ -11,6 +11,7 @@ set -euo pipefail
 #   cmux        - cmux settings.json symlink
 #   nvm         - .zshrc auto-activate of nvm default (so claude/node/npm land on PATH)
 #   ampersand   - .zshrc 'ampersand' shell shortcut
+#   voice       - whisper.cpp + ffmpeg + transcribe CLI for voice-message input
 #
 # Flags:
 #   --yes              non-interactive, pick all components
@@ -47,7 +48,7 @@ err()   { printf "${RED}[error]${NC} %s\n" "$1"; }
 # ============================================================
 
 # Public components - shipped to all users.
-KEYS=(claude memory skills statusline cmux nvm ampersand)
+KEYS=(claude memory skills statusline cmux nvm ampersand voice)
 TITLES=(
   "Claude Code config (REPLACES existing)"
   "Memory subsystem (additive: hooks + rules + loader)"
@@ -56,6 +57,7 @@ TITLES=(
   "cmux split-pane terminal"
   "nvm fix (optional, only if needed)"
   "'ampersand' shell shortcut"
+  "Voice transcription (whisper.cpp + ffmpeg + transcribe CLI)"
 )
 DESCS=(
   "Your global Claude Code brain: REPLACES ~/.claude/CLAUDE.md, settings.json (with our plugin list - Impeccable, Figma, Sentry, Supabase, Discord, plus 9 more), safety hooks, and shared memory files. Existing files are backed up to .backups/ but the active versions become ours. Skip if you already have your own CLAUDE.md and settings.json that you want to keep - then pick 'memory' and 'skills' alone to add memory capability and UI-polish capability without touching your config. (Plugin-list merging into an existing settings.json is a TODO; for now you'd manually copy enabledPlugins from claude/settings.json into yours.)"
@@ -65,8 +67,9 @@ DESCS=(
   "Settings for cmux, the split-pane terminal that hosts the in-app browser preview Claude uses to verify your UI work. Skip if you don't use cmux."
   "A small one-line addition to your zsh config that fixes a specific issue some setups hit: opening a new terminal and getting 'claude not found in PATH' even though Claude is installed. The fix only activates if your zsh config already loads nvm (Node Version Manager) - on most machines this is a harmless no-op, so it's safe to leave on. If 'claude' already runs fine in fresh terminals on your machine, you can skip this."
   "Adds the 'ampersand' zsh function to your .zshrc. Type 'ampersand' from any terminal to re-launch this installer; type 'ampersand --pull' to pull the latest from GitHub first. Forwards every other flag ('ampersand --preset minimal', 'ampersand --pull --yes'). bootstrap.sh pre-installs this for new users so the curl one-liner is enough."
+  "Adds local voice-to-text so Claude can answer Discord voice messages and any other audio attachment. Brews whisper-cpp and ffmpeg, downloads the ggml-base.en model (~150 MB) into ~/.cache/whisper, and symlinks bin/transcribe to ~/.claude/transcribe. Local-only (no cloud, no API key). Calls: '~/.claude/transcribe path/to/audio.ogg' prints the transcript on stdout."
 )
-PICKS=(1 1 1 1 1 1 1)
+PICKS=(1 1 1 1 1 1 1 1)
 
 # Personal components - hidden from public TUI and --help. Surfaced only when
 # the maintainer passes --personal (undocumented, undocumented-on-purpose).
@@ -151,7 +154,7 @@ Usage:
   ./install.sh --yes            Non-interactive, install everything
   ./install.sh --preset NAME    Non-interactive preset: all | minimal | none
   ./install.sh --only KEYS      Non-interactive, comma-separated keys
-                                (claude, memory, skills, statusline, cmux, nvm, ampersand)
+                                (claude, memory, skills, statusline, cmux, nvm, ampersand, voice)
   ./install.sh --dry-run        Print resolved picks and exit
   ./install.sh --help           Show this help
 EOF
@@ -1246,6 +1249,70 @@ EOF
 fi
 
 # ============================================================
+# 11. Voice transcription (whisper.cpp + ffmpeg + transcribe CLI)
+# ============================================================
+# Local-only voice-to-text so Claude can answer Discord voice messages, iOS
+# voice memos, or any other audio attachment dropped into a session. Three
+# pieces:
+#   1) Brew-install whisper-cpp and ffmpeg if missing (idempotent; brew is a
+#      no-op when already installed).
+#   2) Download ggml-base.en.bin (~150 MB) into ~/.cache/whisper/ if not
+#      already there. base.en is the speed/accuracy sweet spot for English;
+#      callers can override with WHISPER_MODEL=/path.
+#   3) Symlink claude/transcribe.sh -> ~/.claude/transcribe so the canonical
+#      invocation 'transcribe <file>' works from any cwd via absolute path.
+# Non-fatal failures (no brew, network down) print warnings and move on so
+# the installer doesn't block other components.
+
+if picked voice; then
+  echo ""
+  info "--- Voice transcription ---"
+
+  if command -v brew >/dev/null 2>&1; then
+    if ! command -v whisper-cli >/dev/null 2>&1; then
+      info "Installing whisper-cpp..."
+      brew install whisper-cpp >/dev/null 2>&1 && ok "whisper-cpp installed" \
+        || warn "brew install whisper-cpp failed (non-fatal). Run manually: brew install whisper-cpp"
+    else
+      ok "whisper-cpp already installed"
+    fi
+    if ! command -v ffmpeg >/dev/null 2>&1; then
+      info "Installing ffmpeg..."
+      brew install ffmpeg >/dev/null 2>&1 && ok "ffmpeg installed" \
+        || warn "brew install ffmpeg failed (non-fatal). Run manually: brew install ffmpeg"
+    else
+      ok "ffmpeg already installed"
+    fi
+  else
+    warn "Homebrew not found - cannot install whisper-cpp/ffmpeg automatically."
+    warn "After installing Homebrew (https://brew.sh), run: brew install whisper-cpp ffmpeg"
+  fi
+
+  WHISPER_CACHE="$HOME/.cache/whisper"
+  WHISPER_MODEL_FILE="$WHISPER_CACHE/ggml-base.en.bin"
+  WHISPER_MODEL_URL="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin"
+
+  mkdir -p "$WHISPER_CACHE"
+  if [ -f "$WHISPER_MODEL_FILE" ] && [ "$(stat -f%z "$WHISPER_MODEL_FILE" 2>/dev/null || stat -c%s "$WHISPER_MODEL_FILE" 2>/dev/null)" -gt 100000000 ]; then
+    ok "Whisper model already at $WHISPER_MODEL_FILE"
+  else
+    info "Downloading ggml-base.en.bin (~150 MB) to $WHISPER_MODEL_FILE..."
+    if curl -L -f --progress-bar "$WHISPER_MODEL_URL" -o "$WHISPER_MODEL_FILE.partial" \
+       && mv "$WHISPER_MODEL_FILE.partial" "$WHISPER_MODEL_FILE"; then
+      ok "Whisper model downloaded"
+    else
+      rm -f "$WHISPER_MODEL_FILE.partial"
+      warn "Whisper model download failed (non-fatal). Retry manually:"
+      warn "  curl -L $WHISPER_MODEL_URL -o $WHISPER_MODEL_FILE"
+    fi
+  fi
+
+  mkdir -p "$CLAUDE_DIR"
+  chmod +x "$REPO_DIR/claude/transcribe.sh"
+  make_symlink "$REPO_DIR/claude/transcribe.sh" "$CLAUDE_DIR/transcribe"
+fi
+
+# ============================================================
 # Summary
 # ============================================================
 # Suppress when invoked recursively from the returning-flow action loop -
@@ -1276,6 +1343,7 @@ picked cmux     && echo "  - cmux: settings.json"
 picked discord  && echo "  - .zshrc: source line for discord-chat-launcher (added once, marker-guarded)"
 picked nvm      && echo "  - .zshrc: nvm default auto-activation"
 picked ampersand && echo "  - .zshrc: 'ampersand' shortcut (type 'ampersand' to re-run installer; 'ampersand --pull' to sync first)"
+picked voice    && echo "  - Voice: whisper-cpp + ffmpeg + ggml-base.en model + ~/.claude/transcribe symlink (run '~/.claude/transcribe path/to/audio.ogg')"
 echo ""
 # Resolve which post-install guidance is actually relevant based on picks.
 NEED_CC=0; NEED_PLUGINS=0; NEED_FONT=0
