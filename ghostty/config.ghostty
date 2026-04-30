@@ -19,8 +19,9 @@ unfocused-split-opacity = .9
 # __DOTFILES_DIR__ is replaced by install.sh with the absolute path of the
 # dotfiles repo on this machine, so the repo can be cloned anywhere.
 # Ghostty chains shaders in declaration order: each stage feeds the next.
-custom-shader = __DOTFILES_DIR__/shaders/bettercrt.glsl
-custom-shader = __DOTFILES_DIR__/shaders/tft.glsl
+# CRT screen effect disabled
+# custom-shader = __DOTFILES_DIR__/shaders/bettercrt.glsl
+# custom-shader = __DOTFILES_DIR__/shaders/tft.glsl
 custom-shader = __DOTFILES_DIR__/shaders/cursor_blaze.glsl
 custom-shader-animation = always
 
