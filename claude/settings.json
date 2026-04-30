@@ -9,6 +9,12 @@
       "Write(**/*.md)",
       "Edit(**/*.md)",
       "MultiEdit(**/*.md)",
+      "Write(**/.claude/memory/**)",
+      "Edit(**/.claude/memory/**)",
+      "MultiEdit(**/.claude/memory/**)",
+      "Write(/Users/*/.claude/projects/**/memory/**)",
+      "Edit(/Users/*/.claude/projects/**/memory/**)",
+      "MultiEdit(/Users/*/.claude/projects/**/memory/**)",
       "mcp__pencil"
     ],
     "defaultMode": "bypassPermissions"
