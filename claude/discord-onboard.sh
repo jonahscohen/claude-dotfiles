@@ -18,6 +18,10 @@
 # Usage:
 #   ./discord-onboard.sh           # interactive
 #   ./discord-onboard.sh --status  # print state and exit
+#   ./discord-onboard.sh --repair  # rebuild missing approved-channel markers
+#                                  # (use when reply tool says "channel not
+#                                  # allowlisted" but access.json has the user
+#                                  # in allowFrom)
 
 set -euo pipefail
 
@@ -101,6 +105,73 @@ print_pairing_instructions() {
     model into ~/.cache/whisper/. Local-only, no API key.
 
 EOF
+}
+
+repair_approved_markers() {
+  # Last-resort fallback: rebuild ~/.claude/channels/discord/approved/<userId>
+  # marker files when the bot server has lost track of approved DM channels.
+  # Symptom: reply tool says "channel <id> is not allowlisted" even though
+  # access.json's allowFrom contains the user. Cause: the marker file (which
+  # records "user X has DM channel Y") is missing or has the wrong chat_id.
+  #
+  # The /discord:access pair flow writes these markers as step 7. If it ran
+  # successfully once and then the marker got deleted (manual cleanup, fresh
+  # install on a new machine before re-pairing, etc.), DMs will silently fail
+  # until the marker comes back.
+  if [ ! -f "$ACCESS_FILE" ]; then
+    printf "  No access.json yet. Run %s without --repair first.\n\n" "$0"
+    return 1
+  fi
+  if ! command -v jq >/dev/null 2>&1; then
+    printf "  jq is required for --repair. Install with 'brew install jq', then retry.\n\n"
+    return 1
+  fi
+
+  local users
+  users="$(jq -r '.allowFrom[]?' "$ACCESS_FILE" 2>/dev/null)"
+  if [ -z "$users" ]; then
+    printf "  No users in access.json allowFrom. Pair first via /discord:access pair <code>.\n\n"
+    return 1
+  fi
+
+  mkdir -p "$STATE_DIR/approved"
+
+  printf "${BOLD}Repairing approved-channel markers${NC}\n\n"
+  printf "  This rebuilds ~/.claude/channels/discord/approved/<userId> marker files.\n"
+  printf "  Use only when the reply tool reports 'channel ... is not allowlisted'\n"
+  printf "  but access.json already has the user in allowFrom.\n\n"
+
+  local repaired=0 skipped=0
+  for uid in $users; do
+    local marker="$STATE_DIR/approved/$uid"
+    if [ -f "$marker" ] && [ -s "$marker" ]; then
+      printf "  [ok]   user %s already mapped to channel %s\n" "$uid" "$(cat "$marker")"
+      continue
+    fi
+
+    printf "  [miss] user %s has no marker.\n" "$uid"
+    printf "         Paste the DM chat_id (Discord channel snowflake, 15-20 digits)\n"
+    printf "         for this user. Find it in a recent <channel chat_id=...> tag\n"
+    printf "         in your Claude session, or press enter to skip.\n  > "
+    local cid
+    read -r cid </dev/tty || true
+    if [ -z "$cid" ]; then
+      skipped=$((skipped + 1)); continue
+    fi
+    if ! echo "$cid" | grep -qE '^[0-9]{15,20}$'; then
+      printf "         '%s' doesn't look like a snowflake. Skipping.\n" "$cid"
+      skipped=$((skipped + 1)); continue
+    fi
+    printf '%s' "$cid" > "$marker"
+    printf "  [ok]   wrote marker: %s -> %s\n" "$uid" "$cid"
+    repaired=$((repaired + 1))
+  done
+
+  printf "\n  Done. Repaired: %d. Skipped: %d.\n\n" "$repaired" "$skipped"
+  if [ "$repaired" -gt 0 ]; then
+    printf "  Send a Discord reply now to confirm. If it still says 'not allowlisted',\n"
+    printf "  the chat_id is wrong - try again with the correct snowflake.\n\n"
+  fi
 }
 
 walkthrough_existing_bot() {
@@ -227,8 +298,9 @@ mode="default"
 for arg in "$@"; do
   case "$arg" in
     --status) mode="status" ;;
+    --repair) mode="repair" ;;
     --help|-h)
-      sed -n '2,20p' "$0"
+      sed -n '2,24p' "$0"
       exit 0
       ;;
   esac
@@ -237,6 +309,11 @@ done
 if [ "$mode" = "status" ]; then
   print_state
   exit 0
+fi
+
+if [ "$mode" = "repair" ]; then
+  repair_approved_markers
+  exit $?
 fi
 
 printf "${PURPLE}${BOLD}Discord Chat Agent onboarding${NC}\n\n"
@@ -252,6 +329,11 @@ if has_token && has_paired; then
     bash ~/.claude/discord-setup.sh --rotate   # rotate the bot token
     /discord:access                            # inspect / edit allowlist
     cat ~/.claude/channels/discord/access.json # see raw state
+
+  Reply tool says 'channel ... is not allowlisted' even though you're paired?
+  That means the approved/<userId> marker file is missing. Repair it:
+
+    bash ~/.claude/discord-onboard.sh --repair # rebuild approved-channel markers
 
   Otherwise, you're good. Type 'claude' to start a session.
 

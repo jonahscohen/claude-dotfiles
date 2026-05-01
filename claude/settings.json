@@ -27,10 +27,17 @@
       "Write(**/MEMORY.md)",
       "Edit(**/MEMORY.md)",
       "MultiEdit(**/MEMORY.md)",
+      "Write(.claude/memory/**)",
+      "Edit(.claude/memory/**)",
+      "MultiEdit(.claude/memory/**)",
+      "Write(~/.claude/projects/**/memory/**)",
+      "Edit(~/.claude/projects/**/memory/**)",
+      "MultiEdit(~/.claude/projects/**/memory/**)",
       "mcp__pencil"
     ],
     "defaultMode": "bypassPermissions"
   },
+  "model": "claude-opus-4-6[1m]",
   "hooks": {
     "PreToolUse": [
       {
@@ -46,6 +53,11 @@
       {
         "matcher": "Write|Edit|MultiEdit",
         "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/memory-approve.sh",
+            "timeout": 5
+          },
           {
             "type": "command",
             "command": "~/.claude/hooks/content-guard.sh",
@@ -125,5 +137,6 @@
     }
   },
   "alwaysThinkingEnabled": true,
-  "skipDangerousModePermissionPrompt": true
+  "skipDangerousModePermissionPrompt": true,
+  "verbose": true
 }
