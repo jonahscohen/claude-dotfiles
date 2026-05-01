@@ -6,7 +6,7 @@ set -euo pipefail
 # Interactive TUI over nine components:
 #   claude      - Claude Code global config (CLAUDE.md, settings.json, hooks, memory) - REPLACES existing
 #   memory      - Additive memory subsystem (rules + 3 hooks + startup-check.sh loader)
-#   skills      - Anthropic Skills (currently: make-interfaces-feel-better)
+#   skills      - Anthropic Skills (make-interfaces-feel-better + component-gallery-reference)
 #   statusline  - Custom prompt-bar render (~/.claude/statusline-command.sh)
 #   cmux        - cmux settings.json symlink
 #   nvm         - .zshrc auto-activate of nvm default (so claude/node/npm land on PATH)
@@ -64,7 +64,7 @@ TITLES=(
 DESCS=(
   "Your global Claude Code brain: merges RULES.md (team standards) + CLAUDE.md (shared workflow) + CLAUDE.local.md (your personal overrides, gitignored) into ~/.claude/CLAUDE.md, plus settings.json, safety hooks, and shared memory files. RULES.md is the team-wide source of truth - push a new rule there and everyone gets it on their next pull. Create claude/CLAUDE.local.md for machine-specific config that stays yours. Existing files are backed up to .backups/."
   "ADDITIVE memory subsystem: appends our Memory Discipline rules (loading order, per-task updates, file format) to your CLAUDE.md between marker comments, JSON-merges three hooks (SessionStart loader, PreCompact reminder, PostCompact reload) into your settings.json, and symlinks the startup-check.sh loader. Does NOT replace or overwrite anything - all changes are marker-guarded so re-runs are no-ops, and the markers can be removed cleanly if you ever want to undo. Pick this if your team wants to beef up an existing Claude Code with persistent memory capability without losing their config."
-  "Adds Anthropic Skills to ~/.claude/skills/ via npx, fully additive. Currently bundles make-interfaces-feel-better (tactical UI polish: concentric border radius, scale 0.96 on press, tabular nums, optical alignment, auto-triggers on UI keywords). Does NOT touch your CLAUDE.md, settings.json, hooks, or statusline. Safe to pick standalone if you have your own Claude Code config and just want the skill capability."
+  "Adds skills to ~/.claude/skills/, fully additive. Bundles make-interfaces-feel-better (tactical UI polish via npx) and component-gallery-reference (researches component.gallery before building UI components, filters by project tech stack, excludes unmaintained/a11y-issue sources). Does NOT touch your CLAUDE.md, settings.json, hooks, or statusline. Safe to pick standalone if you have your own Claude Code config and just want the skill capability."
   "Symlinks our statusline-command.sh into ~/.claude/. The settings.json statusLine command is tolerant of a missing script, so unticking this cleanly falls back to no custom statusline (Claude Code's default takes over). Pick this if you like our prompt-bar render; skip if you prefer Claude Code's default or a different statusline you've configured yourself."
   "Settings for cmux, the split-pane terminal that hosts the in-app browser preview Claude uses to verify your UI work. Skip if you don't use cmux."
   "A small one-line addition to your zsh config that fixes a specific issue some setups hit: opening a new terminal and getting 'claude not found in PATH' even though Claude is installed. The fix only activates if your zsh config already loads nvm (Node Version Manager) - on most machines this is a harmless no-op, so it's safe to leave on. If 'claude' already runs fine in fresh terminals on your machine, you can skip this."
@@ -458,7 +458,7 @@ detect_component() {
   case "$key" in
     claude)     grep -Fq "<!-- claude-dotfiles:rules:begin -->" "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null && echo active || echo not-installed ;;
     memory)     grep -Fq "<!-- claude-dotfiles:memory-discipline:begin -->" "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null && echo active || echo not-installed ;;
-    skills)     [ -d "$CLAUDE_DIR/skills/make-interfaces-feel-better" ] && echo active || echo not-installed ;;
+    skills)     { [ -d "$CLAUDE_DIR/skills/make-interfaces-feel-better" ] || [ -d "$CLAUDE_DIR/skills/component-gallery-reference" ]; } && echo active || echo not-installed ;;
     statusline) [ -L "$CLAUDE_DIR/statusline-command.sh" ] && echo active || echo not-installed ;;
     cmux)       [ -L "$HOME/.config/cmux/settings.json" ] && echo active || echo not-installed ;;
     nvm)        grep -Fq "nvm use default --silent" "$ZSHRC" 2>/dev/null && echo active || echo not-installed ;;
@@ -554,6 +554,7 @@ PY
 
 deactivate_skills() {
   [ -d "$CLAUDE_DIR/skills/make-interfaces-feel-better" ] && rm -rf "$CLAUDE_DIR/skills/make-interfaces-feel-better"
+  [ -d "$CLAUDE_DIR/skills/component-gallery-reference" ] && rm -rf "$CLAUDE_DIR/skills/component-gallery-reference"
 }
 
 deactivate_statusline() {
@@ -1028,10 +1029,17 @@ if picked skills; then
       warn "  npx skills add jakubkrehel/make-interfaces-feel-better --yes -g"
     fi
   else
-    warn "npx not found - skipping skill install."
+    warn "npx not found - skipping make-interfaces-feel-better (requires npx)."
     warn "After installing Node + Claude Code, run:"
     warn "  npx skills add jakubkrehel/make-interfaces-feel-better --yes -g"
   fi
+
+  # Bundled skill: component-gallery-reference (shipped with dotfiles, no npx needed)
+  info "Installing component-gallery-reference (UI component research via component.gallery)..."
+  mkdir -p "$CLAUDE_DIR/skills/component-gallery-reference"
+  cp "$REPO_DIR/claude/skills/component-gallery-reference/SKILL.md" \
+     "$CLAUDE_DIR/skills/component-gallery-reference/SKILL.md"
+  ok "component-gallery-reference installed"
 fi
 
 # ============================================================
