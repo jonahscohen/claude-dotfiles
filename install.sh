@@ -62,7 +62,7 @@ TITLES=(
   "Discord Chat Agent at Claude launch"
 )
 DESCS=(
-  "Your global Claude Code brain: REPLACES ~/.claude/CLAUDE.md, settings.json (with our plugin list - Impeccable, Figma, Sentry, Supabase, Discord, plus 9 more), safety hooks, and shared memory files. Existing files are backed up to .backups/ but the active versions become ours. Skip if you already have your own CLAUDE.md and settings.json that you want to keep - then pick 'memory' and 'skills' alone to add memory capability and UI-polish capability without touching your config. (Plugin-list merging into an existing settings.json is a TODO; for now you'd manually copy enabledPlugins from claude/settings.json into yours.)"
+  "Your global Claude Code brain: merges RULES.md (team standards) + CLAUDE.md (shared workflow) + CLAUDE.local.md (your personal overrides, gitignored) into ~/.claude/CLAUDE.md, plus settings.json, safety hooks, and shared memory files. RULES.md is the team-wide source of truth - push a new rule there and everyone gets it on their next pull. Create claude/CLAUDE.local.md for machine-specific config that stays yours. Existing files are backed up to .backups/."
   "ADDITIVE memory subsystem: appends our Memory Discipline rules (loading order, per-task updates, file format) to your CLAUDE.md between marker comments, JSON-merges three hooks (SessionStart loader, PreCompact reminder, PostCompact reload) into your settings.json, and symlinks the startup-check.sh loader. Does NOT replace or overwrite anything - all changes are marker-guarded so re-runs are no-ops, and the markers can be removed cleanly if you ever want to undo. Pick this if your team wants to beef up an existing Claude Code with persistent memory capability without losing their config."
   "Adds Anthropic Skills to ~/.claude/skills/ via npx, fully additive. Currently bundles make-interfaces-feel-better (tactical UI polish: concentric border radius, scale 0.96 on press, tabular nums, optical alignment, auto-triggers on UI keywords). Does NOT touch your CLAUDE.md, settings.json, hooks, or statusline. Safe to pick standalone if you have your own Claude Code config and just want the skill capability."
   "Symlinks our statusline-command.sh into ~/.claude/. The settings.json statusLine command is tolerant of a missing script, so unticking this cleanly falls back to no custom statusline (Claude Code's default takes over). Pick this if you like our prompt-bar render; skip if you prefer Claude Code's default or a different statusline you've configured yourself."
@@ -456,7 +456,7 @@ PY
 detect_component() {
   local key="$1"
   case "$key" in
-    claude)     [ -L "$CLAUDE_DIR/CLAUDE.md" ] && [ "$(readlink "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null)" = "$REPO_DIR/claude/CLAUDE.md" ] && echo active || echo not-installed ;;
+    claude)     grep -Fq "<!-- claude-dotfiles:rules:begin -->" "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null && echo active || echo not-installed ;;
     memory)     grep -Fq "<!-- claude-dotfiles:memory-discipline:begin -->" "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null && echo active || echo not-installed ;;
     skills)     [ -d "$CLAUDE_DIR/skills/make-interfaces-feel-better" ] && echo active || echo not-installed ;;
     statusline) [ -L "$CLAUDE_DIR/statusline-command.sh" ] && echo active || echo not-installed ;;
@@ -504,7 +504,11 @@ apply_update() {
 
 deactivate_claude() {
   local f
-  for f in CLAUDE.md settings.json startup-check.sh discord-chat-launcher.sh statusline-command.sh; do
+  # CLAUDE.md is a generated file (RULES.md + CLAUDE.md concat), not a symlink
+  if [ -f "$CLAUDE_DIR/CLAUDE.md" ] && grep -Fq "<!-- claude-dotfiles:rules:begin -->" "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null; then
+    rm -f "$CLAUDE_DIR/CLAUDE.md"
+  fi
+  for f in settings.json startup-check.sh discord-chat-launcher.sh statusline-command.sh; do
     [ -L "$CLAUDE_DIR/$f" ] && rm -f "$CLAUDE_DIR/$f"
   done
   [ -d "$CLAUDE_DIR/memory" ] && find "$CLAUDE_DIR/memory" -maxdepth 1 -type l -delete 2>/dev/null || true
@@ -860,7 +864,20 @@ if picked claude; then
   mkdir -p "$CLAUDE_DIR/memory"
   mkdir -p "$CLAUDE_DIR/hooks"
 
-  make_symlink "$REPO_DIR/claude/CLAUDE.md"                 "$CLAUDE_DIR/CLAUDE.md"
+  # Build CLAUDE.md by concatenating three layers:
+  #   1. RULES.md     - team standards (shared, checked in)
+  #   2. CLAUDE.md    - default workflow (shared, checked in)
+  #   3. CLAUDE.local.md - personal overrides (per-machine, gitignored)
+  [ -L "$CLAUDE_DIR/CLAUDE.md" ] && rm -f "$CLAUDE_DIR/CLAUDE.md"
+  backup_if_exists "$CLAUDE_DIR/CLAUDE.md"
+  cat "$REPO_DIR/claude/RULES.md" "$REPO_DIR/claude/CLAUDE.md" > "$CLAUDE_DIR/CLAUDE.md"
+  if [ -f "$REPO_DIR/claude/CLAUDE.local.md" ]; then
+    printf '\n' >> "$CLAUDE_DIR/CLAUDE.md"
+    cat "$REPO_DIR/claude/CLAUDE.local.md" >> "$CLAUDE_DIR/CLAUDE.md"
+    info "Appended CLAUDE.local.md (personal overrides)"
+  else
+    warn "No CLAUDE.local.md found. Copy CLAUDE.local.example.md to CLAUDE.local.md for your personal workflow overrides."
+  fi
   make_symlink "$REPO_DIR/claude/settings.json"             "$CLAUDE_DIR/settings.json"
   make_symlink "$REPO_DIR/claude/startup-check.sh"          "$CLAUDE_DIR/startup-check.sh"
   make_symlink "$REPO_DIR/claude/discord-chat-launcher.sh"  "$CLAUDE_DIR/discord-chat-launcher.sh"
@@ -1338,7 +1355,7 @@ if [ "$BACKED_UP" -eq 1 ]; then
 fi
 
 echo "What was installed:"
-picked claude     && echo "  - Claude Code: CLAUDE.md, settings.json, hooks, memory, discord-chat-launcher, discord-onboard, discord-setup (REPLACED any existing files; backed up to .backups/)"
+picked claude     && echo "  - Claude Code: CLAUDE.md (RULES.md + CLAUDE.md + CLAUDE.local.md merged), settings.json, hooks, memory, discord-chat-launcher, discord-onboard, discord-setup (REPLACED any existing files; backed up to .backups/)"
 picked memory     && echo "  - Memory subsystem: startup-check.sh + Memory Discipline section appended to CLAUDE.md + 3 hooks merged into settings.json (additive, marker-guarded)"
 picked skills     && echo "  - Anthropic Skills: make-interfaces-feel-better (tactical UI polish; auto-triggers on UI work)"
 picked statusline && echo "  - Custom statusline: statusline-command.sh symlinked (Claude Code falls back to default if unticked)"
