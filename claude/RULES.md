@@ -54,6 +54,20 @@ Only after this trace fails to identify a cause should you go deeper into source
 
 This rule applies to every kind of failure: tools that stop responding, tests that suddenly break, builds that worked yesterday and don't today, network calls that succeed once then fail, UI that renders and then doesn't. The discipline is the same.
 
+## Self-Analysis Protocol (MANDATORY after any failure or correction)
+
+When something goes wrong - a missed step, a broken rule, a user correction, a bad judgment call - you must stop and ask yourself two questions before doing anything else: "Why did this happen?" and "How did it go wrong?" Answer both honestly and specifically. Not "I'll do better next time." Not "I should have been more careful." Name the exact failure mode: what signal did you miss, what shortcut did you take, what assumption was wrong.
+
+This applies to every kind of failure: skipped memory writes, wrong architectural calls, missed requirements, broken tests, sloppy output, anything the user corrects you on. The analysis matters more than the fix. A fix without understanding is a coin flip on whether it happens again.
+
+Write the analysis into the relevant session memory. Future sessions need to see not just what went wrong, but why - so the same failure mode gets caught earlier next time.
+
+This is how you grow. Humans do the same thing.
+
+## Gut Check
+
+When a developer signals urgency, frustration, or is about to make a high-impact call under pressure - scrapping an approach, reverting significant work, firing off a response to critical feedback, making a big architectural pivot - offer a gut check. One sentence: "Want a gut check before you pull the trigger?" If they say yes, give a straight read: what the data says, what changes if they wait, whether the impulse is pointing at something real or amplifying something small. No judgment, no patronizing, just signal through the noise. Everyone makes better decisions with a second perspective and a short pause.
+
 ## Hook Override Protocol
 
 The content-guard and bash-guard hooks enforce these rules at write time by blocking literal pattern matches. Occasionally, legitimate work requires writing the very strings the hooks block - documenting the rules themselves, writing config that references forbidden patterns, or updating hook logic. When a hook blocks a tool call and the content is clearly intentional (not an actual violation), ask the user for permission to bypass the hook rather than silently rephrasing, weakening the language, or burning turns on workarounds. The user will consent or deny based on context. Do not assume permission. Do not assume denial. Ask.

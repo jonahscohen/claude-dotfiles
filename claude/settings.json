@@ -125,6 +125,11 @@
     "typescript-lsp@claude-plugins-official": true,
     "security-guidance@claude-plugins-official": true,
     "discord@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true,
+    "ralph-loop@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "plugin-developer-toolkit@claude-plugins-official": true,
+    "chrome-devtools@claude-plugins-official": true,
     "impeccable@impeccable": true
   },
   "extraKnownMarketplaces": {
@@ -132,6 +137,13 @@
       "source": {
         "source": "github",
         "repo": "pbakaus/impeccable"
+      },
+      "autoUpdate": true
+    },
+    "buildwithclaude": {
+      "source": {
+        "source": "github",
+        "repo": "davepoon/buildwithclaude"
       },
       "autoUpdate": true
     }
