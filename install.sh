@@ -3,8 +3,9 @@ set -euo pipefail
 
 # ============================================================
 # claude-dotfiles installer
-# Interactive TUI over nine components:
-#   claude      - Claude Code global config (CLAUDE.md, settings.json, hooks, memory) - REPLACES existing
+# Interactive TUI over ten components:
+#   brain       - Team rules + workflow (appended to CLAUDE.md) - ADDITIVE
+#   config      - Hooks, plugins, permissions (merged into settings.json) - ADDITIVE
 #   memory      - Additive memory subsystem (rules + 3 hooks + startup-check.sh loader)
 #   skills      - Anthropic Skills (make-interfaces-feel-better + component-gallery-reference)
 #   statusline  - Custom prompt-bar render (~/.claude/statusline-command.sh)
@@ -16,9 +17,9 @@ set -euo pipefail
 #
 # Flags:
 #   --yes              non-interactive, pick all components
-#   --only KEYS        non-interactive, pick comma-separated keys (e.g. claude,memory)
+#   --only KEYS        non-interactive, pick comma-separated keys (e.g. brain,config,memory)
 #   --preset NAME      non-interactive preset: all | minimal | none
-#                      minimal = claude + memory + skills + nvm
+#                      minimal = brain + config + memory + skills + nvm
 #   --dry-run          print picks and exit; touches no files
 #   --help             print usage
 #
@@ -49,20 +50,22 @@ err()   { printf "${RED}[error]${NC} %s\n" "$1"; }
 # ============================================================
 
 # Public components - shipped to all users.
-KEYS=(claude memory skills statusline cmux nvm ampersand voice discord)
+KEYS=(brain config memory skills statusline cmux nvm ampersand voice discord)
 TITLES=(
-  "Claude Code config (REPLACES existing)"
-  "Memory subsystem (additive: hooks + rules + loader)"
-  "Anthropic Skills (additive, safe alongside existing setup)"
-  "Custom statusline (bottom-of-window prompt bar)"
+  "Team rules + workflow (appended to CLAUDE.md)"
+  "Hooks, plugins, permissions (merged into settings.json)"
+  "Memory discipline rules + hooks"
+  "UI polish + component gallery research"
+  "Custom prompt bar"
   "cmux split-pane terminal"
-  "nvm fix (optional, only if needed)"
-  "'ampersand' shell shortcut"
-  "Voice transcription (whisper.cpp + ffmpeg + transcribe CLI)"
-  "Discord Chat Agent at Claude launch"
+  "Node version manager PATH fix"
+  "Installer shortcut in terminal"
+  "Voice transcription (whisper.cpp)"
+  "Discord chat agent launcher"
 )
 DESCS=(
-  "Your global Claude Code brain: merges RULES.md (team standards) + CLAUDE.md (shared workflow) + CLAUDE.local.md (your personal overrides, gitignored) into ~/.claude/CLAUDE.md, plus settings.json, safety hooks, and shared memory files. RULES.md is the team-wide source of truth - push a new rule there and everyone gets it on their next pull. Create claude/CLAUDE.local.md for machine-specific config that stays yours. Existing files are backed up to .backups/."
+  "ADDITIVE: appends team rules (from RULES.md) and shared workflow (from CLAUDE.md) to your ~/.claude/CLAUDE.md between marker comments. Your existing CLAUDE.md content is preserved above and below the markers. If you have a claude/CLAUDE.local.md for personal overrides, those are appended in their own marker block too. Re-runs detect the markers and skip. Deactivation removes only the marked blocks."
+  "ADDITIVE: JSON-merges safety hooks (bash-guard, content-guard, memory-approve), memory-write allow patterns, enabled plugins, and marketplace entries into your existing ~/.claude/settings.json. Does NOT touch your defaultMode, model, or other preferences. Copies hook scripts to ~/.claude/hooks/ alongside any hooks you already have. Deactivation removes only our entries by marker."
   "ADDITIVE memory subsystem: appends our Memory Discipline rules (loading order, per-task updates, file format) to your CLAUDE.md between marker comments, JSON-merges three hooks (SessionStart loader, PreCompact reminder, PostCompact reload) into your settings.json, and symlinks the startup-check.sh loader. Does NOT replace or overwrite anything - all changes are marker-guarded so re-runs are no-ops, and the markers can be removed cleanly if you ever want to undo. Pick this if your team wants to beef up an existing Claude Code with persistent memory capability without losing their config."
   "Adds skills to ~/.claude/skills/, fully additive. Bundles make-interfaces-feel-better (tactical UI polish via npx) and component-gallery-reference (researches component.gallery before building UI components, filters by project tech stack, excludes unmaintained/a11y-issue sources). Does NOT touch your CLAUDE.md, settings.json, hooks, or statusline. Safe to pick standalone if you have your own Claude Code config and just want the skill capability."
   "Symlinks our statusline-command.sh into ~/.claude/. The settings.json statusLine command is tolerant of a missing script, so unticking this cleanly falls back to no custom statusline (Claude Code's default takes over). Pick this if you like our prompt-bar render; skip if you prefer Claude Code's default or a different statusline you've configured yourself."
@@ -72,7 +75,7 @@ DESCS=(
   "Adds local voice-to-text so Claude can answer Discord voice messages and any other audio attachment. Brews whisper-cpp and ffmpeg, downloads the ggml-base.en model (~150 MB) into ~/.cache/whisper, and symlinks bin/transcribe to ~/.claude/transcribe. Local-only (no cloud, no API key). Calls: '~/.claude/transcribe path/to/audio.ogg' prints the transcript on stdout."
   "Adds a smart 'Connect to Discord?' prompt to your 'claude' command. Three states: cold (no bot configured) offers the interactive onboarding walkthrough or 'never ask again'; mid (bot configured but no users paired) jumps you to the pairing flow; warm (paired) shows the familiar 5-second connect prompt with default Yes. The walkthrough handles both 'I have a bot, just paste the token' and 'walk me through making a new bot in the Developer Portal'. Skip this if you don't use Discord with Claude. Tokens are stored in macOS Keychain, never in the repo."
 )
-PICKS=(1 1 1 1 1 1 1 1 1)
+PICKS=(1 1 1 1 1 1 1 1 1 1)
 
 # Personal components - hidden from public TUI and --help. Surfaced only when
 # the maintainer passes --personal (undocumented, undocumented-on-purpose).
@@ -121,6 +124,12 @@ apply_only() {
   for k in $csv; do
     k="${k// /}"
     [[ -z "$k" ]] && continue
+    if [[ "$k" == "claude" ]]; then
+      warn "'claude' has been split into 'brain' and 'config'. Selecting both."
+      set_pick brain 1
+      set_pick config 1
+      continue
+    fi
     if [[ "$(key_index "$k")" == "-1" ]]; then
       err "Unknown component in --only: $k"
       err "Valid keys: ${KEYS[*]}"
@@ -134,7 +143,7 @@ apply_preset() {
   case "$1" in
     all)     set_all 1 ;;
     none)    set_all 0 ;;
-    minimal) set_all 0; set_pick claude 1; set_pick memory 1; set_pick skills 1; set_pick nvm 1 ;;
+    minimal) set_all 0; set_pick brain 1; set_pick config 1; set_pick memory 1; set_pick skills 1; set_pick nvm 1 ;;
     *)       err "Unknown preset: $1 (valid: all, minimal, none)"; exit 2 ;;
   esac
 }
@@ -155,7 +164,7 @@ Usage:
   ./install.sh --yes            Non-interactive, install everything
   ./install.sh --preset NAME    Non-interactive preset: all | minimal | none
   ./install.sh --only KEYS      Non-interactive, comma-separated keys
-                                (claude, memory, skills, statusline, cmux, nvm, ampersand, voice, discord)
+                                (brain, config, memory, skills, statusline, cmux, nvm, ampersand, voice, discord)
   ./install.sh --dry-run        Print resolved picks and exit
   ./install.sh --help           Show this help
 EOF
