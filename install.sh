@@ -847,6 +847,7 @@ returning_flow() {
       local raw_pick
       raw_pick=$(printf '%s\n' "${options[@]}" | \
         gum choose --header "Pick a component, or quit" \
+          --height 15 \
           --header.foreground "#0e7490" \
           --cursor.foreground "#67e8f9" \
           --selected.foreground "#67e8f9" \
