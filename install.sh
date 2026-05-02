@@ -35,7 +35,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 CYAN='\033[0;36m'
-PURPLE='\033[38;2;124;58;237m'  # #7c3aed - matches header box border + gradient start
+ACCENT='\033[38;2;14;116;144m'  # #0e7490 - matches header box border + gradient start
 DIM='\033[2m'
 NC='\033[0m'
 
@@ -224,20 +224,20 @@ ensure_gum() {
 }
 
 show_picks_summary() {
-  printf "\n${PURPLE}Selected components${NC}\n"
+  printf "\n${ACCENT}Selected components${NC}\n"
   local i mark
   for i in "${!KEYS[@]}"; do
-    if [[ "${PICKS[$i]}" == "1" ]]; then mark="${PURPLE}[x]${NC}"; else mark="${DIM}[ ]${NC}"; fi
+    if [[ "${PICKS[$i]}" == "1" ]]; then mark="${ACCENT}[x]${NC}"; else mark="${DIM}[ ]${NC}"; fi
     printf "  %b %-9s ${DIM}%s${NC}\n" "$mark" "${KEYS[$i]}" "${TITLES[$i]}"
   done
   printf "\n"
 }
 
 # Print a string with a one-shot shimmer reveal that settles into a static
-# purple-to-periwinkle gradient. Replaces `gum style --foreground 212` for
-# component titles in the TUI. Endpoints: deep violet (#7c3aed = 124,58,237)
-# -> periwinkle (#a5b4fc = 165,180,252), with a brighter shimmer band
-# (#e0e7ff = 224,231,255) that sweeps left-to-right once.
+# dark-cyan-to-light-cyan gradient. Replaces `gum style --foreground 212` for
+# component titles in the TUI. Endpoints: dark cyan (#0e7490 = 14,116,144)
+# -> light cyan (#67e8f9 = 103,232,249), with a brighter shimmer band
+# (#cffafe = 207,250,254) that sweeps left-to-right once.
 # Requires a 24-bit-color-capable terminal; falls back gracefully (text still
 # prints, just without the gradient) if escape codes are stripped.
 print_title_animated() {
@@ -255,16 +255,16 @@ print_title_animated() {
     printf '\r\033[K'
     for ((i=0; i<len; i++)); do
       char="${text:$i:1}"
-      r=$(( 124 + (165 - 124) * i / divisor ))
-      g=$(( 58  + (180 -  58) * i / divisor ))
-      b=$(( 237 + (252 - 237) * i / divisor ))
+      r=$(( 14  + (103 -  14) * i / divisor ))
+      g=$(( 116 + (232 - 116) * i / divisor ))
+      b=$(( 144 + (249 - 144) * i / divisor ))
       d=$(( i - pos ))
       [ "$d" -lt 0 ] && d=$(( -d ))
       if [ "$d" -lt "$shimmer_width" ]; then
         intensity=$(( (shimmer_width - d) * 100 / shimmer_width ))
-        r=$(( r + (224 - r) * intensity / 100 ))
-        g=$(( g + (231 - g) * intensity / 100 ))
-        b=$(( b + (255 - b) * intensity / 100 ))
+        r=$(( r + (207 - r) * intensity / 100 ))
+        g=$(( g + (250 - g) * intensity / 100 ))
+        b=$(( b + (254 - b) * intensity / 100 ))
       fi
       printf '\033[38;2;%d;%d;%dm%s' "$r" "$g" "$b" "$char"
     done
@@ -276,43 +276,43 @@ print_title_animated() {
   printf '\r\033[K'
   for ((i=0; i<len; i++)); do
     char="${text:$i:1}"
-    r=$(( 124 + (165 - 124) * i / divisor ))
-    g=$(( 58  + (180 -  58) * i / divisor ))
-    b=$(( 237 + (252 - 237) * i / divisor ))
+    r=$(( 14  + (103 -  14) * i / divisor ))
+    g=$(( 116 + (232 - 116) * i / divisor ))
+    b=$(( 144 + (249 - 144) * i / divisor ))
     printf '\033[38;2;%d;%d;%dm%s' "$r" "$g" "$b" "$char"
   done
   printf '\033[0m\n'
 }
 
 # yes& brand banner. Hand-shaded ASCII; @/%/-/: outline 'yes', #/*/+/. shade '&'.
-# Rendered in a single purple (#7c3aed) because the two letterforms interleave
+# Rendered in a single red (#dc2626) because the two letterforms interleave
 # (the y-descender curls into the & loop on row 11), so column-bisection would
 # clip wrong. Single color reads as a logo, not as two competing shapes.
 print_yes_and_banner() {
-  local PURPLE='\033[38;2;124;58;237m'
+  local LOGO_RED='\033[38;2;220;38;38m'
   local NC='\033[0m'
   printf '\n'
-  printf '%b%s%b\n' "$PURPLE" "                                                         **  *  " "$NC"
-  printf '%b%s%b\n' "$PURPLE" "                                                 ####   ####*   " "$NC"
-  printf '%b%s%b\n' "$PURPLE" "                                              #*  *   + ####  ##" "$NC"
-  printf '%b%s%b\n' "$PURPLE" "                                            ###  ##       -#####" "$NC"
-  printf '%b%s%b\n' "$PURPLE" "                                           :####  .-  ######### " "$NC"
-  printf '%b%s%b\n' "$PURPLE" " @@@@@@     @@@   @@@   @@@@    @@@   @@@@  ######   #######    " "$NC"
-  printf '%b%s%b\n' "$PURPLE" "   @@@@     @@  @@@      @@@@  @@@      @@      ##  *##       # " "$NC"
-  printf '%b%s%b\n' "$PURPLE" "    @@@@   @@  @@@@@@@@@@@@@@  @@@@@@@@       ###   -# *####   +" "$NC"
-  printf '%b%s%b\n' "$PURPLE" "    %@@@@  @   @@@@              @@@@@@@@@   ####*   # ######  -" "$NC"
-  printf '%b%s%b\n' "$PURPLE" "     @@@@ @    @@@@@                  @@@@@ .#####:    #-##   # " "$NC"
-  printf '%b%s%b\n' "$PURPLE" "      @@@@.     @@@@@+    #@@ @@@@     @@@%  #######        #   " "$NC"
-  printf '%b%s%b\n' "$PURPLE" "       @@@        @@@@@@@@@     @@@@@@@@@      ##########.      " "$NC"
-  printf '%b%s%b\n' "$PURPLE" "       @@                                                       " "$NC"
-  printf '%b%s%b\n' "$PURPLE" " @@- :@@                                                        " "$NC"
-  printf '%b%s%b\n' "$PURPLE" "-@@@@@                                                          " "$NC"
+  printf '%b%s%b\n' "$LOGO_RED" "                                                         **  *  " "$NC"
+  printf '%b%s%b\n' "$LOGO_RED" "                                                 ####   ####*   " "$NC"
+  printf '%b%s%b\n' "$LOGO_RED" "                                              #*  *   + ####  ##" "$NC"
+  printf '%b%s%b\n' "$LOGO_RED" "                                            ###  ##       -#####" "$NC"
+  printf '%b%s%b\n' "$LOGO_RED" "                                           :####  .-  ######### " "$NC"
+  printf '%b%s%b\n' "$LOGO_RED" " @@@@@@     @@@   @@@   @@@@    @@@   @@@@  ######   #######    " "$NC"
+  printf '%b%s%b\n' "$LOGO_RED" "   @@@@     @@  @@@      @@@@  @@@      @@      ##  *##       # " "$NC"
+  printf '%b%s%b\n' "$LOGO_RED" "    @@@@   @@  @@@@@@@@@@@@@@  @@@@@@@@       ###   -# *####   +" "$NC"
+  printf '%b%s%b\n' "$LOGO_RED" "    %@@@@  @   @@@@              @@@@@@@@@   ####*   # ######  -" "$NC"
+  printf '%b%s%b\n' "$LOGO_RED" "     @@@@ @    @@@@@                  @@@@@ .#####:    #-##   # " "$NC"
+  printf '%b%s%b\n' "$LOGO_RED" "      @@@@.     @@@@@+    #@@ @@@@     @@@%  #######        #   " "$NC"
+  printf '%b%s%b\n' "$LOGO_RED" "       @@@        @@@@@@@@@     @@@@@@@@@      ##########.      " "$NC"
+  printf '%b%s%b\n' "$LOGO_RED" "       @@                                                       " "$NC"
+  printf '%b%s%b\n' "$LOGO_RED" " @@- :@@                                                        " "$NC"
+  printf '%b%s%b\n' "$LOGO_RED" "-@@@@@                                                          " "$NC"
   printf '\n'
 }
 
 run_tui_gum() {
   print_yes_and_banner
-  gum style --border double --margin "1 0" --padding "1 2" --border-foreground "#7c3aed" \
+  gum style --border double --margin "1 0" --padding "1 2" --border-foreground "#0e7490" \
     "claude-dotfiles installer" "Pick what to install on this machine."
 
   local i
@@ -352,7 +352,7 @@ run_tui_gum() {
   clear
   show_picks_summary
   gum confirm "Proceed with these components?" \
-    --selected.background "#7c3aed" \
+    --selected.background "#0e7490" \
     --selected.foreground "#ffffff" || return 1
   return 0
 }
@@ -622,7 +622,7 @@ fresh_flow() {
     show_picks_summary
     if command -v gum >/dev/null 2>&1; then
       gum confirm "Install all of these?" \
-        --selected.background "#7c3aed" \
+        --selected.background "#0e7490" \
         --selected.foreground "#ffffff" || { warn "Aborted."; exit 0; }
     else
       printf "Install all of these? [Y/n] "
@@ -658,7 +658,7 @@ returning_flow() {
     local apply_choice="no"
     if command -v gum >/dev/null 2>&1; then
       gum confirm "Pull updates now?" \
-        --selected.background "#7c3aed" \
+        --selected.background "#0e7490" \
         --selected.foreground "#ffffff" \
         && apply_choice=yes || apply_choice=no
     else
@@ -671,7 +671,7 @@ returning_flow() {
     if [[ "$apply_choice" == "yes" ]]; then
       apply_update
       ok "Updates applied."
-      printf "\n${PURPLE}Restart 'ampersand' to pick up the new version.${NC}\n\n"
+      printf "\n${ACCENT}Restart 'ampersand' to pick up the new version.${NC}\n\n"
       exit 0
     fi
   else
@@ -683,7 +683,7 @@ returning_flow() {
   while true; do
     clear
     print_yes_and_banner
-    printf "${PURPLE}Components${NC}\n"
+    printf "${ACCENT}Components${NC}\n"
     local i status display
     for i in "${!KEYS[@]}"; do
       status=$(effective_state "${KEYS[$i]}")
@@ -1462,7 +1462,7 @@ fi
 if [ "$SHORTCUTS_NEW" -eq 1 ]; then
   echo ""
   if command -v gum >/dev/null 2>&1; then
-    gum style --border double --margin "1 0" --padding "1 2" --border-foreground "#7c3aed" \
+    gum style --border double --margin "1 0" --padding "1 2" --border-foreground "#0e7490" \
       "ONE MORE STEP" \
       "" \
       "The 'ampersand' shortcut was just added to ~/.zshrc," \
@@ -1474,20 +1474,20 @@ if [ "$SHORTCUTS_NEW" -eq 1 ]; then
       "Or open a new terminal window. After that, type 'ampersand' from" \
       "anywhere to re-launch the installer."
   else
-    PURPLE='\033[38;2;124;58;237m'
+    ACCENT_COLOR='\033[38;2;14;116;144m'
     NC='\033[0m'
-    printf "${PURPLE}╔══════════════════════════════════════════════════════════════════╗${NC}\n"
-    printf "${PURPLE}║${NC}  ONE MORE STEP                                                   ${PURPLE}║${NC}\n"
-    printf "${PURPLE}║${NC}                                                                  ${PURPLE}║${NC}\n"
-    printf "${PURPLE}║${NC}  'ampersand' was just added to ~/.zshrc, but your current        ${PURPLE}║${NC}\n"
-    printf "${PURPLE}║${NC}  shell hasn't loaded it yet.                                     ${PURPLE}║${NC}\n"
-    printf "${PURPLE}║${NC}                                                                  ${PURPLE}║${NC}\n"
-    printf "${PURPLE}║${NC}  Run this now to use it in this terminal:                        ${PURPLE}║${NC}\n"
-    printf "${PURPLE}║${NC}      source ~/.zshrc                                             ${PURPLE}║${NC}\n"
-    printf "${PURPLE}║${NC}                                                                  ${PURPLE}║${NC}\n"
-    printf "${PURPLE}║${NC}  Or open a new terminal window. After that, 'ampersand'          ${PURPLE}║${NC}\n"
-    printf "${PURPLE}║${NC}  works from any directory.                                       ${PURPLE}║${NC}\n"
-    printf "${PURPLE}╚══════════════════════════════════════════════════════════════════╝${NC}\n"
+    printf "${ACCENT_COLOR}╔══════════════════════════════════════════════════════════════════╗${NC}\n"
+    printf "${ACCENT_COLOR}║${NC}  ONE MORE STEP                                                   ${ACCENT_COLOR}║${NC}\n"
+    printf "${ACCENT_COLOR}║${NC}                                                                  ${ACCENT_COLOR}║${NC}\n"
+    printf "${ACCENT_COLOR}║${NC}  'ampersand' was just added to ~/.zshrc, but your current        ${ACCENT_COLOR}║${NC}\n"
+    printf "${ACCENT_COLOR}║${NC}  shell hasn't loaded it yet.                                     ${ACCENT_COLOR}║${NC}\n"
+    printf "${ACCENT_COLOR}║${NC}                                                                  ${ACCENT_COLOR}║${NC}\n"
+    printf "${ACCENT_COLOR}║${NC}  Run this now to use it in this terminal:                        ${ACCENT_COLOR}║${NC}\n"
+    printf "${ACCENT_COLOR}║${NC}      source ~/.zshrc                                             ${ACCENT_COLOR}║${NC}\n"
+    printf "${ACCENT_COLOR}║${NC}                                                                  ${ACCENT_COLOR}║${NC}\n"
+    printf "${ACCENT_COLOR}║${NC}  Or open a new terminal window. After that, 'ampersand'          ${ACCENT_COLOR}║${NC}\n"
+    printf "${ACCENT_COLOR}║${NC}  works from any directory.                                       ${ACCENT_COLOR}║${NC}\n"
+    printf "${ACCENT_COLOR}╚══════════════════════════════════════════════════════════════════╝${NC}\n"
   fi
   echo ""
 fi
