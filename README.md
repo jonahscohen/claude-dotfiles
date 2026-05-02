@@ -64,7 +64,7 @@ Everything the installer puts on your machine, summarized.
 
 ### What this is
 
-The version-controlled answer to "how is Yes& running Claude Code right now." When a Yes& developer learns something durable - a CSS-detail rule, an icon-sourcing discipline, a way to make Claude remember yesterday - it lands in `claude/CLAUDE.md` or in the memory system. Next `ampersand --pull` and it's on every other Yes& dev's machine. These dotfiles aren't a config. They're the engineering team's earned practice, made portable.
+The version-controlled answer to "how is Yes& running Claude Code right now." When a Yes& developer learns something durable - a CSS-detail rule, an icon-sourcing discipline, a way to make Claude remember yesterday - it lands in one of three layers: `claude/RULES.md` for team standards everyone shares, `claude/CLAUDE.md` for the operational playbook, or `claude/CLAUDE.local.md` for personal overrides that stay yours. Next `ampersand --pull` and the team layers are on every Yes& dev's machine. These dotfiles aren't a config. They're the engineering team's earned practice, made portable.
 
 ### What it does for you
 
@@ -333,7 +333,13 @@ The TUI also lets you pre-select via flags: `--yes` for everything, `--preset mi
 <details>
 <summary><b>The Claude Code brain (CLAUDE.md walkthrough)</b></summary>
 
-`~/.claude/CLAUDE.md` is the global instruction file Claude reads at the start of every session in every project on this machine. Picking the `brain` component appends our team rules and workflow between marker comments. Picking `memory` appends the Memory Discipline section in its own markers. Both are additive - your own CLAUDE.md content above and below the markers is preserved. Here's what's in our canonical file, section by section.
+`~/.claude/CLAUDE.md` is the global instruction file Claude reads at the start of every session in every project on this machine. The `brain` component builds it from three layers, each appended between its own marker comments so your existing content is never touched:
+
+1. **RULES.md** (team standards) - Code quality, verification protocol, debugging protocol, style guide rules. Shared across the whole team. Push a rule here, every teammate gets it on their next `ampersand --pull`.
+2. **CLAUDE.md** (shared workflow) - Memory discipline, design stack, permission posture, hooks documentation, voice transcription, Discord, cmux. The operational playbook.
+3. **CLAUDE.local.md** (personal overrides) - Your machine-specific config. Gitignored by default. Create `claude/CLAUDE.local.md` in the repo for overrides that should travel with you across machines but not ship to teammates.
+
+The `memory` component adds a fourth marker block (Memory Discipline rules) in its own markers. All four blocks coexist with whatever you already have in your CLAUDE.md. Here's what's in each section:
 
 ### Memory Discipline (mandatory, no exceptions)
 
@@ -459,6 +465,18 @@ An Anthropic Skill auto-installed via `npx skills add jakubkrehel/make-interface
 - Minimum 40x40px hit area, never let two hit areas overlap
 
 The skill's review-output-format (before/after tables grouped by principle) is the canonical UI-change summary across all Yes& work.
+
+### component-gallery-reference: the research layer
+
+A bundled skill (shipped with the dotfiles, no npx dependency) that has Claude browse [component.gallery](https://component.gallery) before building any standard UI component. The site catalogs 60 component types across 95 real-world design systems with 2,672 examples. The skill adds a research step before implementation:
+
+1. **Detect the project's tech stack** from package.json and config files (React, Vue, Angular, Tailwind, Sass, CSS Modules, WordPress, Drupal, HubSpot, etc.)
+2. **Browse the component page** filtered by that tech stack. Skip any example tagged "Unmaintained" or "Accessibility issues" - those are forbidden sources.
+3. **Inventory the project's design system** - tokens, existing components, visual conventions.
+4. **Synthesize a brief** mapping gallery patterns onto the project: what the project's design system covers, what gaps exist, and how to fill those gaps using gallery best practices styled with project tokens.
+5. **Build the component** with three layers: function from the gallery (semantic markup, ARIA, keyboard handling), identity from the project (fonts, colors, spacing), and gap-fills derived from gallery patterns but expressed in the project's visual language.
+
+The skill sits between Impeccable (strategy) and make-interfaces-feel-better (polish). Impeccable decides what the brand needs. The gallery tells you how the industry builds the component. make-interfaces-feel-better polishes the details. All three together produce components that work correctly, look native, and feel right.
 
 </details>
 
