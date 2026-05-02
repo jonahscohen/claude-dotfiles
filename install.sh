@@ -465,13 +465,16 @@ PY
 detect_component() {
   local key="$1"
   case "$key" in
-    claude)     grep -Fq "<!-- claude-dotfiles:rules:begin -->" "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null && echo active || echo not-installed ;;
+    brain)      grep -Fq "<!-- claude-dotfiles:brain:begin -->" "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null && echo active || echo not-installed ;;
+    config)     [ -f "$CLAUDE_DIR/hooks/bash-guard.sh" ] && echo active || echo not-installed ;;
     memory)     grep -Fq "<!-- claude-dotfiles:memory-discipline:begin -->" "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null && echo active || echo not-installed ;;
     skills)     { [ -d "$CLAUDE_DIR/skills/make-interfaces-feel-better" ] || [ -d "$CLAUDE_DIR/skills/component-gallery-reference" ]; } && echo active || echo not-installed ;;
     statusline) [ -L "$CLAUDE_DIR/statusline-command.sh" ] && echo active || echo not-installed ;;
     cmux)       [ -L "$HOME/.config/cmux/settings.json" ] && echo active || echo not-installed ;;
     nvm)        grep -Fq "nvm use default --silent" "$ZSHRC" 2>/dev/null && echo active || echo not-installed ;;
     ampersand)  grep -Fq "# === claude-dotfiles:shortcuts:begin ===" "$ZSHRC" 2>/dev/null && echo active || echo not-installed ;;
+    voice)      [ -L "$CLAUDE_DIR/transcribe" ] && echo active || echo not-installed ;;
+    discord)    grep -Fq "discord-chat-launcher.sh" "$ZSHRC" 2>/dev/null && echo active || echo not-installed ;;
     *)          echo not-installed ;;
   esac
 }
@@ -511,17 +514,115 @@ apply_update() {
 # leaving the dotfiles repo source intact. Safe to call when a component
 # is already inactive (no-op).
 
-deactivate_claude() {
-  local f
-  # CLAUDE.md is a generated file (RULES.md + CLAUDE.md concat), not a symlink
-  if [ -f "$CLAUDE_DIR/CLAUDE.md" ] && grep -Fq "<!-- claude-dotfiles:rules:begin -->" "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null; then
+deactivate_brain() {
+  if [ -f "$CLAUDE_DIR/CLAUDE.md" ] && [ ! -L "$CLAUDE_DIR/CLAUDE.md" ]; then
+    if grep -Fq "<!-- claude-dotfiles:brain:begin -->" "$CLAUDE_DIR/CLAUDE.md"; then
+      sed -i.bak '/<!-- claude-dotfiles:brain:begin -->/,/<!-- claude-dotfiles:brain:end -->/d' "$CLAUDE_DIR/CLAUDE.md"
+      rm -f "$CLAUDE_DIR/CLAUDE.md.bak"
+    fi
+    if grep -Fq "<!-- claude-dotfiles:local:begin -->" "$CLAUDE_DIR/CLAUDE.md"; then
+      sed -i.bak '/<!-- claude-dotfiles:local:begin -->/,/<!-- claude-dotfiles:local:end -->/d' "$CLAUDE_DIR/CLAUDE.md"
+      rm -f "$CLAUDE_DIR/CLAUDE.md.bak"
+    fi
+    if [ ! -s "$CLAUDE_DIR/CLAUDE.md" ] || ! grep -q '[^[:space:]]' "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null; then
+      rm -f "$CLAUDE_DIR/CLAUDE.md"
+    fi
+  fi
+  if [ -L "$CLAUDE_DIR/CLAUDE.md" ] && [[ "$(readlink "$CLAUDE_DIR/CLAUDE.md")" == "$REPO_DIR/"* ]]; then
     rm -f "$CLAUDE_DIR/CLAUDE.md"
   fi
-  for f in settings.json startup-check.sh discord-chat-launcher.sh statusline-command.sh; do
-    [ -L "$CLAUDE_DIR/$f" ] && rm -f "$CLAUDE_DIR/$f"
+}
+
+deactivate_config() {
+  local f
+  for f in bash-guard.sh content-guard.sh memory-approve.sh; do
+    if [ -L "$CLAUDE_DIR/hooks/$f" ] && [[ "$(readlink "$CLAUDE_DIR/hooks/$f")" == "$REPO_DIR/"* ]]; then
+      rm -f "$CLAUDE_DIR/hooks/$f"
+    elif [ -f "$CLAUDE_DIR/hooks/$f" ] && grep -Fq "claude-dotfiles" "$CLAUDE_DIR/hooks/$f" 2>/dev/null; then
+      rm -f "$CLAUDE_DIR/hooks/$f"
+    fi
   done
-  [ -d "$CLAUDE_DIR/memory" ] && find "$CLAUDE_DIR/memory" -maxdepth 1 -type l -delete 2>/dev/null || true
-  [ -d "$CLAUDE_DIR/hooks" ] && find "$CLAUDE_DIR/hooks" -maxdepth 1 -type l -delete 2>/dev/null || true
+  if [ -L "$CLAUDE_DIR/startup-check.sh" ] && [[ "$(readlink "$CLAUDE_DIR/startup-check.sh")" == "$REPO_DIR/"* ]]; then
+    rm -f "$CLAUDE_DIR/startup-check.sh"
+  elif [ -f "$CLAUDE_DIR/startup-check.sh" ] && grep -Fq "claude-dotfiles" "$CLAUDE_DIR/startup-check.sh" 2>/dev/null; then
+    rm -f "$CLAUDE_DIR/startup-check.sh"
+  fi
+  if [ -L "$CLAUDE_DIR/settings.json" ] && [[ "$(readlink "$CLAUDE_DIR/settings.json")" == "$REPO_DIR/"* ]]; then
+    rm -f "$CLAUDE_DIR/settings.json"
+  fi
+  if [ -f "$CLAUDE_DIR/settings.json" ] && [ ! -L "$CLAUDE_DIR/settings.json" ]; then
+    python3 - "$CLAUDE_DIR/settings.json" <<'PYCONFIG'
+import json, sys
+path = sys.argv[1]
+try:
+    with open(path) as f:
+        d = json.load(f)
+except Exception:
+    sys.exit(0)
+OUR_HOOK_MARKERS = ["bash-guard.sh", "content-guard.sh", "memory-approve.sh"]
+hooks = d.get("hooks", {})
+for hook_type in ["PreToolUse"]:
+    entries = hooks.get(hook_type, [])
+    filtered = [e for e in entries if not any(m in json.dumps(e) for m in OUR_HOOK_MARKERS)]
+    if filtered:
+        hooks[hook_type] = filtered
+    elif hook_type in hooks:
+        del hooks[hook_type]
+OUR_ALLOW = [
+    "Bash(npx create-next-app@latest:*)", "Bash(claude mcp:*)", "mcp__pencil",
+]
+MEMORY_PREFIXES = [
+    "Write(**/.claude/memory/", "Edit(**/.claude/memory/", "MultiEdit(**/.claude/memory/",
+    "Write(/Users/*/.claude/projects/", "Edit(/Users/*/.claude/projects/", "MultiEdit(/Users/*/.claude/projects/",
+    "Write(/Users/**/memory/", "Edit(/Users/**/memory/", "MultiEdit(/Users/**/memory/",
+    "Write(/home/**/memory/", "Edit(/home/**/memory/", "MultiEdit(/home/**/memory/",
+    "Write(**/memory/", "Edit(**/memory/", "MultiEdit(**/memory/",
+    "Write(**/MEMORY.md)", "Edit(**/MEMORY.md)", "MultiEdit(**/MEMORY.md)",
+    "Write(.claude/memory/", "Edit(.claude/memory/", "MultiEdit(.claude/memory/",
+    "Write(~/.claude/projects/", "Edit(~/.claude/projects/", "MultiEdit(~/.claude/projects/",
+    "Write(**/*.md)", "Edit(**/*.md)", "MultiEdit(**/*.md)",
+]
+perms = d.get("permissions", {})
+allow = perms.get("allow", [])
+filtered_allow = [p for p in allow if p not in OUR_ALLOW and not any(p.startswith(pfx) for pfx in MEMORY_PREFIXES)]
+if filtered_allow:
+    perms["allow"] = filtered_allow
+elif "allow" in perms:
+    del perms["allow"]
+OUR_PLUGINS = [
+    "claude-md-management@claude-plugins-official", "figma@claude-plugins-official",
+    "firebase@claude-plugins-official", "github@claude-plugins-official",
+    "hookify@claude-plugins-official", "learning-output-style@claude-plugins-official",
+    "semgrep@claude-plugins-official", "skill-creator@claude-plugins-official",
+    "sentry@claude-plugins-official", "supabase@claude-plugins-official",
+    "swift-lsp@claude-plugins-official", "superpowers@claude-plugins-official",
+    "agent-sdk-dev@claude-plugins-official", "vercel@claude-plugins-official",
+    "typescript-lsp@claude-plugins-official", "security-guidance@claude-plugins-official",
+    "discord@claude-plugins-official", "feature-dev@claude-plugins-official",
+    "ralph-loop@claude-plugins-official", "code-review@claude-plugins-official",
+    "plugin-developer-toolkit@claude-plugins-official", "chrome-devtools@claude-plugins-official",
+    "impeccable@impeccable",
+]
+plugins = d.get("enabledPlugins", {})
+for p in OUR_PLUGINS:
+    plugins.pop(p, None)
+if not plugins and "enabledPlugins" in d:
+    del d["enabledPlugins"]
+OUR_MARKETS = ["impeccable", "buildwithclaude"]
+markets = d.get("extraKnownMarketplaces", {})
+for m in OUR_MARKETS:
+    markets.pop(m, None)
+if not markets and "extraKnownMarketplaces" in d:
+    del d["extraKnownMarketplaces"]
+if not hooks:
+    d.pop("hooks", None)
+if not perms.get("allow") and "defaultMode" not in perms:
+    d.pop("permissions", None)
+with open(path, "w") as f:
+    json.dump(d, f, indent=2)
+    f.write("\n")
+PYCONFIG
+  fi
 }
 
 deactivate_memory() {
@@ -566,6 +667,25 @@ deactivate_skills() {
   [ -d "$CLAUDE_DIR/skills/component-gallery-reference" ] && rm -rf "$CLAUDE_DIR/skills/component-gallery-reference"
 }
 
+deactivate_voice() {
+  if [ -L "$CLAUDE_DIR/transcribe" ] && [[ "$(readlink "$CLAUDE_DIR/transcribe")" == "$REPO_DIR/"* ]]; then
+    rm -f "$CLAUDE_DIR/transcribe"
+  fi
+}
+
+deactivate_discord() {
+  if [ -f "$ZSHRC" ] && grep -Fq "discord-chat-launcher.sh" "$ZSHRC"; then
+    sed -i.bak '/# Discord Chat Agent launcher/d; /discord-chat-launcher\.sh.*claude-dotfiles/d' "$ZSHRC"
+    rm -f "$ZSHRC.bak"
+  fi
+  local f
+  for f in discord-chat-launcher.sh discord-onboard.sh discord-setup.sh; do
+    if [ -L "$CLAUDE_DIR/$f" ] && [[ "$(readlink "$CLAUDE_DIR/$f")" == "$REPO_DIR/"* ]]; then
+      rm -f "$CLAUDE_DIR/$f"
+    fi
+  done
+}
+
 deactivate_statusline() {
   [ -L "$CLAUDE_DIR/statusline-command.sh" ] && rm -f "$CLAUDE_DIR/statusline-command.sh"
 }
@@ -590,13 +710,16 @@ deactivate_ampersand() {
 
 deactivate_component() {
   case "$1" in
-    claude)     deactivate_claude ;;
+    brain)      deactivate_brain ;;
+    config)     deactivate_config ;;
     memory)     deactivate_memory ;;
     skills)     deactivate_skills ;;
     statusline) deactivate_statusline ;;
     cmux)       deactivate_cmux ;;
     nvm)        deactivate_nvm ;;
     ampersand)  deactivate_ampersand ;;
+    voice)      deactivate_voice ;;
+    discord)    deactivate_discord ;;
   esac
 }
 
