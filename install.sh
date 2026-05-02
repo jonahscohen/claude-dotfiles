@@ -946,6 +946,24 @@ if [[ "$NONINTERACTIVE" == "0" ]]; then
     fi
   fi
 
+  # Migrate legacy 'claude' state entry to brain + config
+  if [ -f "$STATE_FILE" ]; then
+    _legacy_claude=$(state_get "claude" 2>/dev/null || true)
+    if [ -n "$_legacy_claude" ]; then
+      state_set "brain" "$_legacy_claude"
+      state_set "config" "$_legacy_claude"
+      python3 -c "
+import json
+with open('$STATE_FILE') as f: d = json.load(f)
+d.get('components', {}).pop('claude', None)
+with open('$STATE_FILE', 'w') as f:
+    json.dump(d, f, indent=2)
+    f.write('\n')
+" 2>/dev/null || true
+      info "Migrated legacy 'claude' state to 'brain' + 'config'"
+    fi
+  fi
+
   if [ -f "$STATE_FILE" ]; then
     returning_flow
   else
