@@ -187,17 +187,25 @@ if [[ "$PERSONAL" == "1" ]]; then
   PICKS+=("${PERSONAL_PICKS[@]}")
 fi
 
+HAS_ONLY=0
+HAS_PRESET=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --yes|-y)       NONINTERACTIVE=1; set_all 1; shift ;;
-    --only)         NONINTERACTIVE=1; apply_only "${2:-}"; shift 2 ;;
-    --preset)       NONINTERACTIVE=1; apply_preset "${2:-}"; shift 2 ;;
+    --yes|-y)       NONINTERACTIVE=1; shift ;;
+    --only)         NONINTERACTIVE=1; HAS_ONLY=1; apply_only "${2:-}"; shift 2 ;;
+    --preset)       NONINTERACTIVE=1; HAS_PRESET=1; apply_preset "${2:-}"; shift 2 ;;
     --dry-run|-n)   DRY_RUN=1; shift ;;
     --help|-h)      print_help; exit 0 ;;
     --personal)     shift ;;  # already consumed in pre-pass, just shift past it
     *)              err "Unknown flag: $1"; print_help; exit 2 ;;
   esac
 done
+
+# --yes without --only/--preset means "install everything"
+# --yes WITH --only/--preset defers to their selection
+if [[ "$NONINTERACTIVE" == "1" && "$HAS_ONLY" == "0" && "$HAS_PRESET" == "0" ]]; then
+  set_all 1
+fi
 
 # ============================================================
 # Pre-flight
@@ -1214,9 +1222,7 @@ if picked memory; then
     else
       info "Appending Memory Discipline section to $USER_CLAUDE_MD"
     fi
-    # Extract the marker-bounded block from our CLAUDE.md (inclusive of markers).
-    awk "/$MEMORY_BEGIN_MARKER/,/$MEMORY_END_MARKER/" "$REPO_DIR/claude/CLAUDE.md" \
-      | { printf '\n'; cat; } >> "$USER_CLAUDE_MD"
+    { printf '\n'; cat "$REPO_DIR/claude/memory-discipline-section.md"; } >> "$USER_CLAUDE_MD"
     ok "Memory Discipline section added to $USER_CLAUDE_MD"
   fi
 
