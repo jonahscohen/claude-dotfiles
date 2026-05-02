@@ -824,23 +824,32 @@ returning_flow() {
         inactive)      display="${YELLOW}inactive${NC}" ;;
         not-installed) display="${DIM}not installed${NC}" ;;
       esac
-      printf "  %-12s %b\n" "${KEYS[$i]}" "$display"
+      printf "  %-12s %-20b ${DIM}%s${NC}\n" "${KEYS[$i]}" "$display" "${TITLES[$i]}"
     done
     printf "\n"
 
     local options=()
-    for k in "${KEYS[@]}"; do options+=("$k"); done
+    for i in "${!KEYS[@]}"; do
+      options+=("${KEYS[$i]}  -  ${TITLES[$i]}")
+    done
     options+=("(quit)")
 
     local pick=""
     if command -v gum >/dev/null 2>&1; then
-      pick=$(printf '%s\n' "${options[@]}" | \
+      local raw_pick
+      raw_pick=$(printf '%s\n' "${options[@]}" | \
         gum choose --header "Pick a component, or quit" \
-          --cursor.foreground "#a5b4fc" \
-          --selected.foreground "#a5b4fc" \
+          --cursor.foreground "#67e8f9" \
+          --selected.foreground "#67e8f9" \
           --item.foreground "#ffffff") || break
+      # Extract just the key (everything before "  -  ")
+      pick="${raw_pick%%  -  *}"
     else
-      printf "Components: %s\nPick (or 'quit'): " "${KEYS[*]}"
+      printf "\nComponents:\n"
+      for i in "${!KEYS[@]}"; do
+        printf "  %-12s %s\n" "${KEYS[$i]}" "${TITLES[$i]}"
+      done
+      printf "\nPick (or 'quit'): "
       [ -r /dev/tty ] && read -r pick </dev/tty || break
     fi
     [[ -z "$pick" || "$pick" == "(quit)" || "$pick" == "quit" ]] && break
