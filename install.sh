@@ -824,13 +824,13 @@ returning_flow() {
         inactive)      display="${YELLOW}inactive${NC}" ;;
         not-installed) display="${DIM}not installed${NC}" ;;
       esac
-      printf "  %-12s %-20b ${DIM}%s${NC}\n" "${KEYS[$i]}" "$display" "${TITLES[$i]}"
+      printf "  %-14s %-20b ${DIM}%s${NC}\n" "${KEYS[$i]}" "$display" "${TITLES[$i]}"
     done
     printf "\n"
 
     local options=()
     for i in "${!KEYS[@]}"; do
-      options+=("${KEYS[$i]}  -  ${TITLES[$i]}")
+      options+=("$(printf '%-14s %s' "${KEYS[$i]}" "${TITLES[$i]}")")
     done
     options+=("(quit)")
 
@@ -839,11 +839,12 @@ returning_flow() {
       local raw_pick
       raw_pick=$(printf '%s\n' "${options[@]}" | \
         gum choose --header "Pick a component, or quit" \
+          --header.foreground "#0e7490" \
           --cursor.foreground "#67e8f9" \
           --selected.foreground "#67e8f9" \
           --item.foreground "#ffffff") || break
-      # Extract just the key (everything before "  -  ")
-      pick="${raw_pick%%  -  *}"
+      # Extract just the key (first word)
+      pick="${raw_pick%% *}"
     else
       printf "\nComponents:\n"
       for i in "${!KEYS[@]}"; do
