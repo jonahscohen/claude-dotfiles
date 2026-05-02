@@ -47,7 +47,7 @@ Already cloned? `cd` into the repo:
 
 ```bash
 ./install.sh                    # interactive TUI
-./install.sh --preset minimal   # claude + memory + skills + nvm
+./install.sh --preset minimal   # brain + config + memory + skills + nvm
 ./install.sh --only memory      # just one component
 ```
 
@@ -72,21 +72,24 @@ The version-controlled answer to "how is Yes& running Claude Code right now." Wh
 2. **A discipline carrier.** Hooks block legacy model IDs, AI-attribution lines, and emoji before they land. CLAUDE.md mandates verification before "done." None of it is optional once installed.
 3. **A design system in shell form.** Three layers of design rules (Impeccable for strategy, DESIGN.md for tokens, make-interfaces-feel-better for tactical CSS) auto-wire on install. Generated UI lands on-brand by default, not by accident.
 4. **Memory across machines, across Yes& devs.** The memory subsystem makes Claude take notes after every task. Notes commit, notes pull, everyone knows what was decided and why.
-5. **Additive-where-possible for everyone else.** Already love your Claude Code config? Don't throw it away. Pick `memory` and `skills` only - we append to your CLAUDE.md and JSON-merge our hooks into your settings.json. Your content stays. Ours layers on.
+5. **Additive across the board.** Every component appends, merges, or creates new files. Nothing is replaced. Pick any combination without risking your existing config. Uninstall removes exactly what was installed, nothing more.
 
 ### What's in the box
 
-Seven components. Pick any combination. Defaults are all on, so most Yes& devs just hit enter.
+Ten components. Pick any combination. Defaults are all on, so most Yes& devs just hit enter. Every component is additive.
 
 | Component | One-line | Touches |
 |---|---|---|
-| `claude` | Claude Code config: instructions, settings, plugins, hooks, memory | Replaces `~/.claude/` files (backs up first) |
-| `memory` | Memory rules + 3 lifecycle hooks + loader script (additive) | Appends to your CLAUDE.md, JSON-merges into settings.json |
-| `skills` | Anthropic Skills (currently: make-interfaces-feel-better) | Adds to `~/.claude/skills/` only |
+| `brain` | Team rules + workflow instructions | Appends to `~/.claude/CLAUDE.md` between markers (your content preserved) |
+| `config` | Hooks, plugins, permissions | JSON-merges into `~/.claude/settings.json` (your settings preserved) |
+| `memory` | Memory discipline rules + 3 lifecycle hooks + loader | Appends to CLAUDE.md, JSON-merges into settings.json |
+| `skills` | make-interfaces-feel-better + component-gallery-reference | Adds to `~/.claude/skills/` only |
 | `statusline` | Custom prompt-bar render | Symlinks `~/.claude/statusline-command.sh` |
-| `cmux` | Split-pane terminal config (powers in-app browser preview) | Symlinks `~/.config/cmux/settings.json` |
-| `nvm` | Optional fix for "claude: command not found" in fresh terminals | Marker-guarded line in `~/.zshrc` |
-| `ampersand` | The `ampersand` zsh shortcut (`ampersand` to re-run, `ampersand --pull` to sync first) | Marker-guarded block in `~/.zshrc` |
+| `cmux` | Split-pane terminal config | Symlinks `~/.config/cmux/settings.json` |
+| `nvm` | Fix for "claude: command not found" in fresh terminals | Marker-guarded line in `~/.zshrc` |
+| `ampersand` | The `ampersand` zsh shortcut | Marker-guarded block in `~/.zshrc` |
+| `voice` | Local voice-to-text (whisper.cpp + ffmpeg) | Brews dependencies, symlinks `~/.claude/transcribe` |
+| `discord` | Smart Discord chat agent launcher | Marker-guarded line in `~/.zshrc`, symlinks scripts to `~/.claude/` |
 
 ### What's NOT here
 
@@ -111,7 +114,7 @@ You've seen what's in the box. Here's the opinions and disciplines behind why ea
 2. **Memory beats context.** A version-controlled record of what we decided yesterday is more useful than re-explaining the project to Claude every session.
 3. **Three-layer design beats one-layer prompting.** Impeccable handles strategy, DESIGN.md handles tokens, make-interfaces-feel-better handles tactics. Stack them.
 4. **Verification beats vibes.** UI work isn't done until it's screenshotted and checked. Non-UI work isn't done until each step has a runnable verify clause.
-5. **Additive-where-possible beats wholesale.** Other devs and teams should be able to take what they want and leave the rest. The `memory` component appends to your existing CLAUDE.md and JSON-merges into your existing settings.json (your other content stays); the `skills` component writes only to `~/.claude/skills/` and never touches your config files.
+5. **Additive beats wholesale.** Other devs and teams should be able to take what they want and leave the rest. Every component appends, merges, or creates new files. `brain` appends to your CLAUDE.md between markers. `config` JSON-merges into your settings.json. Nothing is replaced, nothing is overwritten.
 
 The five disciplines that come out of those opinions:
 
@@ -167,7 +170,7 @@ The shortcuts you'll actually type once the dotfiles are installed.
 ```bash
 ampersand                      # interactive TUI from any directory
 ampersand --yes                # full non-interactive install
-ampersand --preset minimal     # claude + memory + skills + nvm
+ampersand --preset minimal     # brain + config + memory + skills + nvm
 ampersand --only memory        # just one component
 ampersand --only memory,skills # multiple components
 ampersand --dry-run            # preview without writing
@@ -261,51 +264,37 @@ The most contention-prone file is `MEMORY.md` (the index). Two devs working on t
 
 That's the entire onboarding. Same machine state as everyone else, same disciplines applied, same memory loaded.
 
-### Boost an existing Claude Code (no overwrites)
+### Boost an existing Claude Code (everything is additive)
 
-For developers who already have a Claude Code setup they like and want to layer in specific Yes& capabilities without losing their config.
-
-#### The additive-where-possible components
-
-Three components are designed to NOT replace your existing config. The `memory` component does mutate your CLAUDE.md and settings.json (it has to - that's where the rules and hooks live), but it appends and JSON-merges, never overwrites. `skills` and `ampersand` only write to namespaces we control:
-
-| Component | Touches | What it adds |
-|---|---|---|
-| `memory`   | Appends to `~/.claude/CLAUDE.md` between markers; JSON-merges hooks into `~/.claude/settings.json`; symlinks `~/.claude/startup-check.sh` | The full memory subsystem (rules + 3 hooks + loader) |
-| `skills`   | Adds to `~/.claude/skills/` only | The `make-interfaces-feel-better` skill |
-| `ampersand`| Marker-guarded block in `~/.zshrc` | The `ampersand` shortcut |
+Every component is additive. There is no distinction between a "boost" install and a "full" install - both use the same append-and-merge strategy. Pick any subset and your existing config stays intact.
 
 #### Common patterns
 
 ```bash
-# Just the memory subsystem - your CLAUDE.md and settings.json get appended/merged, never replaced
+# Just the team rules - appends to your CLAUDE.md between markers
+ampersand --only brain
+
+# Rules + hooks/plugins - merges into your settings.json
+ampersand --only brain,config
+
+# Memory subsystem on top of your existing setup
 ampersand --only memory
 
-# Memory + UI-polish skill
-ampersand --only memory,skills
-
-# Everything additive (memory + skills + the shortcut block), zero overwrites
-ampersand --only memory,skills,ampersand
+# The full stack, still additive
+ampersand --yes
 ```
 
 #### Marker-guarded means undoable
 
-The `memory` component appends inside HTML comment markers in your `CLAUDE.md`:
+Components that append to your `CLAUDE.md` use HTML comment markers:
 
 ```markdown
-<!-- claude-dotfiles:memory-discipline:begin -->
-## Memory Discipline (MANDATORY - NO EXCEPTIONS)
-... (Memory Discipline content) ...
-<!-- claude-dotfiles:memory-discipline:end -->
+<!-- claude-dotfiles:brain:begin -->
+... (team rules content) ...
+<!-- claude-dotfiles:brain:end -->
 ```
 
-To undo, delete from one marker to the other. Same idea for the JSON merge in settings.json (markers are the command paths `~/.claude/startup-check.sh` and the string `PreCompact: flushing pending memory`). To undo: delete the three hook entries from `settings.json`.
-
-The shortcuts block in `~/.zshrc` uses `# === claude-dotfiles:shortcuts:begin ===` / `:end` markers and is sed-deletable as a range.
-
-#### What's NOT additive (yet)
-
-The plugin list. `enabledPlugins` and `extraKnownMarketplaces` live inside `claude/settings.json`, so picking the `claude` component means accepting our settings.json wholesale. To layer just our plugin list onto your existing settings, manually copy the `enabledPlugins` and `extraKnownMarketplaces` blocks from `claude/settings.json` into yours. A real plugin-merge implementation is a TODO.
+To undo, delete from one marker to the other. The `config` component's JSON-merge adds hooks and plugins to your settings.json - to undo, remove the specific entries it added. The `~/.zshrc` blocks use `# === claude-dotfiles:shortcuts:begin ===` / `:end` markers and are sed-deletable as a range.
 
 ---
 
@@ -320,19 +309,22 @@ The dense lookup material, in collapsible chapters. You won't read this end to e
 <details>
 <summary><b>Components, in detail</b></summary>
 
-When the installer launches you get a checkbox TUI listing seven components. Each is independently togglable. Defaults are all on, but every component is honest about whether it overwrites your existing config.
+When the installer launches you get a checkbox TUI listing ten components. Each is independently togglable. Defaults are all on. Every component is additive - nothing overwrites your existing config.
 
 | Component | Plain-English | What changes on disk |
 |-----------|---------------|----------------------|
-| `claude`  | Your Claude Code brain. **REPLACES** `~/.claude/CLAUDE.md`, `settings.json` (with our plugin list - 14 plugins enabled, 4 explicitly disabled), hooks, memory. Existing files get backed up to `.backups/`. Skip if you have your own setup you want to keep | Symlinks the canonical files into `~/.claude/` |
-| `memory`  | **Additive.** Bolts our memory subsystem onto an existing Claude Code: appends Memory Discipline rules to your `CLAUDE.md` between marker comments, JSON-merges three lifecycle hooks into your `settings.json`, symlinks the loader script. Marker-guarded - re-runs are no-ops, removable cleanly | Symlinks `startup-check.sh`; appends to `CLAUDE.md`; merges into `settings.json` |
-| `skills`  | **Additive.** Installs Anthropic Skills via `npx skills add`. Currently bundles `make-interfaces-feel-better` (tactical UI polish that auto-triggers on UI keywords). Touches nothing else | Adds to `~/.claude/skills/` only |
+| `brain` | **ADDITIVE.** Appends team rules (RULES.md) and shared workflow instructions to your CLAUDE.md between marker comments. Your existing content stays. Re-runs detect markers and skip. CLAUDE.local.md for personal overrides gets its own marker block | Appends to `~/.claude/CLAUDE.md` between markers |
+| `config` | **ADDITIVE.** JSON-merges safety hooks, memory-write allow patterns, enabled plugins, and marketplace entries into your existing settings.json. Does NOT touch your defaultMode, model, or other preferences. Copies hook scripts to `~/.claude/hooks/` alongside your existing hooks | JSON-merges into `~/.claude/settings.json`; copies hooks to `~/.claude/hooks/` |
+| `memory`  | **ADDITIVE.** Bolts our memory subsystem onto an existing Claude Code: appends Memory Discipline rules to your `CLAUDE.md` between marker comments, JSON-merges three lifecycle hooks into your `settings.json`, symlinks the loader script. Marker-guarded - re-runs are no-ops, removable cleanly | Symlinks `startup-check.sh`; appends to `CLAUDE.md`; merges into `settings.json` |
+| `skills`  | **ADDITIVE.** Installs Anthropic Skills via `npx skills add`. Bundles `make-interfaces-feel-better` (tactical UI polish that auto-triggers on UI keywords) and `component-gallery-reference` (researches component.gallery before building UI components). Touches nothing else | Adds to `~/.claude/skills/` only |
 | `statusline` | Custom prompt-bar render. The `statusLine` command in `settings.json` is tolerant of a missing script - unticking falls back cleanly to Claude Code's default | Symlinks `~/.claude/statusline-command.sh` |
 | `cmux`    | cmux split-pane terminal config. Powers the in-app browser preview Claude uses to verify UI work | Symlinks `~/.config/cmux/settings.json` |
-| `nvm`     | Optional fix for "claude not found in PATH" in fresh terminals on machines where Homebrew's nvm doesn't auto-activate. Harmless no-op on machines that don't use nvm | Appends `nvm use default --silent` to `~/.zshrc` (only if `nvm.sh` is already sourced) |
+| `nvm`     | Fix for "claude not found in PATH" in fresh terminals on machines where Homebrew's nvm doesn't auto-activate. Harmless no-op on machines that don't use nvm | Appends `nvm use default --silent` to `~/.zshrc` (only if `nvm.sh` is already sourced) |
 | `ampersand` | The `ampersand` zsh shortcut. `ampersand` re-launches the installer from any directory; `ampersand --pull` pulls latest from GitHub first. Forwards every other flag. Auto-migrates older block formats from prior versions of the installer | Marker-guarded shortcuts block in `~/.zshrc` |
+| `voice` | **ADDITIVE.** Local voice-to-text pipeline. Brews whisper.cpp and ffmpeg, symlinks the transcription script. Handles OGG/Opus, m4a, mp3, flac, wav. Uses ggml-base.en model from `~/.cache/whisper/` | Brews dependencies; symlinks `~/.claude/transcribe` |
+| `discord` | **ADDITIVE.** Smart Discord chat agent launcher with cold/mid/warm onboarding states. Symlinks the launcher and onboarding scripts, adds the `discord-agent` shortcut to zshrc | Marker-guarded line in `~/.zshrc`; symlinks scripts to `~/.claude/` |
 
-The TUI also lets you pre-select via flags: `--yes` for everything, `--preset minimal` for `claude+memory+skills+nvm`, `--preset all`, `--preset none`, `--only csv` for an explicit subset, `--dry-run` to preview without writing.
+The TUI also lets you pre-select via flags: `--yes` for everything, `--preset minimal` for `brain+config+memory+skills+nvm`, `--preset all`, `--preset none`, `--only csv` for an explicit subset, `--dry-run` to preview without writing.
 
 </details>
 
@@ -341,7 +333,7 @@ The TUI also lets you pre-select via flags: `--yes` for everything, `--preset mi
 <details>
 <summary><b>The Claude Code brain (CLAUDE.md walkthrough)</b></summary>
 
-`~/.claude/CLAUDE.md` is the global instruction file Claude reads at the start of every session in every project on this machine. Picking the `claude` component symlinks our canonical version into place. Picking `memory` instead appends just the Memory Discipline section between markers without touching the rest. Here's what's in our canonical file, section by section.
+`~/.claude/CLAUDE.md` is the global instruction file Claude reads at the start of every session in every project on this machine. Picking the `brain` component appends our team rules and workflow between marker comments. Picking `memory` appends the Memory Discipline section in its own markers. Both are additive - your own CLAUDE.md content above and below the markers is preserved. Here's what's in our canonical file, section by section.
 
 ### Memory Discipline (mandatory, no exceptions)
 
@@ -481,7 +473,7 @@ Memory turns Claude Code from a stateless code generator into a colleague who re
 
 **Project root memory** (`<project>/.claude/memory/`) is the canonical record for that specific project. Session files (`session_YYYY-MM-DD_<topic>.md`), feedback files (`feedback_<topic>.md`), reference files (`reference_<topic>.md`). Indexed by `MEMORY.md`. Committed to the project's git repo. Pulled and read by every collaborator's Claude.
 
-**Global cross-project memory** (`~/.claude/memory/`) is per-machine, durable across all projects you open with Claude Code. Things like the attribution policy, Yes&-wide feedback, hook verification discipline. Symlinked from the dotfiles repo when you tick the `claude` component, so every Yes& dev's machine has the same baseline.
+**Global cross-project memory** (`~/.claude/memory/`) is per-machine, durable across all projects you open with Claude Code. Things like the attribution policy, Yes&-wide feedback, hook verification discipline. Symlinked from the dotfiles repo when you tick the `memory` component, so every Yes& dev's machine has the same baseline.
 
 **Per-project global memory** (`~/.claude/projects/<project-path>/memory/`) is automatically written by Claude Code itself for telemetry-style state. Secondary context, read at session start.
 
@@ -514,7 +506,7 @@ People conflate these. They're four different mechanisms with four different con
 
 Declared in `~/.claude/settings.json` under `enabledPlugins`. Auto-installed by Claude Code on first launch from the official marketplace (or extra marketplaces declared in `extraKnownMarketplaces`). Live in `~/.claude/plugins/`. Sync across machines via the dotfiles symlink to settings.json.
 
-The `claude` component enables 14 plugins:
+The `config` component enables 23 plugins:
 
 | Plugin | What it does |
 |---|---|
@@ -532,8 +524,11 @@ The `claude` component enables 14 plugins:
 | `security-guidance` | Defensive security context |
 | `discord` | Discord channel integration for chat sessions |
 | `impeccable` | The Yes& design brain (PRODUCT.md, /impeccable commands) |
-
-And explicitly disables 4: `github`, `learning-output-style`, `semgrep`, `vercel`. (Disabled means "the marketplace knows about it, but don't enable it on this machine.")
+| `feature-dev` | Guided feature development with codebase understanding |
+| `ralph-loop` | Iterative development loop automation |
+| `code-review` | Pull request code review tooling |
+| `plugin-developer-toolkit` | Tools for building Claude Code plugins |
+| `chrome-devtools` | Chrome DevTools integration for debugging |
 
 ### 2. Connectors (Claude.ai account-level)
 
@@ -551,17 +546,18 @@ Claude in Chrome is an MCP server (with a Chrome extension as the bridge). cmux 
 
 Reusable prompt and behavior modules that auto-trigger on keyword matches. Installed via `npx skills add <github-repo>`. Live in `~/.claude/skills/`.
 
-The `skills` component installs `make-interfaces-feel-better`. The dotfiles' skills component is fully additive - skills don't depend on your CLAUDE.md or settings.json structure, so they're safe to install alongside any existing Claude Code config.
+The `skills` component installs `make-interfaces-feel-better` (tactical UI polish) and `component-gallery-reference` (researches component.gallery before building UI components, filters by project tech stack, excludes unmaintained sources). Both are fully additive - skills don't depend on your CLAUDE.md or settings.json structure, so they're safe to install alongside any existing Claude Code config.
 
 ### Quick decision table
 
 | If you want... | You configure... |
 |---|---|
-| The Yes& design brain on Claude Code | Plugin (settings.json - `claude` component) |
+| The Yes& design brain on Claude Code | Plugin (settings.json - `config` component) |
 | Drag-drop Figma URLs into a chat | Plugin (`figma`) |
 | ClickUp tasks accessible to Claude.ai | Connector (claude.ai UI, account-bound) |
 | Local browser automation in a chat | MCP server (per-app config) |
-| Tactical UI polish rules that auto-fire | Skill (npx skills add - `skills` component) |
+| Tactical UI polish rules that auto-fire | Skill (`make-interfaces-feel-better` - `skills` component) |
+| Industry-validated UI component patterns | Skill (`component-gallery-reference` - `skills` component) |
 
 </details>
 
@@ -591,32 +587,32 @@ CLAUDE_DOTFILES_DIR=~/code/dots CLAUDE_DOTFILES_REPO=https://github.com/your-for
 ./install.sh                    # interactive TUI (default)
 ./install.sh --yes              # install everything non-interactively
 ./install.sh --preset NAME      # all | minimal | none
-./install.sh --only KEYS        # comma-separated subset, e.g. claude,memory,nvm
+./install.sh --only KEYS        # comma-separated subset, e.g. brain,config,memory,nvm
 ./install.sh --dry-run          # show resolved picks, touch no files
 ./install.sh --help             # full usage
 ```
 
-Valid component keys: `claude`, `memory`, `skills`, `statusline`, `cmux`, `nvm`, `ampersand`.
+Valid component keys: `brain`, `config`, `memory`, `skills`, `statusline`, `cmux`, `nvm`, `ampersand`, `voice`, `discord`.
 
 ### Presets
 
 | Preset | Components |
 |---|---|
 | `all` | Everything (same as `--yes`) |
-| `minimal` | `claude` + `memory` + `skills` + `nvm` |
+| `minimal` | `brain` + `config` + `memory` + `skills` + `nvm` |
 | `none` | Nothing (useful with `--dry-run`) |
 
 ### Settings.json customization
 
-`claude/settings.json` is symlinked when you pick the `claude` component, so changes to the canonical file in the repo propagate to every machine on next pull. Common customizations:
+`config` JSON-merges hooks, plugins, and permission patterns into your existing `~/.claude/settings.json`. It does not touch your `defaultMode`, model preferences, or other settings. To customize:
 
-- **Adding a plugin**: edit `enabledPlugins` and add `"<plugin>@<marketplace>": true`. Commit, push, `ampersand --pull` on other machines, restart Claude Code.
-- **Tightening permissions**: edit `permissions.allow` to revoke a Bash pattern. Or change `defaultMode` from `bypassPermissions` to `default` to require approval on tool calls.
-- **Adding a hook**: append to the appropriate `hooks.<event>` array. Commit, push, restart.
+- **Adding a plugin**: edit `enabledPlugins` in `claude/settings.json` in the repo and add `"<plugin>@<marketplace>": true`. Commit, push, `ampersand --pull` on other machines to re-merge, restart Claude Code.
+- **Tightening permissions**: edit `permissions.allow` in your own `~/.claude/settings.json` directly. Or change `defaultMode` from `bypassPermissions` to `default` to require approval on tool calls.
+- **Adding a hook**: append to the appropriate `hooks.<event>` array in `claude/settings.json` in the repo. Commit, push, re-run install to re-merge.
 
 ### CLAUDE.md customization
 
-Edit `claude/CLAUDE.md` in the repo. It's the source of truth. Changes propagate to every machine on next pull. The `memory` component's appended block is bracketed by markers, so if you ever restructure your own CLAUDE.md and regret it, you can sed-delete from `<!-- claude-dotfiles:memory-discipline:begin -->` to `:end` and re-run `install.sh --only memory` to re-append fresh.
+`brain` appends team rules between marker comments in your `~/.claude/CLAUDE.md`. Your own content above and below the markers is preserved. To update the team rules: edit `claude/CLAUDE.md` in the repo, commit, push, and re-run `ampersand --pull` to re-append. To remove the team rules: sed-delete from the marker begin to marker end. To re-add: re-run `install.sh --only brain`.
 
 </details>
 
@@ -625,26 +621,27 @@ Edit `claude/CLAUDE.md` in the repo. It's the source of truth. Changes propagate
 <details>
 <summary><b>Architecture (under the hood)</b></summary>
 
-### Symlink-vs-copy strategy
+### Install strategy
 
 | Target | Strategy | Why |
 |---|---|---|
-| `~/.claude/CLAUDE.md` | Symlink to repo | Edits in either direction sync; `git pull` updates the live config instantly |
-| `~/.claude/settings.json` | Symlink to repo | Same |
-| `~/.claude/hooks/*.sh` | Symlink to repo | Same |
-| `~/.claude/memory/*.md` | Symlink to repo | Memory edits via Claude write directly into the repo working tree, ready to commit |
-| `~/.claude/skills/<skill>/` | npx-installed (not symlinked) | Skills are versioned by their own repo, not ours |
-| `~/.config/cmux/settings.json` | Symlink to repo | Same as Claude Code config |
-| `~/.zshrc` | Marker-guarded append (never overwrite) | Your shell config is yours; we add labeled blocks that can be sed-deleted cleanly |
+| `~/.claude/CLAUDE.md` | Marker-guarded append | Your content preserved; our rules appended between markers; `git pull` + re-run updates our block |
+| `~/.claude/settings.json` | JSON-merge (python3) | Your settings preserved; our hooks/plugins/patterns merged in; does not touch defaultMode |
+| `~/.claude/hooks/*.sh` | File copy from repo | Hook scripts copied alongside your existing hooks; re-run updates from repo |
+| `~/.claude/memory/*.md` | Symlink to repo | Memory edits write directly into the repo working tree |
+| `~/.claude/skills/<skill>/` | npx-installed or file copy | Skills versioned by their own repo or bundled with ours |
+| `~/.config/cmux/settings.json` | Symlink to repo | Same as before |
+| `~/.zshrc` | Marker-guarded append | Labeled blocks that can be sed-deleted cleanly |
 
 ### Hook lifecycle
 
-Five hooks fire automatically once `claude/settings.json` is symlinked into `~/.claude/`:
+Six hooks fire automatically once the `config` component merges them into `~/.claude/settings.json`:
 
 | Event | Hook | Purpose |
 |---|---|---|
 | `PreToolUse(Bash)` | `~/.claude/hooks/bash-guard.sh` (5s) | Blocks AI-coauthor attribution lines in commands, force-push to main/master, `rm` against `.claude/memory`, legacy model IDs |
 | `PreToolUse(Write\|Edit\|MultiEdit)` | `~/.claude/hooks/content-guard.sh` (5s) | Blocks the same patterns inside file content being written, plus emdashes/endashes and emoji unicode ranges |
+| `PreToolUse(Write\|Edit\|MultiEdit)` | `~/.claude/hooks/memory-approve.sh` (5s) | Grants automatic permission for memory-path writes, bypassing the .claude/ carve-out |
 | `SessionStart` | `~/.claude/startup-check.sh` (10s, "Loading memory...") | Loads memory at session start |
 | `PreCompact` | inline command (5s, "Flushing memory before compact...") | Reminds Claude to flush pending memory before context compresses |
 | `PostCompact` | `~/.claude/startup-check.sh` (10s, "Reloading memory after compaction...") | Re-loads memory after compression |
@@ -656,9 +653,10 @@ All hooks are pipe-tested before they ship - the bash-guard hook discipline (ver
 Every section of `install.sh` is idempotent:
 
 - **Symlinks**: `make_symlink` checks if the target already points where we want; if so, no-op. Otherwise backs up any pre-existing real file, removes stale symlinks, creates fresh.
-- **`.zshrc` appends** (nvm, shortcuts): marker-guarded with grep checks. If the marker is present, no-op. The shortcuts block (ampersand) also self-heals: if the marker is present but the baked `cd "$REPO_DIR"` doesn't match the current `$REPO_DIR`, the entire block is sed-deleted and re-appended at the new path. The same self-heal recognizes any older block format we ever shipped and rewrites it to the current one.
-- **Memory hooks JSON-merge**: marker-based detection on substrings (`startup-check.sh`, `PreCompact: flushing pending memory`). If detected, no-op. Otherwise python3 reads the existing settings.json, adds the missing hook entries, writes back.
-- **CLAUDE.md memory-discipline append**: marker-guarded on `<!-- claude-dotfiles:memory-discipline:begin -->`. If present, no-op. Otherwise awk-extract the block from our CLAUDE.md and append.
+- **`.zshrc` appends** (nvm, shortcuts, discord): marker-guarded with grep checks. If the marker is present, no-op. The shortcuts block (ampersand) also self-heals: if the marker is present but the baked `cd "$REPO_DIR"` doesn't match the current `$REPO_DIR`, the entire block is sed-deleted and re-appended at the new path. The same self-heal recognizes any older block format we ever shipped and rewrites it to the current one.
+- **Settings.json JSON-merge** (`config`, `memory`): marker-based detection on substrings (hook command paths, plugin names). If detected, no-op. Otherwise python3 reads the existing settings.json, adds the missing entries, writes back. Does not touch defaultMode or other user preferences.
+- **CLAUDE.md marker-append** (`brain`, `memory`): marker-guarded on `<!-- claude-dotfiles:<component>:begin -->`. If present, no-op. Otherwise appends the block between markers.
+- **Hook file copy** (`config`): copies hook scripts to `~/.claude/hooks/`. Overwrites only our own scripts (same filename), never touches hooks you wrote.
 - **npx skills add**: idempotent via the skills CLI's own logic.
 
 ### Backup discipline
@@ -716,15 +714,17 @@ Use `ampersand` (no `--pull`). Same install process, no `git pull` step. Useful 
 
 ### My team has its own Claude Code config and I don't want to overwrite it
 
+Every component is additive. `brain` appends to your CLAUDE.md between markers. `config` JSON-merges into your settings.json. Nothing is replaced. Just run `ampersand` and pick what you want.
+
 ```bash
-ampersand --pull --only memory,skills
+ampersand --pull --only brain,config,memory,skills
 ```
 
-That installs the memory subsystem (additive markers in your CLAUDE.md, JSON-merged hooks in your settings.json) and the make-interfaces-feel-better skill. Doesn't touch anything else.
+That installs the team rules, hooks/plugins, memory subsystem, and skills. Your existing content in CLAUDE.md and settings.json stays intact.
 
 ### How do I undo the dotfiles entirely
 
-For symlinked files (CLAUDE.md, settings.json, hooks, statusline, memory): `rm` them and copy back from `.backups/<some-timestamp>/`. For appended `.zshrc` blocks: sed-delete the marker-guarded ranges.
+For marker-appended files (CLAUDE.md): sed-delete from the marker begin to marker end. For JSON-merged settings (settings.json): remove the specific hook/plugin entries that were added. For symlinked files (statusline, memory, cmux): `rm` them and copy back from `.backups/<some-timestamp>/` if needed. For appended `.zshrc` blocks: sed-delete the marker-guarded ranges.
 
 We don't ship an automated uninstaller because it would require us to know which timestamp's backups to use. Manual is safer.
 
@@ -750,9 +750,9 @@ We don't ship an automated uninstaller because it would require us to know which
 
 Edit the apply block in install.sh's section 3. Add another `npx --yes skills add <github-repo>` invocation alongside the existing `make-interfaces-feel-better` line. Wrap in a non-fatal warn pattern so a failed skill install doesn't abort the run. Update the component description and post-install summary.
 
-### Adding a new plugin to the `claude` component
+### Adding a new plugin to the `config` component
 
-Edit `claude/settings.json`. Add `"<plugin>@<marketplace>": true` to `enabledPlugins`. If the marketplace isn't already known, add it to `extraKnownMarketplaces` with `source` and `autoUpdate`. Restart Claude Code to install.
+Edit `claude/settings.json`. Add `"<plugin>@<marketplace>": true` to `enabledPlugins`. If the marketplace isn't already known, add it to `extraKnownMarketplaces` with `source` and `autoUpdate`. Re-run install to merge, restart Claude Code to install.
 
 For Yes& devs: bias toward enabling plugins the whole engineering team benefits from. Plugins that only one developer needs should live in their personal Claude Code config, not the shared dotfiles.
 
