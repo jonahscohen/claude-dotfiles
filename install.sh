@@ -344,8 +344,8 @@ run_tui_gum() {
   chosen="$(printf '%s\n' "${KEYS[@]}" \
     | gum choose --no-limit --selected "$sel" \
         --header "Space to toggle, enter to confirm" \
-        --cursor.foreground "#a5b4fc" \
-        --selected.foreground "#a5b4fc" \
+        --cursor.foreground "#67e8f9" \
+        --selected.foreground "#67e8f9" \
         --item.foreground "#ffffff" \
         --cursor-prefix "[ ] " \
         --selected-prefix "[✓] " \
@@ -735,8 +735,8 @@ fresh_flow() {
   if command -v gum >/dev/null 2>&1; then
     choice=$(printf '%s\n' "Install the whole thing" "Install à la carte" | \
       gum choose --header "Welcome. Two ways to do this:" \
-        --cursor.foreground "#a5b4fc" \
-        --selected.foreground "#a5b4fc" \
+        --cursor.foreground "#67e8f9" \
+        --selected.foreground "#67e8f9" \
         --item.foreground "#ffffff") || { warn "Aborted."; exit 0; }
   else
     printf "\nWelcome. Two ways to do this:\n  1) Install the whole thing\n  2) Install à la carte\n\nEnter 1 or 2 [1]: "
@@ -829,10 +829,10 @@ returning_flow() {
     printf "\n"
 
     local options=()
+    options+=("(quit)")
     for i in "${!KEYS[@]}"; do
       options+=("$(printf '%-14s %s' "${KEYS[$i]}" "${TITLES[$i]}")")
     done
-    options+=("(quit)")
 
     local pick=""
     if command -v gum >/dev/null 2>&1; then
@@ -873,8 +873,9 @@ returning_flow() {
     if command -v gum >/dev/null 2>&1; then
       action=$(printf '%s\n' "${actions[@]}" | \
         gum choose --header "What do you want to do with '$pick'? (currently $current)" \
-          --cursor.foreground "#a5b4fc" \
-          --selected.foreground "#a5b4fc" \
+          --header.foreground "#0e7490" \
+          --cursor.foreground "#67e8f9" \
+          --selected.foreground "#67e8f9" \
           --item.foreground "#ffffff") || continue
     else
       printf "'%s' is %s. Actions: %s\nPick: " "$pick" "$current" "${actions[*]}"
