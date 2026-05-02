@@ -988,54 +988,168 @@ make_symlink() {
 }
 
 # ============================================================
-# 1. Claude Code config
+# 1. Brain (team rules + workflow, appended to CLAUDE.md)
 # ============================================================
 
-if picked claude; then
+if picked brain; then
   echo ""
-  info "--- Claude Code ---"
-  mkdir -p "$CLAUDE_DIR/memory"
-  mkdir -p "$CLAUDE_DIR/hooks"
+  info "--- Brain (team rules + workflow) ---"
+  mkdir -p "$CLAUDE_DIR"
 
-  # Build CLAUDE.md by concatenating three layers:
-  #   1. RULES.md     - team standards (shared, checked in)
-  #   2. CLAUDE.md    - default workflow (shared, checked in)
-  #   3. CLAUDE.local.md - personal overrides (per-machine, gitignored)
-  [ -L "$CLAUDE_DIR/CLAUDE.md" ] && rm -f "$CLAUDE_DIR/CLAUDE.md"
-  backup_if_exists "$CLAUDE_DIR/CLAUDE.md"
-  cat "$REPO_DIR/claude/RULES.md" "$REPO_DIR/claude/CLAUDE.md" > "$CLAUDE_DIR/CLAUDE.md"
-  if [ -f "$REPO_DIR/claude/CLAUDE.local.md" ]; then
-    printf '\n' >> "$CLAUDE_DIR/CLAUDE.md"
-    cat "$REPO_DIR/claude/CLAUDE.local.md" >> "$CLAUDE_DIR/CLAUDE.md"
-    info "Appended CLAUDE.local.md (personal overrides)"
-  else
-    warn "No CLAUDE.local.md found. Copy CLAUDE.local.example.md to CLAUDE.local.md for your personal workflow overrides."
+  BRAIN_BEGIN='<!-- claude-dotfiles:brain:begin -->'
+  BRAIN_END='<!-- claude-dotfiles:brain:end -->'
+  LOCAL_BEGIN='<!-- claude-dotfiles:local:begin -->'
+  LOCAL_END='<!-- claude-dotfiles:local:end -->'
+  TARGET_MD="$CLAUDE_DIR/CLAUDE.md"
+
+  # Legacy migration: if CLAUDE.md is a symlink to our repo, convert to real file
+  if [ -L "$TARGET_MD" ] && [[ "$(readlink "$TARGET_MD")" == "$REPO_DIR/"* ]]; then
+    warn "Migrating legacy symlinked CLAUDE.md to a real file..."
+    cp -L "$TARGET_MD" "$TARGET_MD.migrated"
+    rm -f "$TARGET_MD"
+    mv "$TARGET_MD.migrated" "$TARGET_MD"
   fi
-  make_symlink "$REPO_DIR/claude/settings.json"             "$CLAUDE_DIR/settings.json"
-  make_symlink "$REPO_DIR/claude/startup-check.sh"          "$CLAUDE_DIR/startup-check.sh"
-  make_symlink "$REPO_DIR/claude/discord-chat-launcher.sh"  "$CLAUDE_DIR/discord-chat-launcher.sh"
-  make_symlink "$REPO_DIR/claude/discord-onboard.sh"        "$CLAUDE_DIR/discord-onboard.sh"
-  make_symlink "$REPO_DIR/claude/discord-setup.sh"          "$CLAUDE_DIR/discord-setup.sh"
 
-  for f in "$REPO_DIR"/claude/memory/*.md; do
-    [ -f "$f" ] || continue
-    make_symlink "$f" "$CLAUDE_DIR/memory/$(basename "$f")"
-  done
+  [ -f "$TARGET_MD" ] || touch "$TARGET_MD"
 
-  for f in "$REPO_DIR"/claude/hooks/*.sh; do
-    [ -f "$f" ] || continue
-    make_symlink "$f" "$CLAUDE_DIR/hooks/$(basename "$f")"
-    chmod +x "$f"
-  done
+  # Remove old block if present (so re-runs pick up content changes)
+  if grep -Fq "$BRAIN_BEGIN" "$TARGET_MD" 2>/dev/null; then
+    sed -i.bak "/$BRAIN_BEGIN/,/$BRAIN_END/d" "$TARGET_MD"
+    rm -f "$TARGET_MD.bak"
+  fi
 
-  chmod +x "$REPO_DIR/claude/startup-check.sh"
-  chmod +x "$REPO_DIR/claude/discord-chat-launcher.sh"
-  chmod +x "$REPO_DIR/claude/discord-onboard.sh"
-  chmod +x "$REPO_DIR/claude/discord-setup.sh"
+  # Also handle legacy marker from the old claude component
+  if grep -Fq "<!-- claude-dotfiles:rules:begin -->" "$TARGET_MD" 2>/dev/null; then
+    sed -i.bak '/<!-- claude-dotfiles:rules:begin -->/,/<!-- claude-dotfiles:rules:end -->/d' "$TARGET_MD"
+    rm -f "$TARGET_MD.bak"
+  fi
+
+  {
+    printf '\n%s\n' "$BRAIN_BEGIN"
+    cat "$REPO_DIR/claude/RULES.md"
+    printf '\n'
+    cat "$REPO_DIR/claude/CLAUDE.md"
+    printf '\n%s\n' "$BRAIN_END"
+  } >> "$TARGET_MD"
+  ok "Team rules + workflow appended to $TARGET_MD (marker-guarded)"
+
+  # CLAUDE.local.md personal overrides in their own marker block
+  if [ -f "$REPO_DIR/claude/CLAUDE.local.md" ]; then
+    if grep -Fq "$LOCAL_BEGIN" "$TARGET_MD" 2>/dev/null; then
+      sed -i.bak "/$LOCAL_BEGIN/,/$LOCAL_END/d" "$TARGET_MD"
+      rm -f "$TARGET_MD.bak"
+    fi
+    {
+      printf '\n%s\n' "$LOCAL_BEGIN"
+      cat "$REPO_DIR/claude/CLAUDE.local.md"
+      printf '\n%s\n' "$LOCAL_END"
+    } >> "$TARGET_MD"
+    info "Appended CLAUDE.local.md (personal overrides, marker-guarded)"
+  fi
 fi
 
 # ============================================================
-# 2. Memory subsystem (additive: rules + hooks + loader)
+# 2. Config (hooks, plugins, permissions merged into settings.json)
+# ============================================================
+
+if picked config; then
+  echo ""
+  info "--- Config (hooks, plugins, permissions) ---"
+  mkdir -p "$CLAUDE_DIR/hooks"
+
+  USER_SETTINGS="$CLAUDE_DIR/settings.json"
+
+  # Legacy migration: if settings.json is a symlink to our repo, convert to real file
+  if [ -L "$USER_SETTINGS" ] && [[ "$(readlink "$USER_SETTINGS")" == "$REPO_DIR/"* ]]; then
+    warn "Migrating legacy symlinked settings.json to a real file..."
+    cp -L "$USER_SETTINGS" "$USER_SETTINGS.migrated"
+    rm -f "$USER_SETTINGS"
+    mv "$USER_SETTINGS.migrated" "$USER_SETTINGS"
+  fi
+
+  [ -f "$USER_SETTINGS" ] || echo '{}' > "$USER_SETTINGS"
+
+  # Copy hook scripts
+  for f in bash-guard.sh content-guard.sh memory-approve.sh; do
+    if [ -f "$REPO_DIR/claude/hooks/$f" ]; then
+      cp "$REPO_DIR/claude/hooks/$f" "$CLAUDE_DIR/hooks/$f"
+      chmod +x "$CLAUDE_DIR/hooks/$f"
+      ok "hooks/$f"
+    fi
+  done
+
+  # Copy startup-check.sh
+  cp "$REPO_DIR/claude/startup-check.sh" "$CLAUDE_DIR/startup-check.sh"
+  chmod +x "$CLAUDE_DIR/startup-check.sh"
+  ok "startup-check.sh"
+
+  # JSON-merge our entries into settings.json
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$USER_SETTINGS" "$REPO_DIR/claude/settings.json" <<'PYMERGE'
+import json, sys
+
+user_path = sys.argv[1]
+repo_path = sys.argv[2]
+
+with open(user_path) as f:
+    user = json.load(f)
+with open(repo_path) as f:
+    repo = json.load(f)
+
+# Hooks: merge by checking if command string already present
+user_hooks = user.setdefault("hooks", {})
+repo_hooks = repo.get("hooks", {})
+for hook_type, repo_entries in repo_hooks.items():
+    existing = user_hooks.get(hook_type, [])
+    for repo_entry in repo_entries:
+        already = False
+        for rh in repo_entry.get("hooks", []):
+            cmd = rh.get("command", "")
+            if cmd and any(cmd in json.dumps(ex) for ex in existing):
+                already = True
+                break
+        if not already:
+            existing.append(repo_entry)
+    user_hooks[hook_type] = existing
+
+# Permissions: merge allow patterns (don't touch defaultMode)
+user_perms = user.setdefault("permissions", {})
+user_allow = user_perms.setdefault("allow", [])
+repo_allow = repo.get("permissions", {}).get("allow", [])
+for pat in repo_allow:
+    if pat not in user_allow:
+        user_allow.append(pat)
+
+# Plugins: merge (add ours, keep theirs)
+repo_plugins = repo.get("enabledPlugins", {})
+user_plugins = user.setdefault("enabledPlugins", {})
+for name, val in repo_plugins.items():
+    if name not in user_plugins:
+        user_plugins[name] = val
+
+# Marketplaces: merge
+repo_markets = repo.get("extraKnownMarketplaces", {})
+user_markets = user.setdefault("extraKnownMarketplaces", {})
+for name, val in repo_markets.items():
+    if name not in user_markets:
+        user_markets[name] = val
+
+# StatusLine: only set if user doesn't have one
+if "statusLine" not in user and "statusLine" in repo:
+    user["statusLine"] = repo["statusLine"]
+
+with open(user_path, "w") as f:
+    json.dump(user, f, indent=2)
+    f.write("\n")
+PYMERGE
+    ok "Hooks, plugins, permissions merged into $USER_SETTINGS"
+  else
+    warn "python3 not found - cannot merge settings.json. Install python3 and re-run."
+  fi
+fi
+
+# ============================================================
+# 3. Memory subsystem (additive: rules + hooks + loader)
 # ============================================================
 # Three surgical, idempotent operations:
 #   (a) Symlink startup-check.sh into ~/.claude/ (no-op if already linked)
@@ -1139,7 +1253,7 @@ PY
 fi
 
 # ============================================================
-# 3. Anthropic Skills (additive, no config touched)
+# 4. Anthropic Skills (additive, no config touched)
 # ============================================================
 # Skills install into ~/.claude/skills/ via the npx skills CLI. They do not
 # replace or modify your CLAUDE.md, settings.json, hooks, or statusline -
@@ -1175,7 +1289,7 @@ if picked skills; then
 fi
 
 # ============================================================
-# 4. Custom statusline
+# 5. Custom statusline
 # ============================================================
 # Symlinks our statusline-command.sh into ~/.claude/. The statusLine command
 # in our settings.json is `[ -x SCRIPT ] && bash SCRIPT || true`, so if this
@@ -1191,36 +1305,21 @@ if picked statusline; then
 fi
 
 # ============================================================
-# 5. Ghostty shaders (community library + in-repo chain)
+# 6. cmux config
 # ============================================================
 
-if picked shaders; then
+if picked cmux; then
   echo ""
-  info "--- Ghostty Shaders ---"
+  info "--- cmux ---"
 
-  SHADERS_DIR="$HOME/Documents/Github/ghostty-shaders"
+  CMUX_CONFIG_DIR="$HOME/.config/cmux"
+  mkdir -p "$CMUX_CONFIG_DIR"
 
-  if [ -d "$SHADERS_DIR/.git" ]; then
-    ok "$SHADERS_DIR (already cloned)"
-    info "Pulling latest..."
-    git -C "$SHADERS_DIR" pull --ff-only 2>/dev/null || warn "Pull failed - may have local changes. Skipping."
-  elif [ -d "$SHADERS_DIR" ]; then
-    warn "$SHADERS_DIR exists but is not a git repo. Skipping clone."
-  else
-    info "Cloning ghostty-shaders..."
-    mkdir -p "$(dirname "$SHADERS_DIR")"
-    git clone https://github.com/0xhckr/ghostty-shaders.git "$SHADERS_DIR"
-    ok "Cloned ghostty-shaders"
-  fi
-
-  # bettercrt.glsl, tft.glsl, and cursor_blaze.glsl live in this repo at
-  # shaders/*.glsl and are loaded directly from there by Ghostty (see
-  # config.ghostty). The ghostty-shaders clone is kept for the rest of the
-  # community shader library.
+  make_symlink "$REPO_DIR/cmux/settings.json" "$CMUX_CONFIG_DIR/settings.json"
 fi
 
 # ============================================================
-# 6. Ghostty config
+# 7. Ghostty config (personal)
 # ============================================================
 
 if picked ghostty; then
@@ -1250,26 +1349,49 @@ if picked ghostty; then
 fi
 
 # ============================================================
-# 7. cmux config
+# 8. Ghostty shaders (personal, community library + in-repo chain)
 # ============================================================
 
-if picked cmux; then
+if picked shaders; then
   echo ""
-  info "--- cmux ---"
+  info "--- Ghostty Shaders ---"
 
-  CMUX_CONFIG_DIR="$HOME/.config/cmux"
-  mkdir -p "$CMUX_CONFIG_DIR"
+  SHADERS_DIR="$HOME/Documents/Github/ghostty-shaders"
 
-  make_symlink "$REPO_DIR/cmux/settings.json" "$CMUX_CONFIG_DIR/settings.json"
+  if [ -d "$SHADERS_DIR/.git" ]; then
+    ok "$SHADERS_DIR (already cloned)"
+    info "Pulling latest..."
+    git -C "$SHADERS_DIR" pull --ff-only 2>/dev/null || warn "Pull failed - may have local changes. Skipping."
+  elif [ -d "$SHADERS_DIR" ]; then
+    warn "$SHADERS_DIR exists but is not a git repo. Skipping clone."
+  else
+    info "Cloning ghostty-shaders..."
+    mkdir -p "$(dirname "$SHADERS_DIR")"
+    git clone https://github.com/0xhckr/ghostty-shaders.git "$SHADERS_DIR"
+    ok "Cloned ghostty-shaders"
+  fi
+
+  # bettercrt.glsl, tft.glsl, and cursor_blaze.glsl live in this repo at
+  # shaders/*.glsl and are loaded directly from there by Ghostty (see
+  # config.ghostty). The ghostty-shaders clone is kept for the rest of the
+  # community shader library.
 fi
 
 # ============================================================
-# 8. Discord Chat Agent launcher (zsh only, idempotent)
+# 9. Discord Chat Agent launcher (zsh only, idempotent)
 # ============================================================
 
 if picked discord; then
   echo ""
   info "--- Discord Chat Agent launcher ---"
+
+  # Symlink Discord scripts
+  for f in discord-chat-launcher.sh discord-onboard.sh discord-setup.sh; do
+    if [ -f "$REPO_DIR/claude/$f" ]; then
+      make_symlink "$REPO_DIR/claude/$f" "$CLAUDE_DIR/$f"
+      chmod +x "$REPO_DIR/claude/$f"
+    fi
+  done
 
   DISCORD_LINE="source $CLAUDE_DIR/discord-chat-launcher.sh  # claude-dotfiles: discord-chat-launcher"
 
@@ -1281,17 +1403,13 @@ if picked discord; then
       ok "Appended discord-chat-launcher source line to $ZSHRC"
       warn "Run 'source $ZSHRC' or open a new shell to pick up the wrapper."
     fi
-    if ! picked claude; then
-      warn "discord launcher source line points to ~/.claude/discord-chat-launcher.sh, but the claude component is unselected."
-      warn "Run with --only claude or re-run with claude picked to install the file the line sources."
-    fi
   else
     warn "$ZSHRC not found - skipping discord-chat-launcher source line (zsh only)."
   fi
 fi
 
 # ============================================================
-# 9. nvm default auto-activation (zsh only, idempotent)
+# 10. nvm default auto-activation (zsh only, idempotent)
 # ============================================================
 # Homebrew's nvm install sources nvm.sh but does NOT activate a default Node
 # version. That leaves claude, node, npm, npx out of PATH in fresh shells, so
@@ -1318,7 +1436,7 @@ if picked nvm; then
 fi
 
 # ============================================================
-# 10. ampersand shell shortcut (zsh only, idempotent)
+# 11. ampersand shell shortcut (zsh only, idempotent)
 # ============================================================
 # Defines one zsh function in the user's .zshrc:
 #   ampersand          - cd into repo, re-launch installer (no pull)
@@ -1411,7 +1529,7 @@ EOF
 fi
 
 # ============================================================
-# 11. Voice transcription (whisper.cpp + ffmpeg + transcribe CLI)
+# 12. Voice transcription (whisper.cpp + ffmpeg + transcribe CLI)
 # ============================================================
 # Local-only voice-to-text so Claude can answer Discord voice messages, iOS
 # voice memos, or any other audio attachment dropped into a session. Three
@@ -1495,7 +1613,8 @@ if [ "$BACKED_UP" -eq 1 ]; then
 fi
 
 echo "What was installed:"
-picked claude     && echo "  - Claude Code: CLAUDE.md (RULES.md + CLAUDE.md + CLAUDE.local.md merged), settings.json, hooks, memory, discord-chat-launcher, discord-onboard, discord-setup (REPLACED any existing files; backed up to .backups/)"
+picked brain      && echo "  - Brain: team rules + workflow appended to CLAUDE.md (marker-guarded, additive)"
+picked config     && echo "  - Config: hooks, plugins, permissions merged into settings.json (additive)"
 picked memory     && echo "  - Memory subsystem: startup-check.sh + Memory Discipline section appended to CLAUDE.md + 3 hooks merged into settings.json (additive, marker-guarded)"
 picked skills     && echo "  - Anthropic Skills: make-interfaces-feel-better (tactical UI polish; auto-triggers on UI work)"
 picked statusline && echo "  - Custom statusline: statusline-command.sh symlinked (Claude Code falls back to default if unticked)"
@@ -1510,7 +1629,7 @@ echo ""
 # Resolve which post-install guidance is actually relevant based on picks.
 NEED_CC=0; NEED_PLUGINS=0; NEED_FONT=0
 NEED_GHOSTTY_RESTART=0; NEED_CMUX_RESTART=0; NEED_SHELL_RELOAD=0
-picked claude    && { NEED_CC=1; NEED_PLUGINS=1; }
+picked config    && { NEED_CC=1; NEED_PLUGINS=1; }
 picked memory    && NEED_CC=1
 picked skills    && NEED_CC=1
 picked ghostty   && { NEED_FONT=1; NEED_GHOSTTY_RESTART=1; }
@@ -1571,9 +1690,9 @@ if [ "$NEED_CC" -eq 1 ]; then
   echo ""
 fi
 
-# Impeccable workflow - only relevant when our full settings.json (with the
-# impeccable plugin enabled) is active, i.e., claude was picked.
-if picked claude; then
+# Impeccable workflow - only relevant when our settings.json (with the
+# impeccable plugin enabled) is active, i.e., config was picked.
+if picked config; then
   echo "Design workflow (Impeccable):"
   echo "  - The impeccable plugin is enabled in settings.json (autoUpdate on)."
   echo "  - CLAUDE.md routes all design and UI-QA work through /impeccable."
