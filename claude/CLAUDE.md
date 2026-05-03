@@ -61,6 +61,41 @@ Small, obviously-trivial edits (a one-line copy tweak, a named-token swap) can s
 
 Backend logic, non-UI refactors, build-tool work, infrastructure changes. Do not load `/impeccable` for those.
 
+## Design Peer Skills (independent entry points)
+
+Four skills that sit alongside Impeccable as independent entry points in the design stack. Each reads PRODUCT.md + DESIGN.md from the project root (same contract as Impeccable) but is invoked directly, not through Impeccable's routing.
+
+### Social Media (`/social-media`)
+
+Platform-specific sizing, safe zones, typography rules, and content best practices for 13 platforms: Instagram, YouTube, TikTok, Twitter/X, LinkedIn, Threads, Bluesky, Discord, GitHub, Dribbble, Behance, Product Hunt, Substack. Auto-triggers on platform names and social content keywords. Provides constraints and validation - the spec sheet, not the paintbrush.
+
+### Design Team (`/design-team`)
+
+Multi-agent design sprints with 16 specialized roles across 4 phases: Research (parallel text-only subagents) -> Build (parallel file-writing subagents) -> Review (main-thread creative director with full QA pipeline) -> Revise (one round, then CD fixes directly). Team state persists to `~/.claude/design-teams/`. Use for full pages, campaigns, or multi-section builds. Do not use for single components or minor tweaks.
+
+### Visual Effects (`/visual-effects`)
+
+Generative shader backgrounds (14 types including mesh gradient, fluid simulation, fractal glass, halftone field, swarm) and transformative FX post-processing (ASCII, dither, glitch, halftone, art effects, plus 17 stackable post-process effects). Ships actual shader source code as reference implementations. Full reference at `~/.claude/skills/visual-effects/`.
+
+### Icon Source (`/icon-source`)
+
+Rigorous protocol for sourcing icons from 8 approved libraries: Heroicons, Lucide, Tabler, Bootstrap Icons, Phosphor, Material Symbols (static), plus Lucide Animated and Heroicons Animated (animated). Enforces one-library-per-project consistency, verbatim SVG path sourcing, and animated-vs-static selection criteria. Auto-triggers when any icon is needed during a build.
+
+### The complete design stack
+
+```
+Strategy:      /impeccable (23 commands, PRODUCT.md + DESIGN.md)
+Research:      component-gallery-reference (60 types, 95 systems)
+Tactical:      make-interfaces-feel-better (16 CSS polish rules)
+Social:        /social-media (13 platforms, specs + validation)
+Effects:       /visual-effects (14 shaders + 25 FX + post-processing)
+Icons:         /icon-source (8 libraries, selection protocol)
+Team:          /design-team (16 roles, 4-phase sprints, CD review gate)
+Tokens:        DESIGN.md (Google spec, linted)
+Brand:         PRODUCT.md (register, users, anti-references)
+Verification:  cmux + Chrome MCP + QA gate pipeline
+```
+
 ## Permission Posture (deliberate choice)
 
 This machine ships with `defaultMode: bypassPermissions` and `skipDangerousModePermissionPrompt: true` in `~/.claude/settings.json`. That means every tool call - Bash, Write, Edit, MultiEdit, all of them - auto-approves without prompting, AND Claude Code's own "are you sure" warning on the bypass mode is suppressed.
