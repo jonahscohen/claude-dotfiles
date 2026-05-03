@@ -1322,6 +1322,33 @@ if picked skills; then
   cp "$REPO_DIR/claude/skills/component-gallery-reference/SKILL.md" \
      "$CLAUDE_DIR/skills/component-gallery-reference/SKILL.md"
   ok "component-gallery-reference installed"
+
+  # Bundled skill: social-media (platform specs for 13 social platforms)
+  info "Installing social-media (social platform specs + safe zones)..."
+  mkdir -p "$CLAUDE_DIR/skills/social-media"
+  cp "$REPO_DIR/claude/skills/social-media/SKILL.md" \
+     "$CLAUDE_DIR/skills/social-media/SKILL.md"
+  ok "social-media installed"
+
+  # Bundled skill: design-team (multi-agent design sprints)
+  info "Installing design-team (multi-agent design sprints + CD review)..."
+  mkdir -p "$CLAUDE_DIR/skills/design-team"
+  cp "$REPO_DIR/claude/skills/design-team/SKILL.md" \
+     "$CLAUDE_DIR/skills/design-team/SKILL.md"
+  ok "design-team installed"
+
+  # Bundled skill: visual-effects (shaders + FX, recursive copy for subdirectories)
+  info "Installing visual-effects (14 shaders + 25 FX + post-processing)..."
+  mkdir -p "$CLAUDE_DIR/skills/visual-effects"
+  cp -r "$REPO_DIR/claude/skills/visual-effects/" "$CLAUDE_DIR/skills/visual-effects/"
+  ok "visual-effects installed"
+
+  # Bundled skill: icon-source (8-library icon selection protocol)
+  info "Installing icon-source (8 libraries, selection protocol)..."
+  mkdir -p "$CLAUDE_DIR/skills/icon-source"
+  cp "$REPO_DIR/claude/skills/icon-source/SKILL.md" \
+     "$CLAUDE_DIR/skills/icon-source/SKILL.md"
+  ok "icon-source installed"
 fi
 
 # ============================================================
