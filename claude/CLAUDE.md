@@ -96,6 +96,19 @@ Brand:         PRODUCT.md (register, users, anti-references)
 Verification:  cmux + Chrome MCP + QA gate pipeline
 ```
 
+## Voice Output
+
+Claude can speak short verbal summaries aloud via OpenAI TTS API. Requires an OpenAI API key stored in macOS Keychain (`security add-generic-password -a 'claude-voice' -s 'openai-tts-api-key' -w 'YOUR_KEY'`). No key = feature unavailable, no fallback.
+
+Three mute controls (all toggle the same file):
+- In-session: "mute yourself" / "unmute"
+- Terminal: `voice-on` / `voice-off`
+- Manual: `touch ~/.claude/.voice-enabled` / `rm ~/.claude/.voice-enabled`
+
+Starts muted. Voice preference in `~/.claude/.voice-config` (`{"voice": "onyx"}`). 13 voices available: alloy, ash, ballad, cedar, coral, echo, fable, marin, nova, onyx, sage, shimmer, verse.
+
+When speaking: short summaries only (1-2 sentences). Never speak code, diffs, file paths, or structured output. Use judgment about when voice adds value vs when text is sufficient.
+
 ## Permission Posture (deliberate choice)
 
 This machine ships with `defaultMode: bypassPermissions` and `skipDangerousModePermissionPrompt: true` in `~/.claude/settings.json`. That means every tool call - Bash, Write, Edit, MultiEdit, all of them - auto-approves without prompting, AND Claude Code's own "are you sure" warning on the bypass mode is suppressed.
