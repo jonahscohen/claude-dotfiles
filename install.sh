@@ -914,58 +914,123 @@ returning_flow() {
     fi
 
     local current; current=$(effective_state "$pick")
-    local actions=()
-    case "$current" in
-      active)        actions=("deactivate") ;;
-      inactive)      actions=("activate" "remove from state") ;;
-      not-installed) actions=("install") ;;
-    esac
-    actions+=("(back)")
+    local idx; idx=$(key_index "$pick")
 
-    local action=""
-    if command -v gum >/dev/null 2>&1; then
-      action=$(printf '%s\n' "${actions[@]}" | \
-        gum choose --header "What do you want to do with '$pick'? (currently $current)" \
-          --header.foreground "#0e7490" \
-          --cursor.foreground "#67e8f9" \
-          --selected.foreground "#67e8f9" \
-          --item.foreground "#ffffff") || continue
-    else
-      printf "'%s' is %s. Actions: %s\nPick: " "$pick" "$current" "${actions[*]}"
-      [ -r /dev/tty ] && read -r action </dev/tty || continue
-    fi
-    [[ -z "$action" || "$action" == "(back)" ]] && continue
+    # Detail screen + action loop (loops back for non-destructive actions)
+    while true; do
+      clear
+      print_yes_and_banner
 
-    case "$action" in
-      install|activate)
-        # Run the install in a subshell so we stay inside the action loop and
-        # redraw the menu after. Use _AMPERSAND_NO_SUMMARY=1 to suppress the
-        # subshell's verbose post-install summary (which is fine for top-level
-        # runs but jarring mid-session). Capture output to a tempfile and show
-        # the last 20 lines only on failure.
-        local logfile; logfile=$(mktemp)
-        printf "\nInstalling %s...\n" "$pick"
-        if _AMPERSAND_NO_SUMMARY=1 bash "$0" --only "$pick" --yes >"$logfile" 2>&1; then
-          ok "$pick installed."
+      # Status badge
+      local status_label
+      case "$current" in
+        active)        status_label="${GREEN}active${NC}" ;;
+        inactive)      status_label="${YELLOW}inactive${NC}" ;;
+        not-installed) status_label="${DIM}not installed${NC}" ;;
+      esac
+
+      # Title + status
+      printf "${ACCENT}%s${NC}  %b\n" "$pick" "$status_label"
+      printf "${DIM}%s${NC}\n\n" "${TITLES[$idx]}"
+
+      # Description (wrapped to terminal width)
+      local term_width
+      term_width=$(tput cols 2>/dev/null || echo 80)
+      if command -v gum >/dev/null 2>&1; then
+        printf '%s' "${DESCS[$idx]}" | gum style --faint --width "$((term_width - 4))"
+      else
+        printf "${DIM}%s${NC}\n" "${DESCS[$idx]}" | fold -s -w "$((term_width - 4))"
+      fi
+      printf "\n"
+
+      # Files list
+      printf "${ACCENT}Files:${NC}\n"
+      printf '%b\n' "${FILES[$idx]}" | while IFS= read -r fline; do
+        printf "  ${DIM}%s${NC}\n" "$fline"
+      done
+      printf "\n"
+
+      # Build action list
+      local actions=()
+      case "$current" in
+        active)        actions=("deactivate") ;;
+        inactive)      actions=("activate" "remove from state") ;;
+        not-installed) actions=("install") ;;
+      esac
+      actions+=("view in Finder" "list files" "(back)")
+
+      local action=""
+      if command -v gum >/dev/null 2>&1; then
+        action=$(printf '%s\n' "${actions[@]}" | \
+          gum choose --header "Actions" \
+            --header.foreground "#0e7490" \
+            --cursor.foreground "#67e8f9" \
+            --selected.foreground "#67e8f9" \
+            --item.foreground "#ffffff") || break
+      else
+        printf "Actions:\n"
+        local ai
+        for ai in "${!actions[@]}"; do
+          printf "  %d) %s\n" "$((ai+1))" "${actions[$ai]}"
+        done
+        printf "Pick: "
+        local action_num=""
+        [ -r /dev/tty ] && read -r action_num </dev/tty || break
+        if [[ "$action_num" =~ ^[0-9]+$ ]] && [ "$action_num" -ge 1 ] && [ "$action_num" -le "${#actions[@]}" ]; then
+          action="${actions[$((action_num-1))]}"
         else
-          err "$pick install failed. Last 20 lines:"
-          tail -20 "$logfile"
+          continue
         fi
-        rm -f "$logfile"
-        sleep 1.0
-        ;;
-      deactivate)
-        deactivate_component "$pick"
-        state_set "$pick" "inactive"
-        ok "$pick deactivated."
-        sleep 0.8
-        ;;
-      "remove from state")
-        state_set "$pick" "not-installed"
-        ok "$pick cleared from state."
-        sleep 0.8
-        ;;
-    esac
+      fi
+      [[ -z "$action" || "$action" == "(back)" ]] && break
+
+      case "$action" in
+        "view in Finder")
+          open "${DIRS[$idx]}" 2>/dev/null || warn "Could not open directory"
+          sleep 0.3
+          ;;
+        "list files")
+          printf "\n${ACCENT}Installed paths for %s:${NC}\n\n" "$pick"
+          printf '%b\n' "${FILES[$idx]}" | while IFS= read -r fline; do
+            local expanded="${fline/#\~/$HOME}"
+            if [ -e "$expanded" ] || [ -L "$expanded" ]; then
+              printf "  ${GREEN}%s${NC}\n" "$fline"
+            else
+              printf "  ${DIM}%s${NC}\n" "$fline"
+            fi
+          done
+          printf "\n${DIM}(green = exists on this machine)${NC}\n"
+          printf "\nPress enter to continue..."
+          [ -r /dev/tty ] && read -r </dev/tty
+          ;;
+        install|activate)
+          local logfile; logfile=$(mktemp)
+          printf "\nInstalling %s...\n" "$pick"
+          if _AMPERSAND_NO_SUMMARY=1 bash "$0" --only "$pick" --yes >"$logfile" 2>&1; then
+            ok "$pick installed."
+            current="active"
+          else
+            err "$pick install failed. Last 20 lines:"
+            tail -20 "$logfile"
+          fi
+          rm -f "$logfile"
+          sleep 1.0
+          ;;
+        deactivate)
+          deactivate_component "$pick"
+          state_set "$pick" "inactive"
+          ok "$pick deactivated."
+          current="inactive"
+          sleep 0.8
+          ;;
+        "remove from state")
+          state_set "$pick" "not-installed"
+          ok "$pick cleared from state."
+          current="not-installed"
+          sleep 0.8
+          ;;
+      esac
+    done
   done
 
   if [ "$did_install" -eq 0 ]; then
