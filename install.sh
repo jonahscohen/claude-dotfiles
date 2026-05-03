@@ -75,6 +75,40 @@ DESCS=(
   "Adds local voice-to-text so Claude can answer Discord voice messages and any other audio attachment. Brews whisper-cpp and ffmpeg, downloads the ggml-base.en model (~150 MB) into ~/.cache/whisper, and symlinks bin/transcribe to ~/.claude/transcribe. Local-only (no cloud, no API key). Calls: '~/.claude/transcribe path/to/audio.ogg' prints the transcript on stdout."
   "Adds a smart 'Connect to Discord?' prompt to your 'claude' command. Three states: cold (no bot configured) offers the interactive onboarding walkthrough or 'never ask again'; mid (bot configured but no users paired) jumps you to the pairing flow; warm (paired) shows the familiar 5-second connect prompt with default Yes. The walkthrough handles both 'I have a bot, just paste the token' and 'walk me through making a new bot in the Developer Portal'. Skip this if you don't use Discord with Claude. Tokens are stored in macOS Keychain, never in the repo."
 )
+FILES=(
+  # brain
+  "~/.claude/CLAUDE.md (marker block)"
+  # config
+  "~/.claude/settings.json (JSON merge)\n~/.claude/hooks/bash-guard.sh\n~/.claude/hooks/content-guard.sh\n~/.claude/hooks/memory-approve.sh"
+  # memory
+  "~/.claude/CLAUDE.md (memory discipline block)\n~/.claude/settings.json (3 hooks merged)\n~/.claude/startup-check.sh (symlink)"
+  # skills
+  "~/.claude/skills/make-interfaces-feel-better/\n~/.claude/skills/component-gallery-reference/\n~/.claude/skills/social-media/\n~/.claude/skills/design-team/\n~/.claude/skills/visual-effects/\n~/.claude/skills/icon-source/"
+  # statusline
+  "~/.claude/statusline-command.sh (symlink)"
+  # cmux
+  "~/.config/cmux/settings.json (symlink)"
+  # nvm
+  "~/.zshrc (one-line addition)"
+  # ampersand
+  "~/.zshrc (ampersand function block)"
+  # voice
+  "~/.claude/transcribe (symlink)\n~/.cache/whisper/ggml-base.en.bin\nwhisper-cpp (brew)\nffmpeg (brew)"
+  # discord
+  "~/.claude/claude (wrapper symlink)\n~/.claude/discord-onboard.sh\n~/.claude/discord-setup.sh\n~/.claude/channels/discord/"
+)
+DIRS=(
+  "$REPO_DIR/claude"           # brain
+  "$REPO_DIR/claude"           # config
+  "$REPO_DIR/claude"           # memory
+  "$REPO_DIR/claude/skills"    # skills
+  "$REPO_DIR/claude"           # statusline
+  "$REPO_DIR/cmux"             # cmux
+  "$REPO_DIR"                  # nvm
+  "$REPO_DIR"                  # ampersand
+  "$REPO_DIR/bin"              # voice
+  "$REPO_DIR/bin"              # discord
+)
 PICKS=(1 1 1 1 1 1 1 1 1 1)
 
 # Personal components - hidden from public TUI and --help. Surfaced only when
@@ -89,6 +123,14 @@ PERSONAL_TITLES=(
 PERSONAL_DESCS=(
   "Personal: Ghostty terminal appearance (PolySans Neutral Mono font, custom 256-color palette, transparency, blur)."
   "Personal: cinematic Ghostty effects (CRT curvature, TFT pixel grid, blazing cursor trail). Also clones the wider community shader library."
+)
+PERSONAL_FILES=(
+  "~/.config/ghostty/config (copy)"
+  "~/.config/ghostty/shaders/ (symlinks)"
+)
+PERSONAL_DIRS=(
+  "$REPO_DIR/ghostty"
+  "$REPO_DIR/ghostty/shaders"
 )
 PERSONAL_PICKS=(1 1)
 
@@ -184,6 +226,8 @@ if [[ "$PERSONAL" == "1" ]]; then
   KEYS+=("${PERSONAL_KEYS[@]}")
   TITLES+=("${PERSONAL_TITLES[@]}")
   DESCS+=("${PERSONAL_DESCS[@]}")
+  FILES+=("${PERSONAL_FILES[@]}")
+  DIRS+=("${PERSONAL_DIRS[@]}")
   PICKS+=("${PERSONAL_PICKS[@]}")
 fi
 
