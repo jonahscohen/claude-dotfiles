@@ -100,7 +100,7 @@ FILES=(
   # voice-input
   "~/.claude/transcribe (symlink)\n~/.cache/whisper/ggml-base.en.bin\nwhisper-cpp (brew)\nffmpeg (brew)"
   # voice-output
-  "~/.claude/voice-output/server.js\n~/.claude/tts-generate (symlink)\n~/.claude/.voice-config\n~/.claude/.voice-enabled (toggle)\n~/.zshrc (voice-on/voice-off aliases)"
+  "~/.claude/voice-output/server.js\n~/.claude/tts-generate (symlink)\n~/.claude/.voice-config\n~/.claude/.voice-enabled (toggle)\n~/.claude/hooks/voice-mandate.sh\n~/.zshrc (voice-on/voice-off aliases)"
 )
 DIRS=(
   "$REPO_DIR/claude"           # brain
@@ -754,16 +754,37 @@ deactivate_voice_output() {
   rm -f "$CLAUDE_DIR/tts-generate"
   rm -f "$CLAUDE_DIR/.voice-enabled"
   rm -f "$CLAUDE_DIR/.voice-config"
+  # Remove voice-mandate hook symlink
+  if [ -L "$CLAUDE_DIR/hooks/voice-mandate.sh" ]; then
+    rm -f "$CLAUDE_DIR/hooks/voice-mandate.sh"
+  fi
   if [ -f "$ZSHRC" ] && grep -Fq "# === claude-dotfiles:voice-output:begin ===" "$ZSHRC"; then
     sed -i.bak '/# === claude-dotfiles:voice-output:begin ===/,/# === claude-dotfiles:voice-output:end ===/d' "$ZSHRC"
     rm -f "$ZSHRC.bak"
   fi
+  # Remove MCP server from ~/.claude.json
   if command -v python3 >/dev/null 2>&1 && [ -f "$HOME/.claude.json" ]; then
     python3 -c "
 import json
 p = '$HOME/.claude.json'
 with open(p) as f: d = json.load(f)
 d.get('mcpServers', {}).pop('voice-output', None)
+with open(p, 'w') as f: json.dump(d, f, indent=2); f.write('\n')
+"
+  fi
+  # Remove voice-mandate hook from settings.json SessionStart + PostCompact
+  if command -v python3 >/dev/null 2>&1 && [ -f "$SETTINGS_JSON" ]; then
+    python3 -c "
+import json
+p = '$SETTINGS_JSON'
+with open(p) as f: d = json.load(f)
+hooks = d.get('hooks', {})
+VOICE_CMD = '~/.claude/hooks/voice-mandate.sh'
+for event in ['SessionStart', 'PostCompact']:
+    entries = hooks.get(event, [])
+    for entry in entries:
+        hl = entry.get('hooks', [])
+        entry['hooks'] = [h for h in hl if h.get('command') != VOICE_CMD]
 with open(p, 'w') as f: json.dump(d, f, indent=2); f.write('\n')
 "
   fi
@@ -1882,6 +1903,32 @@ with open(p, 'w') as f: json.dump(d, f, indent=2); f.write('\n')
     ok "MCP server config merged into $CLAUDE_JSON"
   else
     warn "python3 not found - cannot merge MCP config. Add manually to ~/.claude.json"
+  fi
+
+  # Symlink voice-mandate hook (SessionStart enforcement)
+  chmod +x "$REPO_DIR/claude/hooks/voice-mandate.sh"
+  make_symlink "$REPO_DIR/claude/hooks/voice-mandate.sh" "$CLAUDE_DIR/hooks/voice-mandate.sh"
+
+  # JSON-merge voice-mandate hook into SessionStart + PostCompact in settings.json
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c "
+import json
+p = '$SETTINGS_JSON'
+with open(p) as f: d = json.load(f)
+hooks = d.setdefault('hooks', {})
+VOICE_CMD = '~/.claude/hooks/voice-mandate.sh'
+VOICE_HOOK = {'type': 'command', 'command': VOICE_CMD, 'timeout': 5, 'statusMessage': 'Checking voice output...'}
+for event in ['SessionStart', 'PostCompact']:
+    entries = hooks.setdefault(event, [{}])
+    entry = entries[0]
+    hook_list = entry.setdefault('hooks', [])
+    if not any(h.get('command') == VOICE_CMD for h in hook_list):
+        hook_list.append(VOICE_HOOK)
+with open(p, 'w') as f: json.dump(d, f, indent=2); f.write('\n')
+"
+    ok "Voice mandate hook merged into settings.json (SessionStart + PostCompact)"
+  else
+    warn "python3 not found - cannot merge voice-mandate hook. Add manually to settings.json"
   fi
 
   # Reminder about API key
