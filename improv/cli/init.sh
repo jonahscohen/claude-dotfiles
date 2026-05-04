@@ -127,6 +127,18 @@ DEOF
   fi
 
 elif [ "$STACK" = "wordpress" ]; then
+  # Ensure WP_DEBUG is true so the enqueue fires
+  if grep -q "define.*WP_DEBUG.*false" wp-config.php 2>/dev/null; then
+    sed -i.bak "s/define.*('WP_DEBUG'.*false)/define('WP_DEBUG', true)/" wp-config.php
+    rm -f wp-config.bak
+    echo "Set WP_DEBUG to true in wp-config.php"
+  elif ! grep -q "WP_DEBUG" wp-config.php 2>/dev/null; then
+    sed -i.bak "/That's all, stop editing/i\\
+define('WP_DEBUG', true);" wp-config.php 2>/dev/null || echo "define('WP_DEBUG', true);" >> wp-config.php
+    rm -f wp-config.bak
+    echo "Added WP_DEBUG = true to wp-config.php"
+  fi
+
   # WordPress: find the active (non-twenty*) theme, or the first custom theme
   FUNCS=""
   for f in wp-content/themes/*/functions.php; do
