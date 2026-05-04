@@ -11,36 +11,60 @@ if [ ! -f "$IMPROV_SOURCE" ]; then
   exit 1
 fi
 
-# Find the public directory
-PUBLIC_DIR=""
-for d in public static web docroot www; do
-  if [ -d "$d" ]; then PUBLIC_DIR="$d"; break; fi
-done
-if [ -z "$PUBLIC_DIR" ]; then
-  mkdir -p public
-  PUBLIC_DIR="public"
+# Detect stack first - determines where file goes
+STACK="generic"
+if [ -f "wp-config.php" ]; then STACK="wordpress";
+elif ls *.info.yml 2>/dev/null | head -1 > /dev/null 2>&1; then STACK="drupal";
+elif [ -f "next.config.js" ] || [ -f "next.config.mjs" ] || [ -f "next.config.ts" ]; then STACK="nextjs";
+elif [ -f "vite.config.ts" ] || [ -f "vite.config.js" ] || [ -f "vite.config.mjs" ]; then STACK="vite";
 fi
 
-# Copy script into project
-cp "$IMPROV_SOURCE" "$PUBLIC_DIR/improv-core.js"
+# WordPress and Drupal serve from the project root - file goes in root
+# JS frameworks use public/ - file goes there
+if [ "$STACK" = "wordpress" ] || [ "$STACK" = "drupal" ]; then
+  DEST_DIR="."
+else
+  DEST_DIR=""
+  for d in public static web docroot www; do
+    if [ -d "$d" ]; then DEST_DIR="$d"; break; fi
+  done
+  if [ -z "$DEST_DIR" ]; then
+    mkdir -p public
+    DEST_DIR="public"
+  fi
+fi
+
+# Copy script
+cp "$IMPROV_SOURCE" "$DEST_DIR/improv-core.js"
+
+# Script path as seen by the browser
+if [ "$DEST_DIR" = "." ]; then
+  SCRIPT_PATH="/improv-core.js"
+else
+  SCRIPT_PATH="/$DEST_DIR/improv-core.js"
+fi
 
 # Gitignore it
+GITIGNORE_ENTRY="$DEST_DIR/improv-core.js"
+if [ "$DEST_DIR" = "." ]; then GITIGNORE_ENTRY="improv-core.js"; fi
 if [ -f ".gitignore" ]; then
-  grep -q "improv-core.js" ".gitignore" || echo "$PUBLIC_DIR/improv-core.js" >> .gitignore
+  grep -q "improv-core.js" ".gitignore" || echo "$GITIGNORE_ENTRY" >> .gitignore
 else
-  echo "$PUBLIC_DIR/improv-core.js" > .gitignore
+  echo "$GITIGNORE_ENTRY" > .gitignore
 fi
 
 # Create marker
-echo "{\"dir\":\"$PUBLIC_DIR\",\"initialized\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" > .improv
+echo "{\"dir\":\"$DEST_DIR\",\"stack\":\"$STACK\",\"scriptPath\":\"$SCRIPT_PATH\",\"initialized\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" > .improv
 
-# Now actually wire it in - no manual steps
+echo "Detected: $STACK"
+
+# Wire it in - no manual steps
 
 if [ -f "vite.config.ts" ] || [ -f "vite.config.js" ] || [ -f "vite.config.mjs" ]; then
   # Vite: add script tag to index.html
   if [ -f "index.html" ]; then
     if ! grep -q "improv-core" "index.html"; then
-      sed -i.bak 's|</head>|  <script src="/'"$PUBLIC_DIR"'/improv-core.js"></script>\n  </head>|' index.html
+      sed -i.bak 's|</head>|  <script src="'"$SCRIPT_PATH"'"></script>\n  </head>|' index.html
       rm -f index.html.bak
       echo "Added script tag to index.html"
     fi
@@ -102,20 +126,31 @@ DEOF
     echo "Add to your page template: {{ attach_library('${THEME_NAME}/improv-dev') }}"
   fi
 
-elif [ -f "wp-config.php" ]; then
-  # WordPress: add to functions.php
+elif [ "$STACK" = "wordpress" ]; then
+  # WordPress: find the active (non-twenty*) theme, or the first custom theme
   FUNCS=""
   for f in wp-content/themes/*/functions.php; do
-    if [ -f "$f" ]; then FUNCS="$f"; break; fi
+    [ -f "$f" ] || continue
+    THEME_DIR=$(dirname "$f")
+    THEME_BASE=$(basename "$THEME_DIR")
+    case "$THEME_BASE" in twenty*) continue ;; esac
+    FUNCS="$f"
+    break
   done
+  # Fallback: if no custom theme found, use the first one
+  if [ -z "$FUNCS" ]; then
+    for f in wp-content/themes/*/functions.php; do
+      if [ -f "$f" ]; then FUNCS="$f"; break; fi
+    done
+  fi
   if [ -n "$FUNCS" ]; then
     if ! grep -q "improv-dev" "$FUNCS"; then
-      cat >> "$FUNCS" << 'WEOF'
+      cat >> "$FUNCS" << WEOF
 
 // improv:dev
 if (defined('WP_DEBUG') && WP_DEBUG) {
   add_action('wp_enqueue_scripts', function() {
-    wp_enqueue_script('improv-dev', '/improv-core.js', [], null, true);
+    wp_enqueue_script('improv-dev', '${SCRIPT_PATH}', [], null, true);
   });
 }
 WEOF
@@ -133,7 +168,7 @@ else
   done
   if [ -n "$HTML" ]; then
     if ! grep -q "improv-core" "$HTML"; then
-      sed -i.bak 's|</head>|  <script src="/'"$PUBLIC_DIR"'/improv-core.js"></script>\n  </head>|' "$HTML"
+      sed -i.bak 's|</head>|  <script src="'"$SCRIPT_PATH"'"></script>\n  </head>|' "$HTML"
       rm -f "${HTML}.bak"
       echo "Added script tag to $HTML"
     fi
