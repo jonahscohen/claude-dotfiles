@@ -23,6 +23,25 @@ const CATEGORY_LABELS: Record<string, string> = {
 // Wireframe mode state
 let _wireframeMode = false;
 let _wireframeListeners: Array<() => void> = [];
+let _accentR = 59, _accentG = 130, _accentB = 246;
+let _accentListeners: Array<() => void> = [];
+
+export function getAccentRGB(): [number, number, number] {
+  return [_accentR, _accentG, _accentB];
+}
+
+export function setAccentColor(r: number, g: number, b: number): void {
+  _accentR = r; _accentG = g; _accentB = b;
+  for (const fn of _accentListeners) fn();
+}
+
+export function onAccentChange(fn: () => void): void {
+  _accentListeners.push(fn);
+}
+
+export function offAccentChange(fn: () => void): void {
+  _accentListeners = _accentListeners.filter((f) => f !== fn);
+}
 
 export function isWireframe(): boolean {
   return _wireframeMode;
@@ -1173,22 +1192,24 @@ export class ComponentPalette {
 
     this.shadow.appendChild(this.panel);
 
-    // Dot-grid background overlay
+    // Dot-grid background overlay (appended to document.body so it's between page and improv overlay)
     this.dotGridEl = document.createElement('div');
+    this.dotGridEl.dataset['improvGrid'] = '';
     Object.assign(this.dotGridEl.style, {
       position:      'fixed',
       inset:         '0',
-      zIndex:        '1',
+      zIndex:        '2147483600',
       pointerEvents: 'none',
       display:       'none',
       background:    'white',
       backgroundImage: 'radial-gradient(circle, rgba(0,0,0,0.08) 1px, transparent 1px)',
       backgroundSize:  '24px 24px',
     });
-    this.shadow.appendChild(this.dotGridEl);
+    document.body.appendChild(this.dotGridEl);
 
-    // Page opacity overlay (white layer between page content and improv UI)
+    // Page opacity overlay (white layer that dims page content)
     this.opacityOverlayEl = document.createElement('div');
+    this.opacityOverlayEl.dataset['improvOpacity'] = '';
     Object.assign(this.opacityOverlayEl.style, {
       position:      'fixed',
       top:           '0',
@@ -1197,11 +1218,11 @@ export class ComponentPalette {
       height:        '100vh',
       background:    '#ffffff',
       opacity:       '0',
-      zIndex:        '-1',
+      zIndex:        '2147483599',
       pointerEvents: 'none',
       display:       'none',
     });
-    this.shadow.appendChild(this.opacityOverlayEl);
+    document.body.appendChild(this.opacityOverlayEl);
 
     // Listen to wireframe state changes
     this.wireframeChangeHandler = () => this.applyWireframeState();
@@ -1486,6 +1507,46 @@ export class ComponentPalette {
 
     opacityWrap.appendChild(opacitySlider);
     leftGroup.appendChild(opacityWrap);
+
+    // Accent color picker
+    const colorWrap = document.createElement('div');
+    Object.assign(colorWrap.style, {
+      display:       'flex',
+      alignItems:    'center',
+      justifyContent:'space-between',
+      gap:           '8px',
+    });
+
+    const colorLabel = document.createElement('span');
+    colorLabel.textContent = 'Accent Color';
+    Object.assign(colorLabel.style, {
+      fontSize:   '11px',
+      fontWeight: '500',
+      color:      'rgba(255,255,255,0.5)',
+    });
+    colorWrap.appendChild(colorLabel);
+
+    const colorInput = document.createElement('input');
+    colorInput.type = 'color';
+    colorInput.value = '#3b82f6';
+    Object.assign(colorInput.style, {
+      width:        '24px',
+      height:       '24px',
+      border:       '1px solid rgba(255,255,255,0.2)',
+      borderRadius: '6px',
+      background:   'none',
+      cursor:       'pointer',
+      padding:      '0',
+    });
+    colorInput.addEventListener('input', () => {
+      const hex = colorInput.value;
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      setAccentColor(r, g, b);
+    });
+    colorWrap.appendChild(colorInput);
+    leftGroup.appendChild(colorWrap);
 
     // Wireframe toggle - pill-shaped button with dashed border
     this.wireframeToggleEl = document.createElement('div');

@@ -1,5 +1,5 @@
 import type { LayoutPlacementData } from '../types.js';
-import { isWireframe } from './palette.js';
+import { isWireframe, getAccentRGB } from './palette.js';
 
 type ResizeCallback = (id: string, width: number, height: number) => void;
 
@@ -1640,17 +1640,20 @@ export class SkeletonRenderer {
         '--agd-text-3': 'rgba(255,255,255,0.35)',
       };
     }
+    const [r, g, b] = getAccentRGB();
     return {
-      '--agd-stroke': 'rgba(59, 130, 246, 0.35)',
-      '--agd-fill': 'rgba(59, 130, 246, 0.06)',
-      '--agd-bar': 'rgba(59, 130, 246, 0.18)',
-      '--agd-bar-strong': 'rgba(59, 130, 246, 0.28)',
+      '--agd-stroke': `rgba(${r}, ${g}, ${b}, 0.35)`,
+      '--agd-fill': `rgba(${r}, ${g}, ${b}, 0.06)`,
+      '--agd-bar': `rgba(${r}, ${g}, ${b}, 0.18)`,
+      '--agd-bar-strong': `rgba(${r}, ${g}, ${b}, 0.28)`,
       '--agd-text-3': 'rgba(255,255,255,0.35)',
     };
   }
 
   private getAccentColor(): string {
-    return isWireframe() ? '#f97316' : '#3c82f7';
+    if (isWireframe()) return '#f97316';
+    const [r, g, b] = getAccentRGB();
+    return `rgb(${r},${g},${b})`;
   }
 
   private getBorderStyle(): string {
@@ -1682,7 +1685,7 @@ export class SkeletonRenderer {
       userSelect: 'none',
       boxSizing: 'border-box',
       fontFamily: 'system-ui, -apple-system, sans-serif',
-      zIndex: '10',
+      zIndex: '2147483610',
     });
 
     // Label above skeleton
@@ -1765,7 +1768,7 @@ export class SkeletonRenderer {
       position: 'absolute',
       background: this.getAccentColor(),
       borderRadius: '2px',
-      zIndex: '10',
+      zIndex: '2147483610',
       pointerEvents: 'all',
     });
 
