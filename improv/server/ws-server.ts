@@ -1,8 +1,10 @@
 import { WebSocketServer, WebSocket } from 'ws';
-import { createServer, type Server as HttpServer, type IncomingMessage, type ServerResponse } from 'http';
+import { createServer as createHttpServer, type Server as HttpServer, type IncomingMessage, type ServerResponse } from 'http';
+import { createServer as createHttpsServer } from 'https';
 import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { homedir } from 'os';
 import { ConnectionManager } from './connection-manager.js';
 import type { JsonRpcRequest, JsonRpcResponse, JsonRpcMessage } from './types.js';
 
@@ -14,6 +16,7 @@ export class WsServer {
   private manager = new ConnectionManager();
   private handlers = new Map<string, MessageHandler>();
   private port: number | null = null;
+  public isHttps = false;
   private distDir: string;
 
   constructor() {
@@ -37,24 +40,45 @@ export class WsServer {
 
   private tryListen(port: number): Promise<number> {
     return new Promise((resolve, reject) => {
-      const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
+      const handler = (req: IncomingMessage, res: ServerResponse) => {
         this.handleHttpRequest(req, res);
-      });
+      };
 
-      const wss = new WebSocketServer({ server: httpServer });
+      const certDir = join(homedir(), '.claude', 'improv', 'certs');
+      const keyPath = join(certDir, 'key.pem');
+      const certPath = join(certDir, 'cert.pem');
+      const hasCerts = existsSync(keyPath) && existsSync(certPath);
 
-      httpServer.once('listening', () => {
-        this.httpServer = httpServer;
+      let server: HttpServer;
+      if (hasCerts) {
+        try {
+          const key = readFileSync(keyPath);
+          const cert = readFileSync(certPath);
+          server = createHttpsServer({ key, cert }, handler) as unknown as HttpServer;
+          this.isHttps = true;
+        } catch {
+          server = createHttpServer(handler);
+          this.isHttps = false;
+        }
+      } else {
+        server = createHttpServer(handler);
+        this.isHttps = false;
+      }
+
+      const wss = new WebSocketServer({ server });
+
+      server.once('listening', () => {
+        this.httpServer = server;
         this.wss = wss;
         this.attachConnectionHandler();
         resolve(port);
       });
 
-      httpServer.once('error', (err) => {
+      server.once('error', (err) => {
         reject(err);
       });
 
-      httpServer.listen(port);
+      server.listen(port);
     });
   }
 
@@ -94,6 +118,7 @@ export class WsServer {
       res.end(JSON.stringify({
         server: 'improv',
         port: this.port,
+        protocol: this.isHttps ? 'https' : 'http',
         connections: this.manager.size(),
       }));
       return;

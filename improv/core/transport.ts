@@ -33,7 +33,8 @@ export class Transport {
           return;
         }
 
-        const ws = new WebSocket(`ws://localhost:${p}`);
+        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const ws = new WebSocket(`${protocol}://localhost:${p}`);
 
         ws.onopen = () => {
           this.ws = ws;

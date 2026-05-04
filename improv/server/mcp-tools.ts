@@ -45,12 +45,14 @@ export function registerTools(mcp: McpServer, ws: WsServer): void {
         return text(`Activated. Broadcasting to ${connections.length} connected client(s).`);
       }
 
+      const protocol = ws.isHttps ? 'https' : 'http';
       return text(
         `No browser connected yet. Inject the Improv script into the active browser tab to connect.\n\n` +
         `**Injection script** (run this as JavaScript in the target browser tab):\n` +
         `\`\`\`javascript\n` +
-        `(function(){if(window.__improv)return;var s=document.createElement('script');s.src='http://localhost:${port}/improv-core.js';document.head.appendChild(s);})()\n` +
+        `(function(){if(window.__improv)return;var s=document.createElement('script');s.src='${protocol}://localhost:${port}/improv-core.js';document.head.appendChild(s);})()\n` +
         `\`\`\`\n\n` +
+        `Server protocol: ${protocol.toUpperCase()}. ` +
         `Use Chrome MCP javascript_tool, cmux browser javascript, or any browser automation to execute the script above in the target tab. ` +
         `Once loaded, Improv will auto-connect to this server and the overlay will appear.`
       );
