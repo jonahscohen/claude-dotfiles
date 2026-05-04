@@ -51,7 +51,7 @@ err()   { printf "${RED}[error]${NC} %s\n" "$1"; }
 # ============================================================
 
 # Public components - shipped to all users.
-KEYS=(brain config memory skills statusline cmux nvm ampersand discord voice-input voice-output)
+KEYS=(brain config memory skills statusline cmux nvm ampersand discord voice-input voice-output improv)
 TITLES=(
   "Team rules + workflow (appended to CLAUDE.md)"
   "Hooks, plugins, permissions (merged into settings.json)"
@@ -64,6 +64,7 @@ TITLES=(
   "Discord chat agent launcher"
   "Voice transcription (whisper.cpp)"
   "Voice output (OpenAI TTS)"
+  "Improv (visual micro-adjustment)"
 )
 DESCS=(
   "ADDITIVE: appends team rules (from RULES.md) and shared workflow (from CLAUDE.md) to your ~/.claude/CLAUDE.md between marker comments. Your existing CLAUDE.md content is preserved above and below the markers. If you have a claude/CLAUDE.local.md for personal overrides, those are appended in their own marker block too. Re-runs detect the markers and skip. Deactivation removes only the marked blocks."
@@ -77,6 +78,7 @@ DESCS=(
   "Adds a smart 'Connect to Discord?' prompt to your 'claude' command. Three states: cold (no bot configured) offers the interactive onboarding walkthrough or 'never ask again'; mid (bot configured but no users paired) jumps you to the pairing flow; warm (paired) shows the familiar 5-second connect prompt with default Yes. The walkthrough handles both 'I have a bot, just paste the token' and 'walk me through making a new bot in the Developer Portal'. Skip this if you don't use Discord with Claude. Tokens are stored in macOS Keychain, never in the repo."
   "Adds local voice-to-text so Claude can answer Discord voice messages and any other audio attachment. Brews whisper-cpp and ffmpeg, downloads the ggml-base.en model (~150 MB) into ~/.cache/whisper, and symlinks bin/transcribe to ~/.claude/transcribe. Local-only (no cloud, no API key). Calls: '~/.claude/transcribe path/to/audio.ogg' prints the transcript on stdout."
   "Gives Claude a voice via OpenAI text-to-speech API. Claude speaks short verbal summaries while keeping code and technical detail as text. Requires your own OpenAI API key stored in macOS Keychain (see docs). Starts muted - enable with voice-on in any terminal. Three mute controls: in-session (mute yourself), terminal alias (voice-on/voice-off), or manual file toggle. Does NOT work without an API key - this is not optional, it is required."
+  "In-browser visual micro-adjustment tool. Three modes: Manipulate (CSS sliders/handles), Prompt (context extraction), Annotate + Layout (annotations and drag-and-drop composition). All changes flow through Claude Code via MCP."
 )
 FILES=(
   # brain
@@ -101,6 +103,8 @@ FILES=(
   "~/.claude/transcribe (symlink)\n~/.cache/whisper/ggml-base.en.bin\nwhisper-cpp (brew)\nffmpeg (brew)"
   # voice-output
   "~/.claude/voice-output/server.js\n~/.claude/tts-generate (symlink)\n~/.claude/.voice-config\n~/.claude/.voice-enabled (toggle)\n~/.claude/hooks/voice-mandate.sh\n~/.zshrc (voice-on/voice-off aliases)"
+  # improv
+  "~/.claude/improv/ (server + core + adapters)\n~/.claude/skills/improv/SKILL.md\n~/.claude.json (MCP registration)"
 )
 DIRS=(
   "$REPO_DIR/claude"           # brain
@@ -114,8 +118,9 @@ DIRS=(
   "$REPO_DIR/bin"              # discord
   "$REPO_DIR/bin"              # voice-input
   "$REPO_DIR/claude/voice-output"  # voice-output
+  "$REPO_DIR/improv"               # improv
 )
-PICKS=(1 1 1 1 1 1 1 1 1 1 1)
+PICKS=(1 1 1 1 1 1 1 1 1 1 1 1)
 
 # Personal components - hidden from public TUI and --help. Surfaced only when
 # the maintainer passes --personal (undocumented, undocumented-on-purpose).
@@ -538,6 +543,7 @@ detect_component() {
     discord)    grep -Fq "discord-chat-launcher.sh" "$ZSHRC" 2>/dev/null && echo active || echo not-installed ;;
     voice-input) [ -L "$CLAUDE_DIR/transcribe" ] && echo active || echo not-installed ;;
     voice-output) [ -d "$CLAUDE_DIR/voice-output" ] && echo active || echo not-installed ;;
+    improv)     [ -d "$CLAUDE_DIR/improv" ] && echo active || echo not-installed ;;
     *)          echo not-installed ;;
   esac
 }
@@ -790,6 +796,21 @@ with open(p, 'w') as f: json.dump(d, f, indent=2); f.write('\n')
   fi
 }
 
+deactivate_improv() {
+  rm -rf "$CLAUDE_DIR/improv"
+  rm -rf "$CLAUDE_DIR/skills/improv"
+  # Remove MCP server from ~/.claude.json
+  if command -v python3 >/dev/null 2>&1 && [ -f "$HOME/.claude.json" ]; then
+    python3 -c "
+import json
+p = '$HOME/.claude.json'
+with open(p) as f: d = json.load(f)
+d.get('mcpServers', {}).pop('improv', None)
+with open(p, 'w') as f: json.dump(d, f, indent=2); f.write('\n')
+"
+  fi
+}
+
 deactivate_statusline() {
   [ -L "$CLAUDE_DIR/statusline-command.sh" ] && rm -f "$CLAUDE_DIR/statusline-command.sh"
 }
@@ -825,6 +846,7 @@ deactivate_component() {
     discord)    deactivate_discord ;;
     voice-input) deactivate_voice ;;
     voice-output) deactivate_voice_output ;;
+    improv) deactivate_improv ;;
   esac
 }
 
@@ -1944,6 +1966,16 @@ with open(p, 'w') as f: json.dump(d, f, indent=2); f.write('\n')
 
   # Do NOT create .voice-enabled (starts muted)
   info "Voice output starts MUTED. Run 'voice-on' to enable."
+fi
+
+# ============================================================
+# 14. Improv (visual micro-adjustment MCP tool)
+# ============================================================
+
+if picked improv; then
+  info "Installing Improv..."
+  bash "$REPO_DIR/improv/install.sh"
+  ok "Improv installed"
 fi
 
 # ============================================================
