@@ -9,6 +9,16 @@ import { MultiSelect } from './multi-select.js';
 import { buildContextFromElement, formatContext } from './context-extractor.js';
 import { copyToClipboard } from './clipboard.js';
 
+function isImprovElement(el: HTMLElement | null): boolean {
+  if (!el) return false;
+  let node: Node | null = el;
+  while (node) {
+    if (node instanceof HTMLElement && node.hasAttribute('data-improv')) return true;
+    node = node.parentNode ?? (node as unknown as ShadowRoot).host ?? null;
+  }
+  return false;
+}
+
 export class PromptMode {
   private overlay: Overlay;
   private transport: Transport;
@@ -37,6 +47,7 @@ export class PromptMode {
 
     this.onMouseMove = (e: MouseEvent) => {
       if (this.prompt?.isVisible()) return;
+      if (isImprovElement(e.target as HTMLElement)) return;
       const el = getElementAtPoint(e.clientX, e.clientY);
       if (el && el !== document.documentElement && el !== document.body) {
         this.overlay.showHighlight(el.getBoundingClientRect());
@@ -46,6 +57,7 @@ export class PromptMode {
     };
 
     this.onClick = (e: MouseEvent) => {
+      if (isImprovElement(e.target as HTMLElement)) return;
       e.preventDefault();
       e.stopPropagation();
       const el = getElementAtPoint(e.clientX, e.clientY);

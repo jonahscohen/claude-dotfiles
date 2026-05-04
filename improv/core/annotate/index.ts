@@ -10,6 +10,17 @@ import {
   disableEventIntercept,
   getElementAtPoint,
 } from '../event-intercept.js';
+
+function isImprovElement(el: HTMLElement | null): boolean {
+  if (!el) return false;
+  let node: Node | null = el;
+  while (node) {
+    if (node instanceof HTMLElement && node.hasAttribute('data-improv')) return true;
+    node = node.parentNode ?? (node as unknown as ShadowRoot).host ?? null;
+  }
+  return false;
+}
+
 import {
   generateSelector,
   getElementPath,
@@ -138,6 +149,7 @@ export class AnnotateMode {
   }
 
   private _onClick(e: MouseEvent): void {
+    if (isImprovElement(e.target as HTMLElement)) return;
     e.preventDefault();
     e.stopPropagation();
 

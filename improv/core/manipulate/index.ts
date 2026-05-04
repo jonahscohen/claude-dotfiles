@@ -30,6 +30,7 @@ export class ManipulateMode {
 
   private onMouseMove: ((e: MouseEvent) => void) | null = null;
   private onClick: ((e: MouseEvent) => void) | null = null;
+  private onScroll: (() => void) | null = null;
 
   constructor(
     overlay: Overlay,
@@ -71,8 +72,15 @@ export class ManipulateMode {
       }
     };
 
+    this.onScroll = () => {
+      if (this.selectedElement) {
+        this.overlay.showHighlight(this.selectedElement.getBoundingClientRect());
+      }
+    };
+
     document.addEventListener('mousemove', this.onMouseMove);
     document.addEventListener('click', this.onClick, true);
+    window.addEventListener('scroll', this.onScroll, true);
   }
 
   deactivate(): void {
@@ -92,6 +100,10 @@ export class ManipulateMode {
     if (this.onClick) {
       document.removeEventListener('click', this.onClick, true);
       this.onClick = null;
+    }
+    if (this.onScroll) {
+      window.removeEventListener('scroll', this.onScroll, true);
+      this.onScroll = null;
     }
 
     this.selectedElement = null;
