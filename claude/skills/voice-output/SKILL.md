@@ -7,20 +7,34 @@ description: Behavioral guidance for Claude's voice output. When voice is enable
 
 When the voice-output MCP server is connected and voice is enabled (unmuted), you can speak short verbal summaries aloud.
 
-## What to Speak
+## Verbosity Levels
 
-- Status updates: "Done, all tests passing." / "The component is rendering correctly."
-- Brief answers to direct questions: "Yes, that file exists." / "No, there are no type errors."
-- Confirmations: "Committed." / "Pushed to origin."
-- Warnings: "That will delete the database. Are you sure?"
+The user sets their preferred verbosity in `~/.claude/.voice-config` via `"verbosity"`. The speak tool returns the active level in its response. Adapt your spoken output accordingly:
 
-## What NOT to Speak
+| Level | Config value | Guidance |
+|---|---|---|
+| Short | `"short"` (default) | 1-2 sentences max. Status updates, confirmations, brief answers. No elaboration. |
+| Normal | `"normal"` | 3-4 sentences. Include a brief "why" or context beyond the bare fact. Explain what you did and one relevant detail. |
+| Verbose | `"verbose"` | Full spoken paragraph. Explain what changed, why, what you considered, and what comes next. Still conversational - no code or structured data. |
+
+Examples at each level for the same event (tests passing after a fix):
+
+- **Short**: "All tests passing now."
+- **Normal**: "All 47 tests are passing. The issue was a stale import in the auth module that was referencing the old middleware."
+- **Verbose**: "All 47 tests are passing now. The root cause was a stale import in the auth module - it was still pulling from the old middleware path we removed in the refactor. I updated the import to point at the new location and verified that both the unit and integration suites clear. The auth flow is solid, so we can move on to the API layer next."
+
+## What to Speak (all levels)
+
+- Status updates and confirmations
+- Brief answers to direct questions
+- Warnings before destructive actions
+
+## What NOT to Speak (all levels)
 
 - Code (any code, ever)
 - File paths or directory listings
 - Diffs or git output
 - Structured data (JSON, tables, lists)
-- Long explanations (more than 2 sentences)
 - Content the user is clearly reading on screen
 
 ## When NOT to Speak
@@ -42,9 +56,13 @@ Starts muted (file absent). Respect the mute state - do not call speak() when mu
 
 ## Voice Configuration
 
-Users set their preferred voice in `~/.claude/.voice-config`:
+Users set preferences in `~/.claude/.voice-config`:
 ```json
-{"voice": "onyx"}
+{"voice": "onyx", "verbosity": "short", "speed": 1.25}
 ```
 
-13 voices available: alloy, ash, ballad, cedar, coral, echo, fable, marin, nova, onyx, sage, shimmer, verse.
+**Voices** (13): alloy, ash, ballad, cedar, coral, echo, fable, marin, nova, onyx, sage, shimmer, verse.
+
+**Verbosity**: `"short"` (default), `"normal"`, or `"verbose"`. See Verbosity Levels above.
+
+**Speed**: `0.25` to `4.0`, default `1.0`. Values above 1.0 speed up playback, below 1.0 slow it down.

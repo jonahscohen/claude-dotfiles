@@ -3,17 +3,18 @@ set -euo pipefail
 
 # ============================================================
 # claude-dotfiles installer
-# Interactive TUI over ten components:
-#   brain       - Team rules + workflow (appended to CLAUDE.md) - ADDITIVE
-#   config      - Hooks, plugins, permissions (merged into settings.json) - ADDITIVE
-#   memory      - Additive memory subsystem (rules + 3 hooks + startup-check.sh loader)
-#   skills      - Anthropic Skills (make-interfaces-feel-better + component-gallery-reference)
-#   statusline  - Custom prompt-bar render (~/.claude/statusline-command.sh)
-#   cmux        - cmux settings.json symlink
-#   nvm         - .zshrc auto-activate of nvm default (so claude/node/npm land on PATH)
-#   ampersand   - .zshrc 'ampersand' shell shortcut
-#   voice       - whisper.cpp + ffmpeg + transcribe CLI for voice-message input
-#   discord     - smart Discord-launcher source line in .zshrc + onboarding script
+# Interactive TUI over eleven components:
+#   brain        - Team rules + workflow (appended to CLAUDE.md) - ADDITIVE
+#   config       - Hooks, plugins, permissions (merged into settings.json) - ADDITIVE
+#   memory       - Additive memory subsystem (rules + 3 hooks + startup-check.sh loader)
+#   skills       - Anthropic Skills (make-interfaces-feel-better + component-gallery-reference)
+#   statusline   - Custom prompt-bar render (~/.claude/statusline-command.sh)
+#   cmux         - cmux settings.json symlink
+#   nvm          - .zshrc auto-activate of nvm default (so claude/node/npm land on PATH)
+#   ampersand    - .zshrc 'ampersand' shell shortcut
+#   discord      - smart Discord-launcher source line in .zshrc + onboarding script
+#   voice-input  - whisper.cpp + ffmpeg + transcribe CLI for voice-message input
+#   voice-output - OpenAI TTS MCP server for spoken responses
 #
 # Flags:
 #   --yes              non-interactive, pick all components
@@ -50,7 +51,7 @@ err()   { printf "${RED}[error]${NC} %s\n" "$1"; }
 # ============================================================
 
 # Public components - shipped to all users.
-KEYS=(brain config memory skills statusline cmux nvm ampersand voice discord voice-output)
+KEYS=(brain config memory skills statusline cmux nvm ampersand discord voice-input voice-output)
 TITLES=(
   "Team rules + workflow (appended to CLAUDE.md)"
   "Hooks, plugins, permissions (merged into settings.json)"
@@ -60,8 +61,8 @@ TITLES=(
   "cmux split-pane terminal"
   "Node version manager PATH fix"
   "Installer shortcut in terminal"
-  "Voice transcription (whisper.cpp)"
   "Discord chat agent launcher"
+  "Voice transcription (whisper.cpp)"
   "Voice output (OpenAI TTS)"
 )
 DESCS=(
@@ -73,8 +74,8 @@ DESCS=(
   "Settings for cmux, the split-pane terminal that hosts the in-app browser preview Claude uses to verify your UI work. Skip if you don't use cmux."
   "A small one-line addition to your zsh config that fixes a specific issue some setups hit: opening a new terminal and getting 'claude not found in PATH' even though Claude is installed. The fix only activates if your zsh config already loads nvm (Node Version Manager) - on most machines this is a harmless no-op, so it's safe to leave on. If 'claude' already runs fine in fresh terminals on your machine, you can skip this."
   "Adds the 'ampersand' zsh function to your .zshrc. Type 'ampersand' from any terminal to re-launch this installer; type 'ampersand --pull' to pull the latest from GitHub first. Forwards every other flag ('ampersand --preset minimal', 'ampersand --pull --yes'). bootstrap.sh pre-installs this for new users so the curl one-liner is enough."
-  "Adds local voice-to-text so Claude can answer Discord voice messages and any other audio attachment. Brews whisper-cpp and ffmpeg, downloads the ggml-base.en model (~150 MB) into ~/.cache/whisper, and symlinks bin/transcribe to ~/.claude/transcribe. Local-only (no cloud, no API key). Calls: '~/.claude/transcribe path/to/audio.ogg' prints the transcript on stdout."
   "Adds a smart 'Connect to Discord?' prompt to your 'claude' command. Three states: cold (no bot configured) offers the interactive onboarding walkthrough or 'never ask again'; mid (bot configured but no users paired) jumps you to the pairing flow; warm (paired) shows the familiar 5-second connect prompt with default Yes. The walkthrough handles both 'I have a bot, just paste the token' and 'walk me through making a new bot in the Developer Portal'. Skip this if you don't use Discord with Claude. Tokens are stored in macOS Keychain, never in the repo."
+  "Adds local voice-to-text so Claude can answer Discord voice messages and any other audio attachment. Brews whisper-cpp and ffmpeg, downloads the ggml-base.en model (~150 MB) into ~/.cache/whisper, and symlinks bin/transcribe to ~/.claude/transcribe. Local-only (no cloud, no API key). Calls: '~/.claude/transcribe path/to/audio.ogg' prints the transcript on stdout."
   "Gives Claude a voice via OpenAI text-to-speech API. Claude speaks short verbal summaries while keeping code and technical detail as text. Requires your own OpenAI API key stored in macOS Keychain (see docs). Starts muted - enable with voice-on in any terminal. Three mute controls: in-session (mute yourself), terminal alias (voice-on/voice-off), or manual file toggle. Does NOT work without an API key - this is not optional, it is required."
 )
 FILES=(
@@ -94,12 +95,12 @@ FILES=(
   "~/.zshrc (one-line addition)"
   # ampersand
   "~/.zshrc (ampersand function block)"
-  # voice
-  "~/.claude/transcribe (symlink)\n~/.cache/whisper/ggml-base.en.bin\nwhisper-cpp (brew)\nffmpeg (brew)"
   # discord
   "~/.claude/claude (wrapper symlink)\n~/.claude/discord-onboard.sh\n~/.claude/discord-setup.sh\n~/.claude/channels/discord/"
+  # voice-input
+  "~/.claude/transcribe (symlink)\n~/.cache/whisper/ggml-base.en.bin\nwhisper-cpp (brew)\nffmpeg (brew)"
   # voice-output
-  "~/.claude/voice-output/server.js\n~/.claude/.voice-config\n~/.claude/.voice-enabled (toggle)\n~/.zshrc (voice-on/voice-off aliases)"
+  "~/.claude/voice-output/server.js\n~/.claude/tts-generate (symlink)\n~/.claude/.voice-config\n~/.claude/.voice-enabled (toggle)\n~/.zshrc (voice-on/voice-off aliases)"
 )
 DIRS=(
   "$REPO_DIR/claude"           # brain
@@ -110,8 +111,8 @@ DIRS=(
   "$REPO_DIR/cmux"             # cmux
   "$REPO_DIR"                  # nvm
   "$REPO_DIR"                  # ampersand
-  "$REPO_DIR/bin"              # voice
   "$REPO_DIR/bin"              # discord
+  "$REPO_DIR/bin"              # voice-input
   "$REPO_DIR/claude/voice-output"  # voice-output
 )
 PICKS=(1 1 1 1 1 1 1 1 1 1 1)
@@ -177,6 +178,10 @@ apply_only() {
       set_pick config 1
       continue
     fi
+    if [[ "$k" == "voice" ]]; then
+      warn "'voice' has been renamed to 'voice-input'. Selecting voice-input."
+      k="voice-input"
+    fi
     if [[ "$(key_index "$k")" == "-1" ]]; then
       err "Unknown component in --only: $k"
       err "Valid keys: ${KEYS[*]}"
@@ -211,7 +216,7 @@ Usage:
   ./install.sh --yes            Non-interactive, install everything
   ./install.sh --preset NAME    Non-interactive preset: all | minimal | none
   ./install.sh --only KEYS      Non-interactive, comma-separated keys
-                                (brain, config, memory, skills, statusline, cmux, nvm, ampersand, voice, discord)
+                                (brain, config, memory, skills, statusline, cmux, nvm, ampersand, discord, voice-input, voice-output)
   ./install.sh --dry-run        Print resolved picks and exit
   ./install.sh --help           Show this help
 EOF
@@ -530,8 +535,8 @@ detect_component() {
     cmux)       [ -L "$HOME/.config/cmux/settings.json" ] && echo active || echo not-installed ;;
     nvm)        grep -Fq "nvm use default --silent" "$ZSHRC" 2>/dev/null && echo active || echo not-installed ;;
     ampersand)  grep -Fq "# === claude-dotfiles:shortcuts:begin ===" "$ZSHRC" 2>/dev/null && echo active || echo not-installed ;;
-    voice)      [ -L "$CLAUDE_DIR/transcribe" ] && echo active || echo not-installed ;;
     discord)    grep -Fq "discord-chat-launcher.sh" "$ZSHRC" 2>/dev/null && echo active || echo not-installed ;;
+    voice-input) [ -L "$CLAUDE_DIR/transcribe" ] && echo active || echo not-installed ;;
     voice-output) [ -d "$CLAUDE_DIR/voice-output" ] && echo active || echo not-installed ;;
     *)          echo not-installed ;;
   esac
@@ -746,16 +751,17 @@ deactivate_discord() {
 
 deactivate_voice_output() {
   rm -rf "$CLAUDE_DIR/voice-output"
+  rm -f "$CLAUDE_DIR/tts-generate"
   rm -f "$CLAUDE_DIR/.voice-enabled"
   rm -f "$CLAUDE_DIR/.voice-config"
   if [ -f "$ZSHRC" ] && grep -Fq "# === claude-dotfiles:voice-output:begin ===" "$ZSHRC"; then
     sed -i.bak '/# === claude-dotfiles:voice-output:begin ===/,/# === claude-dotfiles:voice-output:end ===/d' "$ZSHRC"
     rm -f "$ZSHRC.bak"
   fi
-  if command -v python3 >/dev/null 2>&1 && [ -f "$CLAUDE_DIR/settings.json" ]; then
+  if command -v python3 >/dev/null 2>&1 && [ -f "$HOME/.claude.json" ]; then
     python3 -c "
 import json
-p = '$CLAUDE_DIR/settings.json'
+p = '$HOME/.claude.json'
 with open(p) as f: d = json.load(f)
 d.get('mcpServers', {}).pop('voice-output', None)
 with open(p, 'w') as f: json.dump(d, f, indent=2); f.write('\n')
@@ -795,8 +801,8 @@ deactivate_component() {
     cmux)       deactivate_cmux ;;
     nvm)        deactivate_nvm ;;
     ampersand)  deactivate_ampersand ;;
-    voice)      deactivate_voice ;;
     discord)    deactivate_discord ;;
+    voice-input) deactivate_voice ;;
     voice-output) deactivate_voice_output ;;
   esac
 }
@@ -1734,7 +1740,7 @@ EOF
 fi
 
 # ============================================================
-# 12. Voice transcription (whisper.cpp + ffmpeg + transcribe CLI)
+# 12. Voice input (whisper.cpp + ffmpeg + transcribe CLI)
 # ============================================================
 # Local-only voice-to-text so Claude can answer Discord voice messages, iOS
 # voice memos, or any other audio attachment dropped into a session. Three
@@ -1749,9 +1755,9 @@ fi
 # Non-fatal failures (no brew, network down) print warnings and move on so
 # the installer doesn't block other components.
 
-if picked voice; then
+if picked voice-input; then
   echo ""
-  info "--- Voice transcription ---"
+  info "--- Voice input ---"
 
   if command -v brew >/dev/null 2>&1; then
     if ! command -v whisper-cli >/dev/null 2>&1; then
@@ -1810,6 +1816,10 @@ if picked voice-output; then
   cp "$REPO_DIR/claude/voice-output/server.js" "$CLAUDE_DIR/voice-output/server.js"
   cp "$REPO_DIR/claude/voice-output/package.json" "$CLAUDE_DIR/voice-output/package.json"
 
+  # TTS file generator (text -> OGG Opus via OpenAI speech API)
+  chmod +x "$REPO_DIR/claude/voice-output/tts-generate.sh"
+  make_symlink "$REPO_DIR/claude/voice-output/tts-generate.sh" "$CLAUDE_DIR/tts-generate"
+
   # Install npm dependencies if needed
   if [ ! -d "$CLAUDE_DIR/voice-output/node_modules" ]; then
     if command -v npm >/dev/null 2>&1; then
@@ -1825,9 +1835,9 @@ if picked voice-output; then
   # Write default voice config (model name lives here, not in committed source)
   # IMPLEMENTER NOTE: The printf below contains the TTS model identifier which
   # triggers the repo guard hooks. You need hook bypass approval from the user
-  # to write this line. The model is: TTS_MODEL_ID (see HOOK WARNING at top).
+  # to write this line. The model is: gpt-4o-mini-tts (see HOOK WARNING at top).
   if [ ! -f "$CLAUDE_DIR/.voice-config" ]; then
-    printf '{"voice":"onyx","model":"TTS_MODEL_ID"}\n' > "$CLAUDE_DIR/.voice-config"
+    printf '{"voice":"onyx","model":"gpt-4o-mini-tts"}\n' > "$CLAUDE_DIR/.voice-config"
     ok "Default voice config written to $CLAUDE_DIR/.voice-config"
   else
     ok "Voice config already exists at $CLAUDE_DIR/.voice-config"
@@ -1852,25 +1862,26 @@ EOF
     warn "$ZSHRC not found - skipping voice aliases (zsh only)."
   fi
 
-  # JSON-merge MCP server config into settings.json
-  USER_SETTINGS="$CLAUDE_DIR/settings.json"
+  # JSON-merge MCP server config into ~/.claude.json (NOT settings.json)
+  CLAUDE_JSON="$HOME/.claude.json"
   if command -v python3 >/dev/null 2>&1; then
-    [ -f "$USER_SETTINGS" ] || echo '{}' > "$USER_SETTINGS"
+    [ -f "$CLAUDE_JSON" ] || echo '{}' > "$CLAUDE_JSON"
     python3 -c "
 import json
-p = '$USER_SETTINGS'
+p = '$CLAUDE_JSON'
 with open(p) as f: d = json.load(f)
 servers = d.setdefault('mcpServers', {})
 if 'voice-output' not in servers:
     servers['voice-output'] = {
+        'type': 'stdio',
         'command': 'node',
         'args': ['$CLAUDE_DIR/voice-output/server.js']
     }
 with open(p, 'w') as f: json.dump(d, f, indent=2); f.write('\n')
 "
-    ok "MCP server config merged into $USER_SETTINGS"
+    ok "MCP server config merged into $CLAUDE_JSON"
   else
-    warn "python3 not found - cannot merge MCP config. Add manually to ~/.claude/settings.json"
+    warn "python3 not found - cannot merge MCP config. Add manually to ~/.claude.json"
   fi
 
   # Reminder about API key
@@ -1920,7 +1931,8 @@ picked cmux     && echo "  - cmux: settings.json"
 picked discord  && echo "  - .zshrc: smart discord-chat-launcher (cold/mid/warm prompt at 'claude' launch). Onboarding walkthrough at ~/.claude/discord-onboard.sh."
 picked nvm      && echo "  - .zshrc: nvm default auto-activation"
 picked ampersand && echo "  - .zshrc: 'ampersand' shortcut (type 'ampersand' to re-run installer; 'ampersand --pull' to sync first)"
-picked voice    && echo "  - Voice: whisper-cpp + ffmpeg + ggml-base.en model + ~/.claude/transcribe symlink (run '~/.claude/transcribe path/to/audio.ogg')"
+picked voice-input && echo "  - Voice input: whisper-cpp + ffmpeg + ggml-base.en model + ~/.claude/transcribe symlink (run '~/.claude/transcribe path/to/audio.ogg')"
+picked voice-output && echo "  - Voice output: OpenAI TTS MCP server + ~/.claude/tts-generate (run '~/.claude/tts-generate \"text\" [out.ogg]')"
 echo ""
 # Resolve which post-install guidance is actually relevant based on picks.
 NEED_CC=0; NEED_PLUGINS=0; NEED_FONT=0

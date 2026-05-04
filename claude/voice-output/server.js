@@ -14,6 +14,11 @@ const VALID_VOICES = [
   "fable", "marin", "nova", "onyx", "sage", "shimmer", "verse",
 ];
 const DEFAULT_VOICE = "onyx";
+const VALID_VERBOSITY = ["short", "normal", "verbose"];
+const DEFAULT_VERBOSITY = "short";
+const DEFAULT_SPEED = 1.0;
+const MIN_SPEED = 0.25;
+const MAX_SPEED = 4.0;
 const COOLDOWN_MS = 3000;
 
 let lastSpokeAt = 0;
@@ -46,13 +51,24 @@ function getVoice(config) {
 }
 
 function getModel(config) {
-  // Model name lives in runtime config, not in source (hook avoidance)
   return config.model || null;
+}
+
+function getVerbosity(config) {
+  const v = config.verbosity || DEFAULT_VERBOSITY;
+  if (VALID_VERBOSITY.includes(v)) return v;
+  return DEFAULT_VERBOSITY;
+}
+
+function getSpeed(config) {
+  const s = parseFloat(config.speed);
+  if (isNaN(s)) return DEFAULT_SPEED;
+  return Math.max(MIN_SPEED, Math.min(MAX_SPEED, s));
 }
 
 const server = new McpServer({ name: "voice-output", version: "1.0.0" });
 
-server.tool("speak", { text: z.string().describe("Short summary to speak aloud (1-2 sentences, no code)") }, async ({ text }) => {
+server.tool("speak", { text: z.string().describe("Summary to speak aloud (length governed by verbosity setting in ~/.claude/.voice-config). No code, diffs, or file paths.") }, async ({ text }) => {
   const now = Date.now();
   if (now - lastSpokeAt < COOLDOWN_MS) {
     return { content: [{ type: "text", text: JSON.stringify({ spoke: false, reason: "cooldown" }) }] };
@@ -86,7 +102,7 @@ server.tool("speak", { text: z.string().describe("Short summary to speak aloud (
         "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ model, input: text, voice }),
+      body: JSON.stringify({ model, input: text, voice, speed: getSpeed(config) }),
     });
 
     if (!res.ok) {
@@ -115,7 +131,9 @@ server.tool("speak", { text: z.string().describe("Short summary to speak aloud (
     });
 
     lastSpokeAt = Date.now();
-    const result = { spoke: true, voice };
+    const verbosity = getVerbosity(config);
+    const speed = getSpeed(config);
+    const result = { spoke: true, voice, verbosity, speed };
     if (warning) result.warning = warning;
     return { content: [{ type: "text", text: JSON.stringify(result) }] };
   } catch (err) {

@@ -105,9 +105,35 @@ Three mute controls (all toggle the same file):
 - Terminal: `voice-on` / `voice-off`
 - Manual: `touch ~/.claude/.voice-enabled` / `rm ~/.claude/.voice-enabled`
 
-Starts muted. Voice preference in `~/.claude/.voice-config` (`{"voice": "onyx"}`). 13 voices available: alloy, ash, ballad, cedar, coral, echo, fable, marin, nova, onyx, sage, shimmer, verse.
+Starts muted. Preferences in `~/.claude/.voice-config`:
+```json
+{"voice": "onyx", "verbosity": "short", "speed": 1.25}
+```
 
-When speaking: short summaries only (1-2 sentences). Never speak code, diffs, file paths, or structured output. Use judgment about when voice adds value vs when text is sufficient.
+13 voices: alloy, ash, ballad, cedar, coral, echo, fable, marin, nova, onyx, sage, shimmer, verse.
+
+Verbosity controls how much Claude says when speaking:
+- `"short"` (default) - 1-2 sentences. Status, confirmations, brief answers.
+- `"normal"` - 3-4 sentences. Includes brief context or reasoning.
+- `"verbose"` - Full spoken paragraph. What changed, why, what's next. Still conversational.
+
+**Speed**: `0.25` to `4.0`, default `1.0`. Values above 1.0 speed up speech.
+
+Never speak code, diffs, file paths, or structured output at any verbosity level.
+
+### Discord voice replies
+
+When voice is active and responding to a Discord message, generate a TTS audio file and attach it as an OGG alongside the text reply. This gives the user both a written and spoken response in-chat, mirroring how they send voice messages.
+
+Pipeline:
+1. Compose the reply text.
+2. Run `~/.claude/tts-generate "reply text" /tmp/discord-reply-<timestamp>.ogg` via Bash. It reads voice/model/speed from `~/.claude/.voice-config` and the API key from Keychain. Prints the output path on stdout.
+3. Attach the OGG to the Discord reply via the `files` parameter on `mcp__plugin_discord_discord__reply`.
+4. Also speak the reply locally via `mcp__voice-output__speak` as usual.
+
+The spoken content should be the conversational reply itself, not a meta-summary ("Jonah said X, I replied Y"). Match or closely mirror the Discord reply text so it sounds like a real back-and-forth.
+
+If `~/.claude/tts-generate` is missing, run `ampersand --only voice-output` to install it.
 
 ## Permission Posture (deliberate choice)
 

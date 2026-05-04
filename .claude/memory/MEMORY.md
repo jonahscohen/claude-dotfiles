@@ -33,3 +33,4 @@
 - [Ask to override hooks](feedback_hook_override_permission.md) - Ask Jonah for bypass, don't weaken content
 - [Safe installer (2026-05-01)](session_2026-05-01_safe-installer.md) - claude split to brain+config, all additive, clean uninstall, picker descriptions, color rebrand, README update
 - [Plugin additions (2026-05-01)](session_2026-05-01_plugin-additions.md) - feature-dev, ralph-loop, code-review, etc. added to settings.json
+- [Design skills suite (2026-05-03)](session_2026-05-03_design-skills-suite.md) - 4 new peer skills: social-media, design-team, visual-effects, icon-source

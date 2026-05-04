@@ -76,7 +76,7 @@ The version-controlled answer to "how is Yes& running Claude Code right now." Wh
 
 ### What's in the box
 
-Ten components. Pick any combination. Defaults are all on, so most Yes& devs just hit enter. Every component is additive.
+Eleven components. Pick any combination. Defaults are all on, so most Yes& devs just hit enter. Every component is additive.
 
 | Component | One-line | Touches |
 |---|---|---|
@@ -88,8 +88,9 @@ Ten components. Pick any combination. Defaults are all on, so most Yes& devs jus
 | `cmux` | Split-pane terminal config | Symlinks `~/.config/cmux/settings.json` |
 | `nvm` | Fix for "claude: command not found" in fresh terminals | Marker-guarded line in `~/.zshrc` |
 | `ampersand` | The `ampersand` zsh shortcut | Marker-guarded block in `~/.zshrc` |
-| `voice` | Local voice-to-text (whisper.cpp + ffmpeg) | Brews dependencies, symlinks `~/.claude/transcribe` |
 | `discord` | Smart Discord chat agent launcher | Marker-guarded line in `~/.zshrc`, symlinks scripts to `~/.claude/` |
+| `voice-input` | Local voice-to-text (whisper.cpp + ffmpeg) | Brews dependencies, symlinks `~/.claude/transcribe` |
+| `voice-output` | Voice responses via OpenAI TTS | MCP server at `~/.claude/voice-output/`, aliases in `~/.zshrc` |
 
 ### What's NOT here
 
@@ -309,7 +310,7 @@ The dense lookup material, in collapsible chapters. You won't read this end to e
 <details>
 <summary><b>Components, in detail</b></summary>
 
-When the installer launches you get a checkbox TUI listing ten components. Each is independently togglable. Defaults are all on. Every component is additive - nothing overwrites your existing config.
+When the installer launches you get a checkbox TUI listing eleven components. Each is independently togglable. Defaults are all on. Every component is additive - nothing overwrites your existing config.
 
 | Component | Plain-English | What changes on disk |
 |-----------|---------------|----------------------|
@@ -321,8 +322,9 @@ When the installer launches you get a checkbox TUI listing ten components. Each 
 | `cmux`    | cmux split-pane terminal config. Powers the in-app browser preview Claude uses to verify UI work | Symlinks `~/.config/cmux/settings.json` |
 | `nvm`     | Fix for "claude not found in PATH" in fresh terminals on machines where Homebrew's nvm doesn't auto-activate. Harmless no-op on machines that don't use nvm | Appends `nvm use default --silent` to `~/.zshrc` (only if `nvm.sh` is already sourced) |
 | `ampersand` | The `ampersand` zsh shortcut. `ampersand` re-launches the installer from any directory; `ampersand --pull` pulls latest from GitHub first. Forwards every other flag. Auto-migrates older block formats from prior versions of the installer | Marker-guarded shortcuts block in `~/.zshrc` |
-| `voice` | **ADDITIVE.** Local voice-to-text pipeline. Brews whisper.cpp and ffmpeg, symlinks the transcription script. Handles OGG/Opus, m4a, mp3, flac, wav. Uses ggml-base.en model from `~/.cache/whisper/` | Brews dependencies; symlinks `~/.claude/transcribe` |
 | `discord` | **ADDITIVE.** Smart Discord chat agent launcher with cold/mid/warm onboarding states. Symlinks the launcher and onboarding scripts, adds the `discord-agent` shortcut to zshrc | Marker-guarded line in `~/.zshrc`; symlinks scripts to `~/.claude/` |
+| `voice-input` | **ADDITIVE.** Local voice-to-text pipeline. Brews whisper.cpp and ffmpeg, symlinks the transcription script. Handles OGG/Opus, m4a, mp3, flac, wav. Uses ggml-base.en model from `~/.cache/whisper/` | Brews dependencies; symlinks `~/.claude/transcribe` |
+| `voice-output` | **ADDITIVE.** Gives Claude a voice via OpenAI TTS. Speaks short verbal summaries while keeping code and technical detail as text. Requires an OpenAI API key in macOS Keychain. Starts muted - enable with `voice-on` | MCP server at `~/.claude/voice-output/`; `tts-generate` symlink; voice aliases in `~/.zshrc` |
 
 The TUI also lets you pre-select via flags: `--yes` for everything, `--preset minimal` for `brain+config+memory+skills+nvm`, `--preset all`, `--preset none`, `--only csv` for an explicit subset, `--dry-run` to preview without writing.
 
