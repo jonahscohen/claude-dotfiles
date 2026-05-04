@@ -58,6 +58,11 @@ export class PromptMode {
 
     this.onClick = (e: MouseEvent) => {
       if (isImprovElement(e.target as HTMLElement)) return;
+      if (this.prompt?.isVisible()) {
+        this.prompt.hide();
+        this.overlay.hideHighlight();
+        return;
+      }
       e.preventDefault();
       e.stopPropagation();
       const el = getElementAtPoint(e.clientX, e.clientY);
@@ -158,14 +163,14 @@ export class PromptMode {
 
     const context = contextParts.join('\n\n---\n\n');
 
+    this.notifyPromptSent(text, selected.length);
+
     this.transport.request('push_prompt', {
       context,
       prompt: text,
       elementCount: selected.length,
-    }).then(() => {
-      this.notifyPromptSent(text, selected.length);
     }).catch(() => {
-      this.notifyPromptSent(text, selected.length);
+      // Transport may not be connected - prompt is stored locally via callback
     });
   }
 
