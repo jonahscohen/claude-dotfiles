@@ -96,6 +96,7 @@ export class ImprovCore {
   activate(): void {
     if (this.active) return;
     this.active = true;
+    console.log('[Improv] activate()');
 
     this.previewEngine = new PreviewEngine();
     this.changeBuffer = new ChangeBuffer();
@@ -135,6 +136,7 @@ export class ImprovCore {
   }
 
   switchMode(mode: ImprovMode | null): void {
+    console.log('[Improv] switchMode:', mode);
     // Deactivate whichever controller is currently active
     this.manipulateMode?.deactivate();
     this.manipulateMode = null;
@@ -279,10 +281,27 @@ export class ImprovCore {
   }
 }
 
-const improv = new ImprovCore();
-window.__improv = improv;
-improv.init().catch(() => {
-  // Silent fail - transport will retry
-});
+const LOG_PREFIX = '[Improv]';
+const log = {
+  info: (...args: unknown[]) => console.log(LOG_PREFIX, ...args),
+  warn: (...args: unknown[]) => console.warn(LOG_PREFIX, ...args),
+  error: (...args: unknown[]) => console.error(LOG_PREFIX, ...args),
+};
+
+let improv: ImprovCore;
+try {
+  log.info('Initializing...');
+  improv = new ImprovCore();
+  window.__improv = improv;
+  improv.init().then(() => {
+    log.info('Ready. Transport:', improv.getTransport().isConnected() ? 'connected' : 'disconnected');
+  }).catch((err) => {
+    log.warn('Init completed with error (non-fatal):', err?.message ?? err);
+  });
+  log.info('Core created, init started.');
+} catch (err) {
+  log.error('Fatal error during initialization:', err);
+  throw err;
+}
 
 export default improv;
