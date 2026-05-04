@@ -10,6 +10,7 @@ function text(content: string) {
 export function registerTools(mcp: McpServer, ws: WsServer): void {
   const pendingChanges: StyleChange[] = [];
   const annotations: Annotation[] = [];
+  const pendingPrompts: Array<{ context: string; prompt: string; elementCount: number; timestamp: number }> = [];
   let layoutPlacements: LayoutPlacement[] = [];
 
   // WebSocket push handlers - browser pushes data into these buffers
@@ -23,6 +24,17 @@ export function registerTools(mcp: McpServer, ws: WsServer): void {
     const incoming = (params?.annotations ?? []) as Annotation[];
     annotations.push(...incoming);
     return { accepted: incoming.length };
+  });
+
+  ws.onMessage('push_prompt', (_connectionId, params) => {
+    const prompt = {
+      context: (params?.context ?? '') as string,
+      prompt: (params?.prompt ?? '') as string,
+      elementCount: (params?.elementCount ?? 0) as number,
+      timestamp: Date.now(),
+    };
+    pendingPrompts.push(prompt);
+    return { accepted: 1 };
   });
 
   ws.onMessage('push_layout', (_connectionId, params) => {
@@ -70,6 +82,7 @@ export function registerTools(mcp: McpServer, ws: WsServer): void {
         pending: {
           changes: pendingChanges.length,
           annotations: annotations.length,
+          prompts: pendingPrompts.length,
           layoutPlacements: layoutPlacements.length,
         },
         wsPort: ws.getPort(),
@@ -257,6 +270,22 @@ export function registerTools(mcp: McpServer, ws: WsServer): void {
     },
   );
 
+  // Tool: improv_get_prompts
+  mcp.tool(
+    'improv_get_prompts',
+    'Return pending prompts pushed from the browser (context + user instruction)',
+    {},
+    async () => {
+      if (pendingPrompts.length === 0) {
+        return text('No pending prompts');
+      }
+      const out = pendingPrompts.map((p) =>
+        `Prompt: ${p.prompt}\nElements: ${p.elementCount}\nContext:\n${p.context}`
+      ).join('\n\n---\n\n');
+      return text(out);
+    },
+  );
+
   // Tool: improv_get_components
   mcp.tool(
     'improv_get_components',
@@ -276,11 +305,13 @@ export function registerTools(mcp: McpServer, ws: WsServer): void {
       const counts = {
         changes: pendingChanges.length,
         annotations: annotations.length,
+        prompts: pendingPrompts.length,
         layoutPlacements: layoutPlacements.length,
       };
 
       pendingChanges.length = 0;
       annotations.length = 0;
+      pendingPrompts.length = 0;
       layoutPlacements = [];
 
       ws.broadcastToClients('cleared');
