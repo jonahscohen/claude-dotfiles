@@ -1,6 +1,9 @@
 export class LassoSelect {
   private container: HTMLElement;
   private rect: HTMLDivElement | null = null;
+  private countBadge: HTMLDivElement | null = null;
+  private freezeBadge: HTMLDivElement | null = null;
+  private overlays: HTMLDivElement[] = [];
   private onComplete: ((elements: HTMLElement[]) => void) | null = null;
   private startX = 0;
   private startY = 0;
@@ -28,7 +31,106 @@ export class LassoSelect {
     document.removeEventListener('mousemove', this.boundMousemove, { capture: true });
     document.removeEventListener('mouseup', this.boundMouseup, { capture: true });
     this._removeRect();
+    this.clearOverlays();
     this.dragging = false;
+  }
+
+  showSelectionOverlays(elements: HTMLElement[]): void {
+    this.clearOverlays();
+    for (const el of elements) {
+      const r = el.getBoundingClientRect();
+      const overlay = document.createElement('div');
+      overlay.style.cssText = [
+        'position:fixed',
+        `left:${r.left}px`,
+        `top:${r.top}px`,
+        `width:${r.width}px`,
+        `height:${r.height}px`,
+        'background:rgba(59,130,246,0.15)',
+        'border:1px solid rgba(59,130,246,0.4)',
+        'border-radius:2px',
+        'pointer-events:none',
+        'z-index:2147483643',
+      ].join(';');
+      this.container.appendChild(overlay);
+      this.overlays.push(overlay);
+    }
+  }
+
+  clearOverlays(): void {
+    for (const ov of this.overlays) ov.remove();
+    this.overlays = [];
+  }
+
+  showFreezeIndicator(onUnfreeze: () => void): void {
+    this.hideFreezeIndicator();
+
+    const badge = document.createElement('div');
+    badge.style.cssText = [
+      'position:fixed',
+      'left:12px',
+      'top:12px',
+      'background:#f97316',
+      'color:#fff',
+      'border-radius:20px',
+      'padding:6px 12px',
+      'display:flex',
+      'align-items:center',
+      'gap:8px',
+      'font-family:system-ui,sans-serif',
+      'font-size:12px',
+      'font-weight:600',
+      'z-index:2147483646',
+      'pointer-events:all',
+      'box-shadow:0 2px 10px rgba(0,0,0,0.3)',
+      'user-select:none',
+    ].join(';');
+
+    const snowflake = document.createElement('span');
+    snowflake.textContent = '❅';
+    snowflake.style.cssText = 'font-size:14px;';
+    badge.appendChild(snowflake);
+
+    const label = document.createElement('span');
+    label.textContent = 'Animations paused';
+    badge.appendChild(label);
+
+    const sep = document.createElement('span');
+    sep.textContent = '·';
+    sep.style.cssText = 'opacity:0.6;';
+    badge.appendChild(sep);
+
+    const unfreezeBtn = document.createElement('button');
+    unfreezeBtn.textContent = 'Unfreeze';
+    unfreezeBtn.style.cssText = [
+      'background:rgba(255,255,255,0.2)',
+      'border:none',
+      'border-radius:12px',
+      'color:#fff',
+      'font-size:11px',
+      'font-weight:700',
+      'padding:2px 8px',
+      'cursor:pointer',
+      'font-family:system-ui,sans-serif',
+      'transition:background 0.1s',
+    ].join(';');
+    unfreezeBtn.addEventListener('mouseover', () => { unfreezeBtn.style.background = 'rgba(255,255,255,0.35)'; });
+    unfreezeBtn.addEventListener('mouseout', () => { unfreezeBtn.style.background = 'rgba(255,255,255,0.2)'; });
+    unfreezeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      onUnfreeze();
+    });
+    badge.appendChild(unfreezeBtn);
+
+    this.container.appendChild(badge);
+    this.freezeBadge = badge;
+  }
+
+  hideFreezeIndicator(): void {
+    if (this.freezeBadge) {
+      this.freezeBadge.remove();
+      this.freezeBadge = null;
+    }
   }
 
   private _onMousedown(e: MouseEvent): void {
@@ -43,7 +145,6 @@ export class LassoSelect {
     const dx = e.clientX - this.startX;
     const dy = e.clientY - this.startY;
 
-    // Only start drawing after a minimum drag distance
     if (!this.dragging && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
     this.dragging = true;
 
@@ -69,6 +170,32 @@ export class LassoSelect {
     this.rect.style.top = `${top}px`;
     this.rect.style.width = `${width}px`;
     this.rect.style.height = `${height}px`;
+
+    // Count badge
+    const captured = this._findIntersecting({ left, top, right: left + width, bottom: top + height });
+    const count = captured.length;
+
+    if (!this.countBadge) {
+      this.countBadge = document.createElement('div');
+      this.countBadge.style.cssText = [
+        'position:fixed',
+        'background:#3b82f6',
+        'color:#fff',
+        'border-radius:10px',
+        'padding:2px 8px',
+        'font-size:11px',
+        'font-weight:700',
+        'font-family:system-ui,sans-serif',
+        'pointer-events:none',
+        'z-index:2147483647',
+        'white-space:nowrap',
+      ].join(';');
+      this.container.appendChild(this.countBadge);
+    }
+    this.countBadge.textContent = `${count} element${count === 1 ? '' : 's'}`;
+    // Position badge at top-right of lasso rectangle
+    this.countBadge.style.left = `${left + width + 4}px`;
+    this.countBadge.style.top = `${top}px`;
   }
 
   private _onMouseup(e: MouseEvent): void {
@@ -99,7 +226,6 @@ export class LassoSelect {
   private _findIntersecting(sel: { left: number; top: number; right: number; bottom: number }): HTMLElement[] {
     const all = Array.from(document.querySelectorAll<HTMLElement>('*'));
     return all.filter((el) => {
-      // Skip overlay host and its children
       if (el.closest('[data-improv]')) return false;
       const r = el.getBoundingClientRect();
       return this._rectsIntersect(sel, r);
@@ -122,6 +248,10 @@ export class LassoSelect {
     if (this.rect) {
       this.rect.remove();
       this.rect = null;
+    }
+    if (this.countBadge) {
+      this.countBadge.remove();
+      this.countBadge = null;
     }
   }
 }

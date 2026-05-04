@@ -1,197 +1,376 @@
 type Intent = 'fix' | 'change' | 'question' | 'approve';
 type Severity = 'blocking' | 'important' | 'suggestion';
 
+const INTENT_COLORS: Record<Intent, string> = {
+  fix: '#ef4444',
+  change: '#3b82f6',
+  question: '#eab308',
+  approve: '#22c55e',
+};
+
+const SEVERITY_COLORS: Record<Severity, string> = {
+  blocking: '#ef4444',
+  important: '#f97316',
+  suggestion: '#6b7280',
+};
+
 export class AnnotationMarker {
   private shadow: ShadowRoot;
   private markers: HTMLDivElement[] = [];
-  private popups: HTMLDivElement[] = [];
+  private lines: SVGSVGElement[] = [];
+  private activePopup: HTMLDivElement | null = null;
 
   constructor(shadow: ShadowRoot) {
     this.shadow = shadow;
   }
 
-  create(elementRect: DOMRect, index: number): HTMLDivElement {
+  create(rect: DOMRect, index: number, intent: string = 'fix'): HTMLDivElement {
+    const color = INTENT_COLORS[intent as Intent] ?? INTENT_COLORS.fix;
+
+    // Dashed connecting line from marker to center of element
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const markerX = rect.left + rect.width - 12;
+    const markerY = rect.top - 12;
+
+    const minX = Math.min(centerX, markerX + 12);
+    const minY = Math.min(centerY, markerY + 12);
+    const maxX = Math.max(centerX, markerX + 12);
+    const maxY = Math.max(centerY, markerY + 12);
+    const svgW = Math.max(maxX - minX, 1);
+    const svgH = Math.max(maxY - minY, 1);
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', String(svgW));
+    svg.setAttribute('height', String(svgH));
+    svg.style.cssText = [
+      'position:fixed',
+      `left:${minX}px`,
+      `top:${minY}px`,
+      'pointer-events:none',
+      'z-index:2147483644',
+      'overflow:visible',
+    ].join(';');
+
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', String(centerX - minX));
+    line.setAttribute('y1', String(centerY - minY));
+    line.setAttribute('x2', String(markerX + 12 - minX));
+    line.setAttribute('y2', String(markerY + 12 - minY));
+    line.setAttribute('stroke', color);
+    line.setAttribute('stroke-width', '1');
+    line.setAttribute('stroke-dasharray', '4 3');
+    line.setAttribute('opacity', '0.6');
+    svg.appendChild(line);
+    this.shadow.appendChild(svg);
+    this.lines.push(svg);
+
+    // Circle marker
     const marker = document.createElement('div');
     marker.style.cssText = [
       'position:fixed',
-      `left:${elementRect.left + elementRect.width - 12}px`,
-      `top:${elementRect.top - 12}px`,
+      `left:${markerX}px`,
+      `top:${markerY}px`,
       'width:24px',
       'height:24px',
-      'background:#3b82f6',
+      `background:${color}`,
       'color:#fff',
       'border-radius:12px',
       'display:flex',
       'align-items:center',
       'justify-content:center',
-      'font-size:12px',
-      'font-weight:600',
+      'font-size:11px',
+      'font-weight:700',
       'font-family:system-ui,sans-serif',
       'pointer-events:all',
       'cursor:pointer',
-      'z-index:1',
+      'z-index:2147483645',
       'user-select:none',
-      'box-shadow:0 1px 4px rgba(0,0,0,0.3)',
+      'box-shadow:0 2px 8px rgba(0,0,0,0.35)',
+      'transition:transform 0.1s',
     ].join(';');
 
     marker.textContent = String(index);
+    marker.dataset.intent = intent;
+    marker.addEventListener('mouseover', () => {
+      marker.style.transform = 'scale(1.15)';
+    });
+    marker.addEventListener('mouseout', () => {
+      marker.style.transform = 'scale(1)';
+    });
+
     this.shadow.appendChild(marker);
     this.markers.push(marker);
     return marker;
   }
 
-  showCommentInput(
-    marker: HTMLDivElement,
-    onSubmit: (comment: string, intent: Intent, severity: Severity) => void,
+  showPopup(
+    rect: DOMRect,
+    elementName: string,
+    elementPath: string,
+    onSubmit: (comment: string, intent: string, severity: string) => void,
   ): void {
-    // Remove any existing popup
-    this.popups.forEach((p) => p.remove());
-    this.popups = [];
-
-    const markerRect = marker.getBoundingClientRect();
+    this.hidePopup();
 
     const popup = document.createElement('div');
+
+    // Position: try right of element, clamp to viewport
+    const popupW = 300;
+    let left = rect.right + 12;
+    if (left + popupW > window.innerWidth - 8) {
+      left = rect.left - popupW - 12;
+    }
+    if (left < 8) left = 8;
+    let top = rect.top;
+    if (top + 380 > window.innerHeight - 8) {
+      top = window.innerHeight - 388;
+    }
+    if (top < 8) top = 8;
+
     popup.style.cssText = [
       'position:fixed',
-      `left:${markerRect.left}px`,
-      `top:${markerRect.bottom + 6}px`,
-      'width:280px',
-      'background:#1e1e2e',
-      'border:1px solid #3b4261',
-      'border-radius:8px',
-      'padding:12px',
+      `left:${left}px`,
+      `top:${top}px`,
+      `width:${popupW}px`,
+      'background:#1a1a2e',
+      'border-radius:12px',
+      'padding:16px',
       'display:flex',
       'flex-direction:column',
-      'gap:10px',
-      'z-index:2',
+      'gap:12px',
+      'z-index:2147483647',
       'pointer-events:all',
-      'box-shadow:0 4px 16px rgba(0,0,0,0.5)',
+      'box-shadow:0 8px 32px rgba(0,0,0,0.6)',
       'font-family:system-ui,sans-serif',
     ].join(';');
 
-    // Textarea
-    const textarea = document.createElement('textarea');
-    textarea.placeholder = 'Add a comment...';
-    textarea.rows = 3;
-    textarea.style.cssText = [
-      'width:100%',
-      'background:#12121f',
-      'color:#cdd6f4',
-      'border:1px solid #3b4261',
-      'border-radius:4px',
-      'padding:6px 8px',
-      'font-size:13px',
-      'font-family:system-ui,sans-serif',
-      'resize:vertical',
-      'outline:none',
-      'box-sizing:border-box',
-    ].join(';');
-    popup.appendChild(textarea);
+    // Header
+    const header = document.createElement('div');
+    header.style.cssText = 'display:flex;flex-direction:column;gap:3px;';
 
-    // Intent row
-    popup.appendChild(this._buildRadioGroup(
+    const tagLine = document.createElement('div');
+    tagLine.style.cssText = 'color:#e2e8f0;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+    tagLine.textContent = elementName;
+    header.appendChild(tagLine);
+
+    const pathLine = document.createElement('div');
+    pathLine.style.cssText = 'color:#64748b;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+    pathLine.textContent = elementPath;
+    header.appendChild(pathLine);
+
+    popup.appendChild(header);
+
+    // Divider
+    const divider = document.createElement('div');
+    divider.style.cssText = 'height:1px;background:#2a2a3e;';
+    popup.appendChild(divider);
+
+    // Intent pills
+    const intentRow = this._buildPillGroup(
       'intent',
       ['fix', 'change', 'question', 'approve'],
       'fix',
-      '#cdd6f4',
-    ));
+      INTENT_COLORS,
+    );
+    popup.appendChild(intentRow);
 
-    // Severity row
-    popup.appendChild(this._buildRadioGroup(
+    // Severity pills
+    const severityRow = this._buildPillGroup(
       'severity',
       ['blocking', 'important', 'suggestion'],
       'suggestion',
-      '#cdd6f4',
-    ));
+      SEVERITY_COLORS,
+    );
+    popup.appendChild(severityRow);
 
-    // Submit button
+    // Textarea
+    const textarea = document.createElement('textarea');
+    textarea.placeholder = 'Describe the issue...';
+    textarea.style.cssText = [
+      'width:100%',
+      'background:#2a2a3e',
+      'color:#e2e8f0',
+      'border:1px solid #3a3a5c',
+      'border-radius:8px',
+      'padding:8px 10px',
+      'font-size:13px',
+      'font-family:system-ui,sans-serif',
+      'resize:none',
+      'outline:none',
+      'box-sizing:border-box',
+      'min-height:64px',
+      'max-height:120px',
+      'line-height:1.5',
+    ].join(';');
+    textarea.addEventListener('input', () => {
+      textarea.style.height = 'auto';
+      textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    });
+    popup.appendChild(textarea);
+
+    // Action row
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
+
     const submitBtn = document.createElement('button');
-    submitBtn.textContent = 'Add annotation';
+    submitBtn.textContent = 'Add Annotation';
     submitBtn.style.cssText = [
       'background:#3b82f6',
       'color:#fff',
       'border:none',
-      'border-radius:4px',
-      'padding:6px 12px',
+      'border-radius:8px',
+      'padding:9px 12px',
       'font-size:13px',
       'font-weight:600',
       'cursor:pointer',
-      'align-self:flex-end',
       'font-family:system-ui,sans-serif',
+      'transition:background 0.1s',
+      'width:100%',
     ].join(';');
+    submitBtn.addEventListener('mouseover', () => { submitBtn.style.background = '#2563eb'; });
+    submitBtn.addEventListener('mouseout', () => { submitBtn.style.background = '#3b82f6'; });
 
     submitBtn.addEventListener('click', () => {
       const comment = textarea.value.trim();
-      const intentInput = popup.querySelector<HTMLInputElement>('input[name="intent"]:checked');
-      const severityInput = popup.querySelector<HTMLInputElement>('input[name="severity"]:checked');
-      const intent = (intentInput?.value ?? 'fix') as Intent;
-      const severity = (severityInput?.value ?? 'suggestion') as Severity;
-      popup.remove();
-      this.popups = this.popups.filter((p) => p !== popup);
-      onSubmit(comment, intent, severity);
+      const selectedIntent = popup.querySelector<HTMLButtonElement>('[data-group="intent"][data-selected="true"]')?.dataset.value ?? 'fix';
+      const selectedSeverity = popup.querySelector<HTMLButtonElement>('[data-group="severity"][data-selected="true"]')?.dataset.value ?? 'suggestion';
+      this.hidePopup();
+      onSubmit(comment, selectedIntent, selectedSeverity);
     });
+    actions.appendChild(submitBtn);
 
-    popup.appendChild(submitBtn);
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.style.cssText = [
+      'background:none',
+      'border:none',
+      'color:#64748b',
+      'font-size:12px',
+      'cursor:pointer',
+      'font-family:system-ui,sans-serif',
+      'padding:2px',
+      'text-align:center',
+    ].join(';');
+    cancelBtn.addEventListener('click', () => { this.hidePopup(); });
+    cancelBtn.addEventListener('mouseover', () => { cancelBtn.style.color = '#94a3b8'; });
+    cancelBtn.addEventListener('mouseout', () => { cancelBtn.style.color = '#64748b'; });
+    actions.appendChild(cancelBtn);
+
+    popup.appendChild(actions);
     this.shadow.appendChild(popup);
-    this.popups.push(popup);
+    this.activePopup = popup;
 
-    // Focus textarea
     setTimeout(() => textarea.focus(), 0);
   }
 
-  private _buildRadioGroup(
-    name: string,
-    options: string[],
-    defaultValue: string,
-    textColor: string,
-  ): HTMLDivElement {
-    const row = document.createElement('div');
-    row.style.cssText = [
-      'display:flex',
-      'gap:8px',
-      'flex-wrap:wrap',
-      'align-items:center',
-    ].join(';');
-
-    const label = document.createElement('span');
-    label.textContent = name + ':';
-    label.style.cssText = `color:#7f849c;font-size:11px;font-weight:600;min-width:52px;text-transform:uppercase;letter-spacing:0.04em;`;
-    row.appendChild(label);
-
-    for (const option of options) {
-      const optLabel = document.createElement('label');
-      optLabel.style.cssText = `display:flex;align-items:center;gap:3px;cursor:pointer;color:${textColor};font-size:12px;`;
-
-      const radio = document.createElement('input');
-      radio.type = 'radio';
-      radio.name = name;
-      radio.value = option;
-      if (option === defaultValue) radio.checked = true;
-      radio.style.cssText = 'accent-color:#3b82f6;cursor:pointer;';
-
-      const optText = document.createElement('span');
-      optText.textContent = option;
-
-      optLabel.appendChild(radio);
-      optLabel.appendChild(optText);
-      row.appendChild(optLabel);
+  hidePopup(): void {
+    if (this.activePopup) {
+      this.activePopup.remove();
+      this.activePopup = null;
     }
+  }
 
-    return row;
+  updateMarkerIntent(marker: HTMLDivElement, intent: string): void {
+    const color = INTENT_COLORS[intent as Intent] ?? INTENT_COLORS.fix;
+    marker.style.background = color;
+    marker.dataset.intent = intent;
   }
 
   clear(): void {
-    for (const marker of this.markers) {
-      marker.remove();
-    }
-    for (const popup of this.popups) {
-      popup.remove();
-    }
+    this.hidePopup();
+    for (const m of this.markers) m.remove();
+    for (const l of this.lines) l.remove();
     this.markers = [];
-    this.popups = [];
+    this.lines = [];
   }
 
   destroy(): void {
     this.clear();
+  }
+
+  // Legacy shim - show popup anchored relative to a marker element
+  showCommentInput(
+    marker: HTMLDivElement,
+    onSubmit: (comment: string, intent: Intent, severity: Severity) => void,
+  ): void {
+    const markerRect = marker.getBoundingClientRect();
+    const fakeRect = new DOMRect(
+      markerRect.left - 24,
+      markerRect.top + 12,
+      24,
+      24,
+    );
+    this.showPopup(fakeRect, 'Element', '', (comment, intent, severity) => {
+      onSubmit(comment, intent as Intent, severity as Severity);
+    });
+  }
+
+  private _buildPillGroup(
+    group: string,
+    options: string[],
+    defaultValue: string,
+    colors: Record<string, string>,
+  ): HTMLDivElement {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;';
+
+    for (const option of options) {
+      const pill = document.createElement('button');
+      const color = colors[option] ?? '#6b7280';
+      const isDefault = option === defaultValue;
+
+      pill.textContent = option.charAt(0).toUpperCase() + option.slice(1);
+      pill.dataset.group = group;
+      pill.dataset.value = option;
+      pill.dataset.selected = isDefault ? 'true' : 'false';
+
+      const applyStyle = (selected: boolean) => {
+        pill.style.cssText = [
+          `background:${color}`,
+          `opacity:${selected ? '1' : '0.22'}`,
+          'color:#fff',
+          'border:none',
+          'border-radius:20px',
+          'padding:4px 10px',
+          'font-size:11px',
+          'font-weight:600',
+          'cursor:pointer',
+          'font-family:system-ui,sans-serif',
+          'transition:opacity 0.1s',
+          'user-select:none',
+        ].join(';');
+      };
+
+      applyStyle(isDefault);
+
+      pill.addEventListener('click', () => {
+        // Deselect siblings in this group
+        const siblings = row.parentElement?.querySelectorAll<HTMLButtonElement>(`[data-group="${group}"]`);
+        siblings?.forEach((sib) => {
+          sib.dataset.selected = 'false';
+          const sibColor = colors[sib.dataset.value ?? ''] ?? '#6b7280';
+          sib.style.cssText = [
+            `background:${sibColor}`,
+            'opacity:0.22',
+            'color:#fff',
+            'border:none',
+            'border-radius:20px',
+            'padding:4px 10px',
+            'font-size:11px',
+            'font-weight:600',
+            'cursor:pointer',
+            'font-family:system-ui,sans-serif',
+            'transition:opacity 0.1s',
+            'user-select:none',
+          ].join(';');
+        });
+        pill.dataset.selected = 'true';
+        applyStyle(true);
+      });
+
+      row.appendChild(pill);
+    }
+
+    return row;
   }
 }

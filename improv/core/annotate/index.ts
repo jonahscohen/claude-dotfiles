@@ -17,9 +17,16 @@ import {
   getNearbyText,
   getAccessibilityInfo,
 } from '../selection.js';
+import { freeze, unfreeze } from '../freeze.js';
 
 type Intent = 'fix' | 'change' | 'question' | 'approve';
 type Severity = 'blocking' | 'important' | 'suggestion';
+
+function buildElementName(el: HTMLElement): string {
+  const tag = el.tagName.toLowerCase();
+  const text = (el.textContent ?? '').trim().slice(0, 40);
+  return text ? `${tag} - ${text}` : tag;
+}
 
 export class AnnotateMode {
   private overlay: Overlay;
@@ -31,7 +38,7 @@ export class AnnotateMode {
   private textSelect: TextSelect;
   private active = false;
 
-  // Track per-click drag state to distinguish click vs drag
+  // Per-click drag state
   private mousedownX = 0;
   private mousedownY = 0;
   private isDragging = false;
@@ -63,20 +70,24 @@ export class AnnotateMode {
     if (this.active) return;
     this.active = true;
 
+    // Freeze animations so elements stay put during annotation
+    freeze();
+    this.lasso.showFreezeIndicator(() => {
+      unfreeze();
+      this.lasso.hideFreezeIndicator();
+    });
+
     enableEventIntercept();
 
-    // Lasso handles drag-select
     this.lasso.enable((elements) => {
       if (elements.length === 0) return;
       this._handleLassoComplete(elements);
     });
 
-    // Text selection
     this.textSelect.enable((text, rect) => {
       this._handleTextSelect(text, rect);
     });
 
-    // Click tracking for drag detection
     document.addEventListener('mousedown', this.boundMousedown, { capture: true });
     document.addEventListener('mousemove', this.boundMousemove, { capture: true });
     document.addEventListener('mouseup', this.boundMouseup, { capture: true });
@@ -86,6 +97,9 @@ export class AnnotateMode {
   deactivate(): void {
     if (!this.active) return;
     this.active = false;
+
+    unfreeze();
+    this.lasso.hideFreezeIndicator();
 
     disableEventIntercept();
     this.lasso.disable();
@@ -99,6 +113,10 @@ export class AnnotateMode {
     this.marker.clear();
     this.multiSelected = [];
     this.isDragging = false;
+  }
+
+  isActive(): boolean {
+    return this.active;
   }
 
   private _onMousedown(e: MouseEvent): void {
@@ -116,14 +134,13 @@ export class AnnotateMode {
   }
 
   private _onMouseup(_e: MouseEvent): void {
-    // isDragging state is read in _onClick
+    // isDragging state is consumed in _onClick
   }
 
   private _onClick(e: MouseEvent): void {
     e.preventDefault();
     e.stopPropagation();
 
-    // If drag occurred, lasso already handled it
     if (this.isDragging) {
       this.isDragging = false;
       return;
@@ -132,22 +149,25 @@ export class AnnotateMode {
     const el = getElementAtPoint(e.clientX, e.clientY);
     if (!el || el === document.body || el === document.documentElement) return;
 
-    const isShift = e.shiftKey;
+    const rect = el.getBoundingClientRect();
+    const elementName = buildElementName(el);
+    const elementPath = getElementPath(el);
 
-    if (isShift) {
-      // Shift+click: multi-select accumulate
+    if (e.shiftKey) {
+      // Shift+click: accumulate multi-select, show overlay
       this.multiSelected.push(el);
-      const rect = el.getBoundingClientRect();
-      this.marker.create(rect, this.multiSelected.length);
+      this.lasso.showSelectionOverlays(this.multiSelected);
+      this.marker.create(rect, this.multiSelected.length, 'change');
     } else {
-      // Normal click: single element, clear previous multi-select
+      // Normal click: clear previous, show rich popup
       this.multiSelected = [el];
       this.marker.clear();
-      const rect = el.getBoundingClientRect();
-      const pin = this.marker.create(rect, 1);
+      this.lasso.clearOverlays();
+      this.lasso.showSelectionOverlays([el]);
 
-      this.marker.showCommentInput(pin, (comment, intent, severity) => {
-        this._submitAnnotation([el], comment, intent, severity);
+      this.marker.showPopup(rect, elementName, elementPath, (comment, intent, severity) => {
+        this.lasso.clearOverlays();
+        this._submitAnnotation([el], comment, intent as Intent, severity as Severity, intent);
       });
     }
   }
@@ -155,23 +175,27 @@ export class AnnotateMode {
   private _handleLassoComplete(elements: HTMLElement[]): void {
     if (elements.length === 0) return;
 
-    // Use the first element's rect as the marker anchor
-    const anchorRect = elements[0].getBoundingClientRect();
-    this.marker.clear();
-    const pin = this.marker.create(anchorRect, this.store.count() + 1);
+    this.lasso.showSelectionOverlays(elements);
 
-    this.marker.showCommentInput(pin, (comment, intent, severity) => {
-      this._submitAnnotation(elements, comment, intent, severity);
+    const anchor = elements[0];
+    const anchorRect = anchor.getBoundingClientRect();
+    const elementName = `${elements.length} elements selected`;
+    const elementPath = getElementPath(anchor);
+
+    this.marker.clear();
+    this.marker.showPopup(anchorRect, elementName, elementPath, (comment, intent, severity) => {
+      this.lasso.clearOverlays();
+      const markerIndex = this.store.count() + 1;
+      const pin = this.marker.create(anchorRect, markerIndex, intent);
+      void pin;
+      this._submitAnnotation(elements, comment, intent as Intent, severity as Severity, intent);
     });
   }
 
   private _handleTextSelect(text: string, rect: DOMRect): void {
-    const pin = this.marker.create(rect, this.store.count() + 1);
-
-    this.marker.showCommentInput(pin, (comment, intent, severity) => {
-      // For text selections, no element selector - use the text itself as context
+    this.marker.showPopup(rect, 'Text selection', text.slice(0, 80), (comment, intent, severity) => {
       const fullComment = text ? `[Selected: "${text.slice(0, 120)}"]\n${comment}`.trim() : comment;
-      this._submitTextAnnotation(fullComment, rect, intent, severity);
+      this._submitTextAnnotation(fullComment, rect, intent as Intent, severity as Severity);
     });
   }
 
@@ -180,10 +204,12 @@ export class AnnotateMode {
     comment: string,
     intent: Intent,
     severity: Severity,
+    markerIntent: string,
   ): void {
     const primary = elements[0];
     const primaryRect = primary.getBoundingClientRect();
     const selector = generateSelector(primary);
+    const markerIndex = this.store.count() + 1;
 
     const id = this.store.add({
       elementSelector: selector,
@@ -209,6 +235,21 @@ export class AnnotateMode {
         : undefined,
     });
 
+    // Place colored marker after submission
+    const pin = this.marker.create(primaryRect, markerIndex, markerIntent);
+
+    // Allow re-click on the marker to show popup again
+    pin.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const annotation = this.store.get(id);
+      if (!annotation) return;
+      const rect = primaryRect;
+      this.marker.showPopup(rect, buildElementName(primary), getElementPath(primary), (newComment, newIntent, newSeverity) => {
+        void newComment; void newIntent; void newSeverity;
+        // Future: update annotation
+      });
+    });
+
     this._push(id);
   }
 
@@ -231,6 +272,7 @@ export class AnnotateMode {
       },
     });
 
+    this.marker.create(rect, this.store.count(), intent);
     this._push(id);
   }
 
@@ -241,7 +283,7 @@ export class AnnotateMode {
     this.transport.request('push_annotations', {
       annotations: [annotation],
     }).catch(() => {
-      // Transport may not be connected; annotation is still stored locally
+      // Transport may not be connected; annotation stored locally
     });
   }
 
