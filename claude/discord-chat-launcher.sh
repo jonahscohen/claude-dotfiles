@@ -7,7 +7,7 @@
 #
 #   COLD - no bot token in Keychain. Offer to onboard, skip, or never-ask.
 #   MID  - token in Keychain but no users paired. Offer pair-now or skip.
-#   WARM - token + at least one paired user. The familiar 5s connect prompt.
+#   WARM - token + at least one paired user. Connect prompt, waits for answer.
 #
 # A user who never wants this prompt can opt out forever by creating
 # ~/.claude/channels/discord/.skip-launcher (the launcher checks for it first
@@ -58,10 +58,10 @@ function claude() {
 
   if _claude_has_discord_token; then
     if _claude_has_discord_pair; then
-      # WARM. Same UX as before: 5s prompt, default Y, connect with channel.
+      # WARM. Wait for explicit answer, no timeout.
       local connect
       printf "Connect to Discord Chat Agent? (y/n) "
-      read -t 5 connect
+      read connect
       connect="${connect:-Y}"
       if [[ "$connect" =~ ^[Nn]$ ]]; then
         command claude "$@"
@@ -75,7 +75,7 @@ function claude() {
       printf "  [s] Skip Discord this session\n"
       printf "Choice [p/s] (default s): "
       local choice
-      read -t 10 choice
+      read choice
       choice="${choice:-s}"
       case "$choice" in
         [Pp]*) _claude_run_with_discord "$@" ;;
@@ -90,7 +90,7 @@ function claude() {
     printf "  [n] Never ask on this machine\n"
     printf "Choice [s/k/n] (default k): "
     local choice
-    read -t 10 choice
+    read choice
     choice="${choice:-k}"
     case "$choice" in
       [Ss]*)

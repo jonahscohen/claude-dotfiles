@@ -165,7 +165,7 @@ The `discord` component adds a state-aware wrapper around `claude` so opening a 
 
 - **Cold** (no bot token in macOS Keychain): the wrapper offers `[s] Set up now`, `[k] Skip this session`, `[n] Never ask again`. `s` runs `~/.claude/discord-onboard.sh`; `n` writes `~/.claude/channels/discord/.skip-launcher` so the prompt never reappears (delete the file to undo).
 - **Mid** (token configured but no users paired in `access.json`): the wrapper offers `[p] Pair now` (launches Claude with the Discord channel attached so the user can DM the bot) or `[s] Skip`.
-- **Warm** (token + at least one paired user): the familiar 5-second `Connect to Discord Chat Agent? (y/n)` prompt with default Yes.
+- **Warm** (token + at least one paired user): `Connect to Discord Chat Agent? (y/n)` prompt, waits indefinitely for an answer, default Yes.
 
 `~/.claude/discord-onboard.sh` is the interactive walkthrough. It runs `--status` to print state and exits, or interactively dispatches to one of two paths:
 
