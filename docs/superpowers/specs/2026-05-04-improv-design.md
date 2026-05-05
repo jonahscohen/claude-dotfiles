@@ -6,7 +6,7 @@
 
 ## Overview
 
-Improv is a dotfiles component that enables in-browser visual micro-adjustments - drag handles, sliders, color pickers, annotations, and layout composition - and sends structured diffs back to Claude Code to update source code. It combines the best of three existing tools: Retune's visual manipulation, React Grab's context extraction for prompting, and Agentation's annotation and layout composition.
+Improv is a dotfiles component that enables in-browser visual micro-adjustments - drag handles, sliders, color pickers, annotations, and layout composition - and sends structured diffs back to Claude Code to update source code. It combines the best of three existing tools: the reference tool's visual manipulation, React Grab's context extraction for prompting, and reference annotation tool's annotation and layout composition.
 
 Improv is framework-agnostic by design. A core browser script works on any stack (React, Vue, Svelte, Rails, PHP, static HTML, anything with a browser). Optional framework adapters enrich the experience with component names, props, and source locations. An MCP server bridges the browser and Claude Code.
 
@@ -64,7 +64,7 @@ claude-dotfiles/
 
 ### Overlay Isolation
 
-Shadow DOM for complete style isolation. A fixed-position host div with `z-index: 2147483647`, `attachShadow({ mode: "open" })`, styles via Constructable Stylesheets (`adoptedStyleSheets`). The overlay never leaks into or inherits from the host page. Proven by both Retune and React Grab.
+Shadow DOM for complete style isolation. A fixed-position host div with `z-index: 2147483647`, `attachShadow({ mode: "open" })`, styles via Constructable Stylesheets (`adoptedStyleSheets`). The overlay never leaks into or inherits from the host page. Proven by both reference tool and React Grab.
 
 ### Event Interception
 
@@ -122,7 +122,7 @@ Controls are determined by computed styles and element type.
 
 ### Live Preview Engine
 
-Constructable Stylesheets (Retune's proven approach):
+Constructable Stylesheets (the reference tool's proven approach):
 - Single `CSSStyleSheet` added to `document.adoptedStyleSheets`
 - Each adjustment inserts a rule with `!important` targeting the element's generated selector
 - Changes visible instantly in the browser
@@ -362,13 +362,13 @@ Adapter auto-includes core. Richest context.
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| Overlay isolation | Shadow DOM | Proven by Retune and React Grab. Complete style isolation. |
+| Overlay isolation | Shadow DOM | Proven by reference tool and React Grab. Complete style isolation. |
 | Event interception | `html { pointer-events: none }` | React Grab's O(1) approach. Better than O(N) universal selector. |
-| Live preview | Constructable Stylesheets | Retune's approach. Non-destructive, atomic revert. |
-| Selector generation | `@medv/finder` + hash filter | Retune's approach. Handles dynamic class names. |
-| Layout placeholders | Skeleton overlays | Agentation's approach. No real DOM mutation. |
-| Animation freeze | JS patch + CSS inject + WAAPI | Agentation's three-layer approach. Comprehensive. |
-| Browser-to-server | WebSocket JSON-RPC | Retune's approach. Bidirectional, low latency. |
+| Live preview | Constructable Stylesheets | the reference tool's approach. Non-destructive, atomic revert. |
+| Selector generation | `@medv/finder` + hash filter | the reference tool's approach. Handles dynamic class names. |
+| Layout placeholders | Skeleton overlays | reference annotation tool's approach. No real DOM mutation. |
+| Animation freeze | JS patch + CSS inject + WAAPI | reference annotation tool's three-layer approach. Comprehensive. |
+| Browser-to-server | WebSocket JSON-RPC | the reference tool's approach. Bidirectional, low latency. |
 | Server-to-Claude | MCP stdio | Industry standard. All three tools converged here. |
 | Source mapping | Source maps > CSSOM > Tailwind registry > grep | Four-tier fallback ensures every stack is covered. |
 | Framework support | Core + optional adapters | Universal base, enriched by framework-specific packages. |

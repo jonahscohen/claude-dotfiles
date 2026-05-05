@@ -1,5 +1,40 @@
 import { attachScrub, parseNumericValue, formatNumericValue } from './scrub.js';
 import type { DetectedControls } from './control-detector.js';
+import {
+  layoutAlignLeft,
+  layoutAlignRight,
+  layoutAlignHorizontalCenter,
+  layoutAlignTop,
+  layoutAlignBottom,
+  layoutAlignVerticalCenter,
+  textAlignLeft,
+  textAlignCenter,
+  textAlignRight,
+  textAlignTop,
+  textAlignMiddle,
+  textAlignBottom,
+  rectangleSmall,
+  autolayoutAddHorizontal,
+  autolayoutAddVertical,
+  gridView,
+  chevronDown,
+  plus,
+  minus,
+  alPaddingHorizontal,
+  alPaddingVertical,
+  alPaddingSides,
+  alSpacingHorizontal,
+  radiusTopLeft,
+  lockClosed,
+  lockOpen,
+  iconDot,
+  iconPositionLeft,
+  iconPositionCenterH,
+  iconPositionRight,
+  iconPositionTop,
+  iconPositionCenterV,
+  iconPositionBottom,
+} from './icons.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -38,6 +73,72 @@ function parsePx(val: string): number {
   return isNaN(n) ? 0 : n;
 }
 
+function parseOpacity(rgba: string): number {
+  const m = rgba.match(/rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([\d.]+)\s*\)/);
+  if (m) return Math.round(parseFloat(m[1]) * 100);
+  return 100;
+}
+
+interface ParsedShadow {
+  inset: boolean;
+  x: number;
+  y: number;
+  blur: number;
+  spread: number;
+  color: string;
+}
+
+function parseBoxShadow(val: string): ParsedShadow | null {
+  if (!val || val === 'none') return null;
+  const inset = val.includes('inset');
+  const clean = val.replace('inset', '').trim();
+  const colorMatch = clean.match(/(rgba?\([^)]+\)|#[0-9a-fA-F]{3,8})/);
+  const color = colorMatch ? colorMatch[1] : 'rgba(0,0,0,0.15)';
+  const withoutColor = clean.replace(/(rgba?\([^)]+\)|#[0-9a-fA-F]{3,8})/, '').trim();
+  const nums = withoutColor.split(/\s+/).map(parseFloat).filter(n => !isNaN(n));
+  return {
+    inset,
+    x: nums[0] ?? 0,
+    y: nums[1] ?? 0,
+    blur: nums[2] ?? 0,
+    spread: nums[3] ?? 0,
+    color,
+  };
+}
+
+function buildBoxShadow(s: ParsedShadow): string {
+  const parts: string[] = [];
+  if (s.inset) parts.push('inset');
+  parts.push(s.x + 'px', s.y + 'px', s.blur + 'px', s.spread + 'px', s.color);
+  return parts.join(' ');
+}
+
+interface ParsedFilter {
+  type: string;
+  value: number;
+  unit: string;
+}
+
+function parseFilterString(val: string): ParsedFilter[] {
+  if (!val || val === 'none') return [];
+  const re = /(\w[\w-]*)\(([^)]+)\)/g;
+  const result: ParsedFilter[] = [];
+  let m;
+  while ((m = re.exec(val)) !== null) {
+    const type = m[1];
+    const raw = m[2].trim();
+    const num = parseFloat(raw);
+    const unit = raw.replace(String(num), '').trim() || '';
+    result.push({ type, value: isNaN(num) ? 0 : num, unit });
+  }
+  return result;
+}
+
+function buildFilterString(filters: ParsedFilter[]): string {
+  if (filters.length === 0) return 'none';
+  return filters.map(f => f.type + '(' + f.value + f.unit + ')').join(' ');
+}
+
 function cssPropToCamel(property: string): string {
   return property.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
 }
@@ -51,142 +152,38 @@ function getVal(
 }
 
 // ---------------------------------------------------------------------------
-// SVG icon helpers (paths from Lucide, verbatim)
-// ---------------------------------------------------------------------------
-
-function svgIcon(w: number, h: number, pathData: string, strokeW = 1.5): SVGSVGElement {
-  const el = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  el.setAttribute('width', String(w));
-  el.setAttribute('height', String(h));
-  el.setAttribute('viewBox', '0 0 24 24');
-  el.setAttribute('fill', 'none');
-  el.setAttribute('stroke', 'currentColor');
-  el.setAttribute('stroke-width', String(strokeW));
-  el.setAttribute('stroke-linecap', 'round');
-  el.setAttribute('stroke-linejoin', 'round');
-  const parts = pathData.split('|');
-  for (const d of parts) {
-    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    p.setAttribute('d', d.trim());
-    el.appendChild(p);
-  }
-  return el;
-}
-
-// Lucide chevron-down
-function chevronDownIcon(size: number = 12): SVGSVGElement {
-  return svgIcon(size, size, 'M6 9l6 6l6-6');
-}
-
-// Lucide chevron-right (for tree expand/collapse)
-function chevronRightIcon(size: number = 16): SVGSVGElement {
-  return svgIcon(size, size, 'M9 18l6-6l-6-6');
-}
-
-// Lucide plus
-function plusIcon(size: number = 14): SVGSVGElement {
-  return svgIcon(size, size, 'M12 5v14|M5 12h14');
-}
-
-// Lucide link/chain icon for aspect ratio lock
-function chainIcon(size: number = 14): SVGSVGElement {
-  return svgIcon(
-    size,
-    size,
-    'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71|M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
-  );
-}
-
-// Lucide corner-down-right (for split/expand icon)
-function splitIcon(size: number = 14): SVGSVGElement {
-  return svgIcon(size, size, 'M9 4v8h8|M5 4v4a4 4 0 0 0 4 4h8');
-}
-
-// Lucide code-2 icon for DOM element nodes
-function codeTagIcon(size: number = 16): SVGSVGElement {
-  return svgIcon(size, size, 'M18 16l4-4l-4-4|M6 8l-4 4l4 4|M14.5 4l-5 16');
-}
-
-// Lucide component icon for framework components
-function componentIcon(size: number = 16): SVGSVGElement {
-  return svgIcon(
-    size,
-    size,
-    'M5.5 8.5L9 12l-3.5 3.5L2 12l3.5-3.5z|M12 2l3.5 3.5L12 9L8.5 5.5L12 2z|M18.5 8.5L22 12l-3.5 3.5L15 12l3.5-3.5z|M12 15l3.5 3.5L12 22l-3.5-3.5L12 15z',
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Lucide alignment icons (verbatim paths)
-// ---------------------------------------------------------------------------
-
-// Horizontal alignment
-const ALIGN_H_LEFT = 'M4 4v16|M8 8h12|M8 16h8';
-const ALIGN_H_CENTER = 'M12 4v16|M6 8h12|M8 16h8';
-const ALIGN_H_RIGHT = 'M20 4v16|M4 8h12|M8 16h8';
-
-// Vertical alignment
-const ALIGN_V_TOP = 'M4 4h16|M8 8v12|M16 8v8';
-const ALIGN_V_CENTER = 'M4 12h16|M8 6v12|M16 8v8';
-const ALIGN_V_BOTTOM = 'M4 20h16|M8 4v12|M16 8v8';
-
-// Display icons
-const ICON_BLOCK = 'M3 3h18v18H3z';
-const ICON_FLEX_ROW = 'M3 3h18v18H3z|M9 3v18|M15 3v18';
-const ICON_FLEX_COL = 'M3 3h18v18H3z|M3 9h18|M3 15h18';
-const ICON_GRID = 'M3 3h18v18H3z|M3 9h18|M3 15h18|M9 3v18|M15 3v18';
-
-// Text alignment icons (Lucide align-left, align-center, align-right)
-const TEXT_ALIGN_LEFT = 'M21 6H3|M15 12H3|M17 18H3';
-const TEXT_ALIGN_CENTER = 'M21 6H3|M17 12H7|M21 18H3';
-const TEXT_ALIGN_RIGHT = 'M21 6H3|M21 12H9|M21 18H3';
-
-// Vertical text alignment
-const TEXT_VALIGN_TOP = 'M4 4h16|M12 8v12';
-const TEXT_VALIGN_MIDDLE = 'M4 12h16|M12 6v12';
-const TEXT_VALIGN_BOTTOM = 'M4 20h16|M12 4v12';
-
-// Spacing icons
-const ICON_PADDING_H = 'M7 4v16|M17 4v16|M7 12h10';
-const ICON_PADDING_V = 'M4 7h16|M4 17h16|M12 7v10';
-const ICON_MARGIN_H = 'M3 4v16|M21 4v16|M3 12h18';
-const ICON_MARGIN_V = 'M4 3h16|M4 21h16|M12 3v18';
-
-// Corner radius icon
-const ICON_RADIUS =
-  'M3 12V5a2 2 0 0 1 2-2h7|M21 12v7a2 2 0 0 1-2 2h-7';
-
-// ---------------------------------------------------------------------------
 // CSS Custom Property names (set on panel root, referenced everywhere)
 // ---------------------------------------------------------------------------
 
 const V = {
-  surface: '--retune-surface',
-  surfaceHover: '--retune-surface-hover',
-  text: '--retune-text',
-  textSecondary: '--retune-text-secondary',
-  textTertiary: '--retune-text-tertiary',
-  border: '--retune-border',
-  inputBg: '--retune-input-bg',
-  blueBg: '--retune-blue-bg',
-  blueText: '--retune-blue-text',
-  blue500: '--retune-blue-500',
-  black: '--retune-black',
-  white: '--retune-white',
+  surface: '--improv-surface',
+  surfaceHover: '--improv-surface-hover',
+  text: '--improv-text',
+  textSecondary: '--improv-text-secondary',
+  textTertiary: '--improv-text-tertiary',
+  border: '--improv-border',
+  inputBg: '--improv-input-bg',
+  blueBg: '--improv-blue-bg',
+  blueText: '--improv-blue-text',
+  blue500: '--improv-blue-500',
+  surfaceActive: '--improv-surface-active',
+  black: '--improv-black',
+  white: '--improv-white',
 } as const;
 
-// Resolved dark-mode values (scraped from retune.dev)
+// Resolved dark-mode values (design tokens)
 const TOKENS: Record<string, string> = {
   [V.surface]: 'color-mix(in srgb, #1c1917 95%, #ffffff)',
-  [V.surfaceHover]: 'rgba(255,255,255,0.05)',
-  [V.text]: 'rgba(255,255,255,0.9)',
-  [V.textSecondary]: 'rgba(255,255,255,0.7)',
-  [V.textTertiary]: 'rgba(255,255,255,0.5)',
-  [V.border]: 'rgba(255,255,255,0.1)',
-  [V.inputBg]: 'rgba(255,255,255,0.08)',
+  [V.surfaceHover]: 'color-mix(in srgb, #ffffff 5%, transparent)',
+  [V.text]: 'color-mix(in srgb, #ffffff 90%, transparent)',
+  [V.textSecondary]: 'color-mix(in srgb, #ffffff 70%, transparent)',
+  [V.textTertiary]: 'color-mix(in srgb, #ffffff 50%, transparent)',
+  [V.border]: 'color-mix(in srgb, #ffffff 10%, transparent)',
+  [V.inputBg]: 'color-mix(in srgb, #ffffff 5%, transparent)',
   [V.blueBg]: 'color-mix(in srgb, #0768CF 50%, transparent)',
   [V.blueText]: '#0D99FF',
   [V.blue500]: '#0D99FF',
+  [V.surfaceActive]: 'color-mix(in srgb, #ffffff 5%, transparent)',
   [V.black]: '#1c1917',
   [V.white]: '#ffffff',
 };
@@ -284,9 +281,9 @@ export class PropertyPanel {
     const style = document.createElement('style');
     style.textContent =
       ':host ::-webkit-scrollbar { display: none; }\n' +
-      '.improv-pp-retune::-webkit-scrollbar { display: none; }';
+      '.improv-pp-panel::-webkit-scrollbar { display: none; }';
     this.shadow.appendChild(style);
-    this.container.classList.add('improv-pp-retune');
+    this.container.classList.add('improv-pp-panel');
   }
 
   // -----------------------------------------------------------------------
@@ -365,7 +362,7 @@ export class PropertyPanel {
   }
 
   // -----------------------------------------------------------------------
-  // Tab bar (Retune-exact: padding 4px 8px, border-bottom 1px solid border)
+  // Tab bar (exact: padding 4px 8px, border-bottom 1px solid border)
   // -----------------------------------------------------------------------
 
   private buildTabBar(): void {
@@ -373,7 +370,7 @@ export class PropertyPanel {
     Object.assign(bar.style, {
       display: 'flex',
       alignItems: 'center',
-      padding: '4px 8px',
+      padding: '8px',
       borderBottom: '1px solid ' + tv(V.border),
       position: 'relative',
     });
@@ -382,10 +379,11 @@ export class PropertyPanel {
     const pill = document.createElement('div');
     Object.assign(pill.style, {
       position: 'absolute',
-      height: '32px',
+      top: '8px',
+      height: 'calc(100% - 16px)',
       background: tv(V.inputBg),
       borderRadius: '8px',
-      transition: 'all 0.2s ' + EASE,
+      transition: 'transform 0.2s ' + EASE + ', width 0.2s ' + EASE,
       pointerEvents: 'none',
     });
     bar.appendChild(pill);
@@ -507,7 +505,7 @@ export class PropertyPanel {
       // Skip our own panel
       if (
         child.tagName === 'IMPROV-PANEL' ||
-        child.classList.contains('improv-pp-retune')
+        child.classList.contains('improv-pp-panel')
       )
         continue;
       // Skip script/style/noscript
@@ -629,10 +627,10 @@ export class PropertyPanel {
     });
 
     if (node.children.length > 0) {
-      const arrow = chevronRightIcon(16);
+      const arrow = chevronDown(16);
       Object.assign(arrow.style, {
         transition: 'transform 0.12s',
-        transform: node.expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+        transform: node.expanded ? 'rotate(0deg)' : 'rotate(-90deg)',
         color: tv(V.textTertiary),
       });
       arrowWrap.appendChild(arrow);
@@ -641,8 +639,8 @@ export class PropertyPanel {
         e.stopPropagation();
         node.expanded = !node.expanded;
         arrow.style.transform = node.expanded
-          ? 'rotate(90deg)'
-          : 'rotate(0deg)';
+          ? 'rotate(0deg)'
+          : 'rotate(-90deg)';
         // Toggle children visibility
         const childContainer = row.nextElementSibling as HTMLElement | null;
         if (childContainer && childContainer.dataset.treeChildren === 'true') {
@@ -669,9 +667,15 @@ export class PropertyPanel {
       marginRight: '6px',
       color: node.isComponent ? tv(V.blueText) : tv(V.textTertiary),
     });
-    iconWrap.appendChild(
-      node.isComponent ? componentIcon(16) : codeTagIcon(16),
-    );
+    // Use a simple dot for tree nodes since we don't have specific tree icons in the reference
+    const treeDot = document.createElement('div');
+    Object.assign(treeDot.style, {
+      width: '4px',
+      height: '4px',
+      borderRadius: '50%',
+      background: 'currentColor',
+    });
+    iconWrap.appendChild(treeDot);
     row.appendChild(iconWrap);
 
     // Name
@@ -680,7 +684,7 @@ export class PropertyPanel {
     Object.assign(nameEl.style, {
       fontSize: '13px',
       fontWeight: '400',
-      color: isSelected ? tv(V.text) : tv(V.text),
+      color: tv(V.text),
       overflow: 'hidden',
       textOverflow: 'ellipsis',
       whiteSpace: 'nowrap',
@@ -753,11 +757,17 @@ export class PropertyPanel {
     // 7. Appearance
     this.buildAppearanceSection(parent, cs);
 
-    // 8-11. Collapsed sections
-    this.buildCollapsedSection(parent, 'Fill');
-    this.buildCollapsedSection(parent, 'Border');
-    this.buildCollapsedSection(parent, 'Shadow');
-    this.buildCollapsedSection(parent, 'Filters');
+    // 8. Fill
+    this.buildFillSection(parent, cs);
+
+    // 9. Border
+    this.buildBorderSection(parent, cs);
+
+    // 10. Shadow
+    this.buildShadowSection(parent, cs);
+
+    // 11. Filters
+    this.buildFiltersSection(parent, cs);
   }
 
   private getElementTag(): string {
@@ -830,7 +840,7 @@ export class PropertyPanel {
   }
 
   // -----------------------------------------------------------------------
-  // 2. Position Section
+  // 2. Position Section - 6-button alignment row
   // -----------------------------------------------------------------------
 
   private buildPositionSection(
@@ -844,75 +854,261 @@ export class PropertyPanel {
 
     const body = this.makeSectionBody();
 
-    // Alignment field
-    const alignFieldRow = this.makeSectionRow();
-    const alignLabel = this.makeGroupLabelInline('Alignment');
-    alignFieldRow.appendChild(alignLabel);
-    body.appendChild(alignFieldRow);
-
-    const alignRow = this.makeSectionRow();
-    Object.assign(alignRow.style, {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '12px',
+    // Alignment field (label above controls - Field pattern)
+    const alignField = this.makeSectionRow();
+    const alignFieldWrap = document.createElement('div');
+    Object.assign(alignFieldWrap.style, {
+      display: 'flex', flexDirection: 'column', gap: '4px', flex: '1', minWidth: '0',
     });
+    alignFieldWrap.appendChild(this.makeFieldLabel('Alignment'));
 
-    // Horizontal alignment group
-    const hGroup = this.makeIconButtonGroup(
-      [
-        { icon: ALIGN_H_LEFT, value: 'left' },
-        { icon: ALIGN_H_CENTER, value: 'center' },
-        { icon: ALIGN_H_RIGHT, value: 'right' },
-      ],
-      '',
-      (val) => this.emitChange('text-align', val),
-    );
-    alignRow.appendChild(hGroup);
-
-    // Vertical alignment group
-    const display = getVal(cs, 'display') || 'block';
-    const isFlexOrGrid =
-      display === 'flex' ||
-      display === 'inline-flex' ||
-      display === 'grid' ||
-      display === 'inline-grid';
-
-    const vGroup = this.makeIconButtonGroup(
-      [
-        { icon: ALIGN_V_TOP, value: 'flex-start' },
-        { icon: ALIGN_V_CENTER, value: 'center' },
-        { icon: ALIGN_V_BOTTOM, value: 'flex-end' },
-      ],
-      '',
-      (val) => this.emitChange('align-items', val),
-    );
-    if (!isFlexOrGrid) {
-      Object.assign(vGroup.style, {
-        opacity: '0.3',
-        pointerEvents: 'none',
-      });
-    }
-    alignRow.appendChild(vGroup);
-
-    body.appendChild(alignRow);
-
-    // Position type field
-    const positionVal = getVal(cs, 'position') || 'static';
-    const typeRow = this.makeSectionRow();
-    Object.assign(typeRow.style, {
+    const alignRow = document.createElement('div');
+    const alignContainer = document.createElement('div');
+    Object.assign(alignContainer.style, {
       display: 'flex',
-      alignItems: 'center',
       gap: '8px',
     });
-    const posLabel = this.makeGroupLabelInline('Type');
-    typeRow.appendChild(posLabel);
+
+    // Determine enabled state for groups
+    const positionVal = getVal(cs, 'position') || 'static';
+    const parentDisplay = getVal(cs, 'display') || 'block';
+    const parentFlexDir = getVal(cs, 'flex-direction') || 'row';
+    const isAbsOrFixed = positionVal === 'absolute' || positionVal === 'fixed';
+    const isParentGrid = parentDisplay === 'grid' || parentDisplay === 'inline-grid';
+    const isParentFlexCol = (parentDisplay === 'flex' || parentDisplay === 'inline-flex') && parentFlexDir.includes('column');
+    const isParentFlexRow = (parentDisplay === 'flex' || parentDisplay === 'inline-flex') && !parentFlexDir.includes('column');
+
+    const hEnabled = isAbsOrFixed || isParentGrid || isParentFlexCol;
+    const vEnabled = isAbsOrFixed || isParentGrid || isParentFlexRow;
+
+    // Horizontal alignment group
+    const hGroup = document.createElement('div');
+    Object.assign(hGroup.style, {
+      flex: '1',
+      display: 'flex',
+      background: tv(V.surfaceHover),
+      borderRadius: '8px',
+      overflow: 'hidden',
+      opacity: hEnabled ? '1' : '0.3',
+      pointerEvents: hEnabled ? 'auto' : 'none',
+    });
+
+    const hIcons = [
+      { icon: () => layoutAlignLeft(24), value: 'left' },
+      { icon: () => layoutAlignHorizontalCenter(24), value: 'center' },
+      { icon: () => layoutAlignRight(24), value: 'right' },
+    ];
+
+    for (let i = 0; i < hIcons.length; i++) {
+      const item = hIcons[i];
+      const btn = document.createElement('button');
+      Object.assign(btn.style, {
+        flex: '1',
+        height: '32px',
+        border: 'none',
+        background: 'transparent',
+        color: tv(V.text),
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '0',
+        transition: 'background 0.15s ease',
+      });
+      if (i > 0) {
+        btn.style.boxShadow = 'inset 1px 0 0 ' + tv(V.surface);
+      }
+      btn.appendChild(item.icon());
+
+      const onBtnEnter = () => { btn.style.background = tv(V.border); };
+      const onBtnLeave = () => { btn.style.background = 'transparent'; };
+      const onBtnClick = () => {
+        this.emitChange('text-align', item.value);
+      };
+      btn.addEventListener('mouseenter', onBtnEnter);
+      btn.addEventListener('mouseleave', onBtnLeave);
+      btn.addEventListener('click', onBtnClick);
+      this.cleanups.push(() => {
+        btn.removeEventListener('mouseenter', onBtnEnter);
+        btn.removeEventListener('mouseleave', onBtnLeave);
+        btn.removeEventListener('click', onBtnClick);
+      });
+
+      hGroup.appendChild(btn);
+    }
+
+    // Vertical alignment group
+    const vGroup = document.createElement('div');
+    Object.assign(vGroup.style, {
+      flex: '1',
+      display: 'flex',
+      background: tv(V.surfaceHover),
+      borderRadius: '8px',
+      overflow: 'hidden',
+      opacity: vEnabled ? '1' : '0.3',
+      pointerEvents: vEnabled ? 'auto' : 'none',
+    });
+
+    const vIcons = [
+      { icon: () => layoutAlignTop(24), value: 'flex-start' },
+      { icon: () => layoutAlignVerticalCenter(24), value: 'center' },
+      { icon: () => layoutAlignBottom(24), value: 'flex-end' },
+    ];
+
+    for (let i = 0; i < vIcons.length; i++) {
+      const item = vIcons[i];
+      const btn = document.createElement('button');
+      Object.assign(btn.style, {
+        flex: '1',
+        height: '32px',
+        border: 'none',
+        background: 'transparent',
+        color: tv(V.text),
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '0',
+        transition: 'background 0.15s ease',
+      });
+      if (i > 0) {
+        btn.style.boxShadow = 'inset 1px 0 0 ' + tv(V.surface);
+      }
+      btn.appendChild(item.icon());
+
+      const onBtnEnter = () => { btn.style.background = tv(V.border); };
+      const onBtnLeave = () => { btn.style.background = 'transparent'; };
+      const onBtnClick = () => {
+        this.emitChange('align-items', item.value);
+      };
+      btn.addEventListener('mouseenter', onBtnEnter);
+      btn.addEventListener('mouseleave', onBtnLeave);
+      btn.addEventListener('click', onBtnClick);
+      this.cleanups.push(() => {
+        btn.removeEventListener('mouseenter', onBtnEnter);
+        btn.removeEventListener('mouseleave', onBtnLeave);
+        btn.removeEventListener('click', onBtnClick);
+      });
+
+      vGroup.appendChild(btn);
+    }
+
+    alignContainer.appendChild(hGroup);
+    alignContainer.appendChild(vGroup);
+    alignFieldWrap.appendChild(alignContainer);
+    alignField.appendChild(alignFieldWrap);
+    body.appendChild(alignField);
+
+    // Position type field (label above - Field pattern)
+    const typeRow = this.makeSectionRow();
+    const typeField = document.createElement('div');
+    Object.assign(typeField.style, {
+      display: 'flex', flexDirection: 'column', gap: '4px', flex: '1', minWidth: '0',
+    });
+    typeField.appendChild(this.makeFieldLabel('Type'));
     const posSelect = this.makeSelectControl(
       ['static', 'relative', 'absolute', 'fixed', 'sticky'],
       positionVal,
       (val) => this.emitChange('position', val),
     );
-    typeRow.appendChild(posSelect);
+    typeField.appendChild(posSelect);
+    typeRow.appendChild(typeField);
     body.appendChild(typeRow);
+
+    // Constraints input for absolute/fixed positioning
+    if (positionVal === 'absolute' || positionVal === 'fixed') {
+      const constraintsRow = this.makeSectionRow();
+      const cWrap = document.createElement('div');
+      Object.assign(cWrap.style, {
+        display: 'flex',
+        gap: '4px',
+        alignItems: 'center',
+        width: '100%',
+      });
+
+      const leftSide = document.createElement('div');
+      Object.assign(leftSide.style, { flex: '1', minWidth: '0' });
+      leftSide.appendChild(this.makePropInput('left', null, cs, 1, false, 'L'));
+      cWrap.appendChild(leftSide);
+
+      const centerCol = document.createElement('div');
+      Object.assign(centerCol.style, {
+        flex: '1', minWidth: '0', display: 'flex',
+        flexDirection: 'column', gap: '4px', alignItems: 'stretch',
+      });
+
+      centerCol.appendChild(this.makePropInput('top', null, cs, 1, false, 'T'));
+
+      const pinBox = document.createElement('div');
+      Object.assign(pinBox.style, {
+        position: 'relative',
+        background: tv(V.surfaceHover),
+        borderRadius: '8px',
+        width: '100%',
+        height: '64px',
+      });
+      const pinCenter = document.createElement('div');
+      Object.assign(pinCenter.style, {
+        position: 'absolute', left: '50%', top: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: '24px', height: '24px',
+        background: tv(V.surface),
+        border: '1px solid ' + tv(V.border),
+        borderRadius: '8px',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '0',
+      });
+      const pinDot = document.createElement('div');
+      Object.assign(pinDot.style, {
+        width: '4px', height: '4px', borderRadius: '50%', background: '#3b82f6',
+      });
+      pinCenter.appendChild(pinDot);
+      pinBox.appendChild(pinCenter);
+      centerCol.appendChild(pinBox);
+
+      centerCol.appendChild(this.makePropInput('bottom', null, cs, 1, false, 'B'));
+      cWrap.appendChild(centerCol);
+
+      const rightSide = document.createElement('div');
+      Object.assign(rightSide.style, { flex: '1', minWidth: '0' });
+      rightSide.appendChild(this.makePropInput('right', null, cs, 1, false, 'R'));
+      cWrap.appendChild(rightSide);
+
+      constraintsRow.appendChild(cWrap);
+      body.appendChild(constraintsRow);
+    }
+
+    // Offsets for relative positioning
+    if (positionVal === 'relative') {
+      const offsetLabel = this.makeSectionRow();
+      offsetLabel.appendChild(this.makeGroupLabelInline('Offsets'));
+      body.appendChild(offsetLabel);
+
+      const offsetRow1 = this.makeSectionRow();
+      Object.assign(offsetRow1.style, { display: 'flex', gap: '8px' });
+      offsetRow1.appendChild(this.makePropInput('top', null, cs, 1, false, 'T'));
+      offsetRow1.appendChild(this.makePropInput('right', null, cs, 1, false, 'R'));
+      body.appendChild(offsetRow1);
+
+      const offsetRow2 = this.makeSectionRow();
+      Object.assign(offsetRow2.style, { display: 'flex', gap: '8px' });
+      offsetRow2.appendChild(this.makePropInput('bottom', null, cs, 1, false, 'B'));
+      offsetRow2.appendChild(this.makePropInput('left', null, cs, 1, false, 'L'));
+      body.appendChild(offsetRow2);
+    }
+
+    // Sticky offset
+    if (positionVal === 'sticky') {
+      const stickyLabel = this.makeSectionRow();
+      stickyLabel.appendChild(this.makeGroupLabelInline('Sticky offset'));
+      body.appendChild(stickyLabel);
+
+      const stickyRow = this.makeSectionRow();
+      Object.assign(stickyRow.style, { display: 'flex', gap: '8px' });
+      stickyRow.appendChild(this.makePropInput('top', null, cs, 1, false, 'T'));
+      stickyRow.appendChild(this.makePropInput('bottom', null, cs, 1, false, 'B'));
+      body.appendChild(stickyRow);
+    }
 
     section.appendChild(body);
     parent.appendChild(section);
@@ -945,19 +1141,19 @@ export class PropertyPanel {
       activeDisplay = 'grid';
     }
 
-    // Display field label
-    const displayLabelRow = this.makeSectionRow();
-    displayLabelRow.appendChild(this.makeGroupLabelInline('Display'));
-    body.appendChild(displayLabelRow);
-
-    // Display segmented control with sliding pill
+    // Display field (label above - Field pattern)
     const displayRow = this.makeSectionRow();
-    const segmented = this.makeSegmentedControl(
+    const displayField = document.createElement('div');
+    Object.assign(displayField.style, {
+      display: 'flex', flexDirection: 'column', gap: '4px', flex: '1', minWidth: '0',
+    });
+    displayField.appendChild(this.makeFieldLabel('Display'));
+    const segmented = this.makeSegmentedControlWithIcons(
       [
-        { icon: ICON_BLOCK, value: 'block', label: 'Block' },
-        { icon: ICON_FLEX_ROW, value: 'flex-row', label: 'Flex Row' },
-        { icon: ICON_FLEX_COL, value: 'flex-col', label: 'Flex Column' },
-        { icon: ICON_GRID, value: 'grid', label: 'Grid' },
+        { iconFn: () => rectangleSmall(24), value: 'block', label: 'Block' },
+        { iconFn: () => autolayoutAddHorizontal(24), value: 'flex-row', label: 'Flex Row' },
+        { iconFn: () => autolayoutAddVertical(24), value: 'flex-col', label: 'Flex Column' },
+        { iconFn: () => gridView(24), value: 'grid', label: 'Grid' },
       ],
       activeDisplay,
       (val) => {
@@ -974,84 +1170,82 @@ export class PropertyPanel {
         }
       },
     );
-    displayRow.appendChild(segmented);
+    displayField.appendChild(segmented);
+    displayRow.appendChild(displayField);
     body.appendChild(displayRow);
 
-    // Flex-specific controls: Reverse + Wrap
+    // Flex-specific controls (reference layout: Alignment+Gap side by side, then Reverse+Wrap)
     if (hasFlex) {
-      const flexExtrasRow = this.makeSectionRow();
-      Object.assign(flexExtrasRow.style, {
+      // Alignment + Gap on same row (reference layout)
+      const alignGapRow = this.makeSectionRow();
+      Object.assign(alignGapRow.style, {
+        display: 'flex',
+        gap: '8px',
+        alignItems: 'flex-start',
+      });
+
+      // Left: Alignment field with 3x3 grid
+      const alignField = document.createElement('div');
+      Object.assign(alignField.style, {
+        display: 'flex', flexDirection: 'column', gap: '4px',
+        flex: '1', minWidth: '0',
+      });
+      alignField.appendChild(this.makeFieldLabel('Alignment'));
+      alignField.appendChild(this.makeAlignmentGrid(cs));
+      alignGapRow.appendChild(alignField);
+
+      // Right: Gap field
+      const gapField = document.createElement('div');
+      Object.assign(gapField.style, {
+        display: 'flex', flexDirection: 'column', gap: '4px',
+        flex: '1', minWidth: '0',
+      });
+      gapField.appendChild(this.makeFieldLabel('Gap'));
+      gapField.appendChild(this.makePropInputWithIcon('gap', () => alSpacingHorizontal(24), cs));
+      alignGapRow.appendChild(gapField);
+
+      body.appendChild(alignGapRow);
+
+      // Reverse + Wrap (Field pattern: labels above selects, side by side)
+      const revWrapRow = this.makeSectionRow();
+      Object.assign(revWrapRow.style, {
         display: 'flex',
         gap: '8px',
       });
 
-      // Reverse (No dropdown by default)
-      const reverseLabel = this.makeGroupLabelInline('Reverse');
-      flexExtrasRow.appendChild(reverseLabel);
-      const reverseSelect = this.makeSelectControl(
+      const revField = document.createElement('div');
+      Object.assign(revField.style, {
+        display: 'flex', flexDirection: 'column', gap: '4px',
+        flex: '1', minWidth: '0',
+      });
+      revField.appendChild(this.makeFieldLabel('Reverse'));
+      revField.appendChild(this.makeSelectControl(
         ['No', 'Yes'],
         flexDir.includes('reverse') ? 'Yes' : 'No',
         (val) => {
-          const baseDir =
-            activeDisplay === 'flex-col' ? 'column' : 'row';
-          this.emitChange(
-            'flex-direction',
-            val === 'Yes' ? baseDir + '-reverse' : baseDir,
-          );
+          const baseDir = activeDisplay === 'flex-col' ? 'column' : 'row';
+          this.emitChange('flex-direction', val === 'Yes' ? baseDir + '-reverse' : baseDir);
         },
-      );
-      flexExtrasRow.appendChild(reverseSelect);
+      ));
+      revWrapRow.appendChild(revField);
 
-      const wrapLabel = this.makeGroupLabelInline('Wrap');
-      flexExtrasRow.appendChild(wrapLabel);
-      const wrapSelect = this.makeSelectControl(
-        ['nowrap', 'wrap', 'wrap-reverse'],
-        getVal(cs, 'flex-wrap') || 'nowrap',
-        (val) => this.emitChange('flex-wrap', val),
-      );
-      flexExtrasRow.appendChild(wrapSelect);
-      body.appendChild(flexExtrasRow);
+      const wrapField = document.createElement('div');
+      Object.assign(wrapField.style, {
+        display: 'flex', flexDirection: 'column', gap: '4px',
+        flex: '1', minWidth: '0',
+      });
+      wrapField.appendChild(this.makeFieldLabel('Wrap'));
+      wrapField.appendChild(this.makeSelectControl(
+        ['Nowrap', 'Wrap', 'Wrap-reverse'],
+        (() => {
+          const w = getVal(cs, 'flex-wrap') || 'nowrap';
+          return w === 'nowrap' ? 'Nowrap' : w === 'wrap' ? 'Wrap' : 'Wrap-reverse';
+        })(),
+        (val) => this.emitChange('flex-wrap', val.toLowerCase()),
+      ));
+      revWrapRow.appendChild(wrapField);
 
-      // Gap
-      const gapRow = this.makeSectionRow();
-      Object.assign(gapRow.style, { display: 'flex', gap: '8px' });
-      const gapLabel = this.makeGroupLabelInline('Gap');
-      gapRow.appendChild(gapLabel);
-      gapRow.appendChild(this.makePropInput('gap', null, cs));
-      body.appendChild(gapRow);
-
-      // Justify content
-      const justifyRow = this.makeSectionRow();
-      Object.assign(justifyRow.style, { display: 'flex', gap: '8px' });
-      const justifyLabel = this.makeGroupLabelInline('Justify');
-      justifyRow.appendChild(justifyLabel);
-      const justifySelect = this.makeSelectControl(
-        [
-          'flex-start',
-          'flex-end',
-          'center',
-          'space-between',
-          'space-around',
-          'space-evenly',
-        ],
-        getVal(cs, 'justify-content') || 'flex-start',
-        (val) => this.emitChange('justify-content', val),
-      );
-      justifyRow.appendChild(justifySelect);
-      body.appendChild(justifyRow);
-
-      // Align items
-      const alignRow = this.makeSectionRow();
-      Object.assign(alignRow.style, { display: 'flex', gap: '8px' });
-      const alignLabel = this.makeGroupLabelInline('Align');
-      alignRow.appendChild(alignLabel);
-      const alignSelect = this.makeSelectControl(
-        ['flex-start', 'flex-end', 'center', 'stretch', 'baseline'],
-        getVal(cs, 'align-items') || 'stretch',
-        (val) => this.emitChange('align-items', val),
-      );
-      alignRow.appendChild(alignSelect);
-      body.appendChild(alignRow);
+      body.appendChild(revWrapRow);
     }
 
     section.appendChild(body);
@@ -1084,14 +1278,14 @@ export class PropertyPanel {
     const padLabel = this.makeGroupLabelInline('Padding');
     padRow.appendChild(padLabel);
 
-    // Horizontal padding input with icon
+    // Horizontal padding input with reference icon
     padRow.appendChild(
-      this.makePropInput('padding-left', ICON_PADDING_H, cs),
+      this.makePropInputWithIcon('padding-left', () => alPaddingHorizontal(24), cs),
     );
 
-    // Vertical padding input with icon
+    // Vertical padding input with reference icon
     padRow.appendChild(
-      this.makePropInput('padding-top', ICON_PADDING_V, cs),
+      this.makePropInputWithIcon('padding-top', () => alPaddingVertical(24), cs),
     );
 
     // Split button
@@ -1111,10 +1305,10 @@ export class PropertyPanel {
     marRow.appendChild(marLabel);
 
     marRow.appendChild(
-      this.makePropInput('margin-left', ICON_MARGIN_H, cs),
+      this.makePropInputWithIcon('margin-left', () => alPaddingHorizontal(24), cs),
     );
     marRow.appendChild(
-      this.makePropInput('margin-top', ICON_MARGIN_V, cs),
+      this.makePropInputWithIcon('margin-top', () => alPaddingVertical(24), cs),
     );
     marRow.appendChild(this.makeSplitButton());
 
@@ -1171,8 +1365,9 @@ export class PropertyPanel {
     whRow.appendChild(this.makeComboInput('width', cs));
     whRow.appendChild(this.makeComboInput('height', cs));
 
-    // Lock aspect ratio button (chain icon)
+    // Lock aspect ratio button (reference lock icon)
     const lockBtn = document.createElement('button');
+    let locked = false;
     Object.assign(lockBtn.style, {
       display: 'flex',
       alignItems: 'center',
@@ -1187,18 +1382,26 @@ export class PropertyPanel {
       padding: '0',
       flexShrink: '0',
     });
-    lockBtn.appendChild(chainIcon(14));
+    lockBtn.appendChild(lockOpen(24));
     const onLockEnter = () => {
       lockBtn.style.background = tv(V.surfaceHover);
     };
     const onLockLeave = () => {
       lockBtn.style.background = 'transparent';
     };
+    const onLockClick = () => {
+      locked = !locked;
+      while (lockBtn.firstChild) lockBtn.removeChild(lockBtn.firstChild);
+      lockBtn.appendChild(locked ? lockClosed(24) : lockOpen(24));
+      lockBtn.style.color = locked ? tv(V.text) : tv(V.textTertiary);
+    };
     lockBtn.addEventListener('mouseenter', onLockEnter);
     lockBtn.addEventListener('mouseleave', onLockLeave);
+    lockBtn.addEventListener('click', onLockClick);
     this.cleanups.push(() => {
       lockBtn.removeEventListener('mouseenter', onLockEnter);
       lockBtn.removeEventListener('mouseleave', onLockLeave);
+      lockBtn.removeEventListener('click', onLockClick);
     });
     whRow.appendChild(lockBtn);
 
@@ -1267,7 +1470,7 @@ export class PropertyPanel {
       height: '32px',
       padding: '0 8px',
       borderRadius: '8px',
-      background: tv(V.inputBg),
+      background: tv(V.surfaceHover),
       border: 'none',
       color: tv(V.text),
       fontSize: '11px',
@@ -1285,13 +1488,13 @@ export class PropertyPanel {
       whiteSpace: 'nowrap',
     });
     fontBtn.appendChild(fontText);
-    fontBtn.appendChild(chevronDownIcon(10));
+    fontBtn.appendChild(chevronDown(24));
 
     const onFontEnter = () => {
       fontBtn.style.background = tv(V.border);
     };
     const onFontLeave = () => {
-      fontBtn.style.background = tv(V.inputBg);
+      fontBtn.style.background = tv(V.surfaceHover);
     };
     fontBtn.addEventListener('mouseenter', onFontEnter);
     fontBtn.addEventListener('mouseleave', onFontLeave);
@@ -1344,13 +1547,13 @@ export class PropertyPanel {
     );
     body.appendChild(lineLetterRow);
 
-    // Color row (swatch + hex input in one container)
+    // Color row (swatch + hex input + opacity)
     const colorRow = this.makeSectionRow();
-    const colorControl = this.makeColorRow('color', cs);
+    const colorControl = this.makeColorInput('color', cs);
     colorRow.appendChild(colorControl);
     body.appendChild(colorRow);
 
-    // Text align segmented - 3-option
+    // Text align segmented - 3-option with reference icons
     const alignRow = this.makeSectionRow();
     Object.assign(alignRow.style, {
       display: 'flex',
@@ -1362,11 +1565,11 @@ export class PropertyPanel {
     alignRow.appendChild(alignLabel);
 
     const currentAlign = getVal(cs, 'text-align') || 'left';
-    const alignSeg = this.makeSegmentedControl(
+    const alignSeg = this.makeSegmentedControlWithIcons(
       [
-        { icon: TEXT_ALIGN_LEFT, value: 'left', label: 'Left' },
-        { icon: TEXT_ALIGN_CENTER, value: 'center', label: 'Center' },
-        { icon: TEXT_ALIGN_RIGHT, value: 'right', label: 'Right' },
+        { iconFn: () => textAlignLeft(24), value: 'left', label: 'Left' },
+        { iconFn: () => textAlignCenter(24), value: 'center', label: 'Center' },
+        { iconFn: () => textAlignRight(24), value: 'right', label: 'Right' },
       ],
       currentAlign,
       (val) => this.emitChange('text-align', val),
@@ -1374,7 +1577,7 @@ export class PropertyPanel {
     alignRow.appendChild(alignSeg);
     body.appendChild(alignRow);
 
-    // Vertical align segmented - 3-option
+    // Vertical align segmented - 3-option with reference icons
     const vAlignRow = this.makeSectionRow();
     Object.assign(vAlignRow.style, {
       display: 'flex',
@@ -1390,11 +1593,11 @@ export class PropertyPanel {
     if (currentVAlign === 'middle') vAlignVal = 'middle';
     else if (currentVAlign === 'bottom') vAlignVal = 'bottom';
 
-    const vAlignSeg = this.makeSegmentedControl(
+    const vAlignSeg = this.makeSegmentedControlWithIcons(
       [
-        { icon: TEXT_VALIGN_TOP, value: 'top', label: 'Top' },
-        { icon: TEXT_VALIGN_MIDDLE, value: 'middle', label: 'Middle' },
-        { icon: TEXT_VALIGN_BOTTOM, value: 'bottom', label: 'Bottom' },
+        { iconFn: () => textAlignTop(24), value: 'top', label: 'Top' },
+        { iconFn: () => textAlignMiddle(24), value: 'middle', label: 'Middle' },
+        { iconFn: () => textAlignBottom(24), value: 'bottom', label: 'Bottom' },
       ],
       vAlignVal,
       (val) => this.emitChange('vertical-align', val),
@@ -1434,7 +1637,7 @@ export class PropertyPanel {
     opZRow.appendChild(this.makePropInput('z-index', null, cs, 1));
     body.appendChild(opZRow);
 
-    // Corner radius group with split button
+    // Corner radius group with split button and reference icon
     const radiusRow = this.makeSectionRowWithSplit();
     Object.assign(radiusRow.style, {
       display: 'flex',
@@ -1445,7 +1648,7 @@ export class PropertyPanel {
     const radiusLabel = this.makeGroupLabelInline('Corner radius');
     radiusRow.appendChild(radiusLabel);
     radiusRow.appendChild(
-      this.makePropInput('border-radius', ICON_RADIUS, cs),
+      this.makePropInputWithIcon('border-radius', () => radiusTopLeft(24), cs),
     );
     radiusRow.appendChild(this.makeSplitButton());
 
@@ -1474,20 +1677,400 @@ export class PropertyPanel {
   }
 
   // -----------------------------------------------------------------------
-  // 8-11. Collapsed sections (header only with + button)
+  // 8. Fill Section
   // -----------------------------------------------------------------------
 
-  private buildCollapsedSection(parent: HTMLDivElement, title: string): void {
+  private buildFillSection(
+    parent: HTMLDivElement,
+    cs: Record<string, string>,
+  ): void {
     const section = this.createSection();
-    const header = this.makeSectionHeader(title, () => {
-      // Placeholder for add action
+    const bgColor = getVal(cs, 'background-color');
+    const hasBg = bgColor && bgColor !== 'transparent' && bgColor !== 'rgba(0, 0, 0, 0)';
+
+    const header = this.makeSectionHeader('Fill', () => {
+      // Add fill - set a default background color
+      this.emitChange('background-color', '#ffffff');
     });
     section.appendChild(header);
+
+    if (hasBg) {
+      const body = this.makeSectionBody();
+      const colorRow = this.makeSectionRow();
+      colorRow.appendChild(this.makeColorInput('background-color', cs));
+      body.appendChild(colorRow);
+      section.appendChild(body);
+    }
+
     parent.appendChild(section);
   }
 
   // -----------------------------------------------------------------------
-  // Section structure helpers (Retune-exact dimensions)
+  // 9. Border Section
+  // -----------------------------------------------------------------------
+
+  private buildBorderSection(
+    parent: HTMLDivElement,
+    cs: Record<string, string>,
+  ): void {
+    const section = this.createSection();
+    const borderStyle = getVal(cs, 'border-style') || getVal(cs, 'border-top-style') || 'none';
+    const borderWidth = parsePx(getVal(cs, 'border-width') || getVal(cs, 'border-top-width') || '0');
+    const hasBorder = borderStyle !== 'none' && borderWidth > 0;
+
+    const header = this.makeSectionHeader('Border', () => {
+      this.emitChange('border-style', 'solid');
+      this.emitChange('border-width', '1px');
+      this.emitChange('border-color', '#333333');
+    });
+    section.appendChild(header);
+
+    if (hasBorder) {
+      const body = this.makeSectionBody();
+
+      // Color row
+      const colorRow = this.makeSectionRow();
+      colorRow.appendChild(this.makeColorInput('border-color', cs));
+      body.appendChild(colorRow);
+
+      // Width row
+      const widthRow = this.makeSectionRowWithSplit();
+      Object.assign(widthRow.style, {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+      });
+      const widthLabel = this.makeGroupLabelInline('Width');
+      widthRow.appendChild(widthLabel);
+      widthRow.appendChild(this.makePropInput('border-width', null, cs));
+      widthRow.appendChild(this.makeSplitButton());
+      body.appendChild(widthRow);
+
+      // Style row
+      const styleRow = this.makeSectionRow();
+      Object.assign(styleRow.style, {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+      });
+      const styleLabel = this.makeGroupLabelInline('Style');
+      styleRow.appendChild(styleLabel);
+      const styleSelect = this.makeSelectControl(
+        ['solid', 'dashed', 'dotted', 'double'],
+        borderStyle,
+        (val) => this.emitChange('border-style', val),
+      );
+      styleRow.appendChild(styleSelect);
+      body.appendChild(styleRow);
+
+      section.appendChild(body);
+    }
+
+    parent.appendChild(section);
+  }
+
+  // -----------------------------------------------------------------------
+  // 10. Shadow Section
+  // -----------------------------------------------------------------------
+
+  private buildShadowSection(
+    parent: HTMLDivElement,
+    cs: Record<string, string>,
+  ): void {
+    const section = this.createSection();
+    const shadowVal = getVal(cs, 'box-shadow');
+    const shadow = parseBoxShadow(shadowVal);
+
+    const header = this.makeSectionHeader('Shadow', () => {
+      this.emitChange('box-shadow', '0px 2px 8px 0px rgba(0,0,0,0.15)');
+    });
+    section.appendChild(header);
+
+    if (shadow) {
+      const body = this.makeSectionBody();
+
+      // Color row
+      const colorRow = this.makeSectionRow();
+      const shadowColorHex = parseColor(shadow.color);
+      const shadowColorContainer = document.createElement('div');
+      Object.assign(shadowColorContainer.style, {
+        display: 'flex',
+        alignItems: 'center',
+        height: '32px',
+        gap: '1px',
+      });
+
+      // Hex section
+      const hexSection = document.createElement('div');
+      Object.assign(hexSection.style, {
+        flex: '1',
+        display: 'flex',
+        alignItems: 'center',
+        minWidth: '0',
+        height: '32px',
+        background: tv(V.surfaceHover),
+        borderRadius: '8px 0 0 8px',
+      });
+
+      const swatchContainer = document.createElement('div');
+      Object.assign(swatchContainer.style, {
+        width: '32px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: '0',
+        position: 'relative',
+      });
+      const swatchInner = document.createElement('div');
+      Object.assign(swatchInner.style, {
+        width: '20px',
+        height: '20px',
+        borderRadius: '2px',
+        background: shadowColorHex,
+        position: 'relative',
+        overflow: 'hidden',
+      });
+      const colorInput = document.createElement('input');
+      colorInput.type = 'color';
+      colorInput.value = shadowColorHex;
+      Object.assign(colorInput.style, {
+        position: 'absolute',
+        inset: '0',
+        opacity: '0',
+        width: '100%',
+        height: '100%',
+        cursor: 'pointer',
+        padding: '0',
+        border: 'none',
+      });
+      const onShadowColorInput = () => {
+        swatchInner.style.background = colorInput.value;
+        shadow.color = colorInput.value;
+        this.emitChange('box-shadow', buildBoxShadow(shadow));
+      };
+      colorInput.addEventListener('input', onShadowColorInput);
+      this.cleanups.push(() => colorInput.removeEventListener('input', onShadowColorInput));
+      swatchContainer.appendChild(swatchInner);
+      swatchContainer.appendChild(colorInput);
+      hexSection.appendChild(swatchContainer);
+
+      const hexInput = document.createElement('input');
+      hexInput.type = 'text';
+      hexInput.value = shadowColorHex;
+      Object.assign(hexInput.style, {
+        flex: '1',
+        height: '100%',
+        border: 'none',
+        outline: 'none',
+        background: 'transparent',
+        color: tv(V.text),
+        fontSize: '11px',
+        fontWeight: '450',
+        fontFamily: FONT,
+        padding: '0',
+        letterSpacing: '-0.005em',
+      });
+      hexSection.appendChild(hexInput);
+      shadowColorContainer.appendChild(hexSection);
+
+      // Opacity section
+      const opSection = document.createElement('div');
+      Object.assign(opSection.style, {
+        display: 'flex',
+        alignItems: 'center',
+        height: '32px',
+        background: tv(V.surfaceHover),
+        borderRadius: '0 8px 8px 0',
+        padding: '0 8px 0 4px',
+      });
+      const opInput = document.createElement('input');
+      opInput.type = 'text';
+      opInput.value = String(parseOpacity(shadow.color));
+      Object.assign(opInput.style, {
+        width: '28px',
+        height: '100%',
+        border: 'none',
+        outline: 'none',
+        background: 'transparent',
+        color: tv(V.text),
+        fontSize: '11px',
+        fontWeight: '450',
+        fontFamily: FONT,
+        textAlign: 'right',
+        letterSpacing: '-0.005em',
+        fontVariantNumeric: 'tabular-nums',
+      });
+      const pctLabel = document.createElement('span');
+      pctLabel.textContent = '%';
+      Object.assign(pctLabel.style, {
+        fontSize: '11px',
+        color: tv(V.textTertiary),
+      });
+      opSection.appendChild(opInput);
+      opSection.appendChild(pctLabel);
+      shadowColorContainer.appendChild(opSection);
+
+      colorRow.appendChild(shadowColorContainer);
+      body.appendChild(colorRow);
+
+      // X/Y row
+      const xyRow = this.makeSectionRow();
+      Object.assign(xyRow.style, { display: 'flex', gap: '8px' });
+      const xLabel = this.makeGroupLabelInline('X');
+      xyRow.appendChild(xLabel);
+      xyRow.appendChild(this.makeShadowPropInput(shadow, 'x'));
+      const yLabel = this.makeGroupLabelInline('Y');
+      xyRow.appendChild(yLabel);
+      xyRow.appendChild(this.makeShadowPropInput(shadow, 'y'));
+      body.appendChild(xyRow);
+
+      // Blur/Spread row
+      const bsRow = this.makeSectionRow();
+      Object.assign(bsRow.style, { display: 'flex', gap: '8px' });
+      const blurLabel = this.makeGroupLabelInline('Blur');
+      bsRow.appendChild(blurLabel);
+      bsRow.appendChild(this.makeShadowPropInput(shadow, 'blur'));
+      const spreadLabel = this.makeGroupLabelInline('Spread');
+      bsRow.appendChild(spreadLabel);
+      bsRow.appendChild(this.makeShadowPropInput(shadow, 'spread'));
+      body.appendChild(bsRow);
+
+      // Type row (inset toggle)
+      const typeRow = this.makeSectionRow();
+      Object.assign(typeRow.style, { display: 'flex', alignItems: 'center', gap: '8px' });
+      const typeLabel = this.makeGroupLabelInline('Type');
+      typeRow.appendChild(typeLabel);
+      const typeSelect = this.makeSelectControl(
+        ['Outside', 'Inside'],
+        shadow.inset ? 'Inside' : 'Outside',
+        (val) => {
+          shadow.inset = val === 'Inside';
+          this.emitChange('box-shadow', buildBoxShadow(shadow));
+        },
+      );
+      typeRow.appendChild(typeSelect);
+      body.appendChild(typeRow);
+
+      section.appendChild(body);
+    }
+
+    parent.appendChild(section);
+  }
+
+  // -----------------------------------------------------------------------
+  // 11. Filters Section
+  // -----------------------------------------------------------------------
+
+  private buildFiltersSection(
+    parent: HTMLDivElement,
+    cs: Record<string, string>,
+  ): void {
+    const section = this.createSection();
+    const filterVal = getVal(cs, 'filter');
+    const filters = parseFilterString(filterVal);
+
+    const header = this.makeSectionHeader('Filters', () => {
+      this.emitChange('filter', 'blur(0px)');
+    });
+    section.appendChild(header);
+
+    if (filters.length > 0) {
+      const body = this.makeSectionBody();
+
+      for (let fi = 0; fi < filters.length; fi++) {
+        const filter = filters[fi];
+        const filterRow = this.makeSectionRow();
+        Object.assign(filterRow.style, {
+          display: 'flex',
+          alignItems: 'center',
+          height: '32px',
+          background: tv(V.surfaceHover),
+          borderRadius: '8px',
+          padding: '0 8px',
+          gap: '8px',
+        });
+
+        // Filter label
+        const fLabel = document.createElement('span');
+        fLabel.textContent = filter.type;
+        Object.assign(fLabel.style, {
+          fontSize: '11px',
+          fontWeight: '400',
+          color: tv(V.textTertiary),
+          flexShrink: '0',
+          minWidth: '50px',
+        });
+        filterRow.appendChild(fLabel);
+
+        // Slider track
+        const trackWrap = document.createElement('div');
+        Object.assign(trackWrap.style, {
+          flex: '1',
+          height: '4px',
+          borderRadius: '2px',
+          background: tv(V.border),
+          position: 'relative',
+          cursor: 'pointer',
+        });
+
+        // Determine percentage for common filter types
+        let maxVal = 100;
+        if (filter.unit === 'px') maxVal = 50;
+        else if (filter.unit === 'deg') maxVal = 360;
+        else if (filter.type === 'saturate' || filter.type === 'contrast' || filter.type === 'brightness') maxVal = 200;
+        const pct = Math.min(100, (filter.value / maxVal) * 100);
+
+        const fillBar = document.createElement('div');
+        Object.assign(fillBar.style, {
+          position: 'absolute',
+          left: '0',
+          top: '0',
+          height: '100%',
+          width: pct + '%',
+          borderRadius: '2px',
+          background: tv(V.blue500),
+        });
+        trackWrap.appendChild(fillBar);
+
+        // Click/drag on track to change value
+        const onTrackClick = (e: MouseEvent) => {
+          const rect = trackWrap.getBoundingClientRect();
+          const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+          filter.value = Math.round(ratio * maxVal * 10) / 10;
+          fillBar.style.width = (ratio * 100) + '%';
+          valSpan.textContent = filter.value + filter.unit;
+          this.emitChange('filter', buildFilterString(filters));
+        };
+        trackWrap.addEventListener('click', onTrackClick);
+        this.cleanups.push(() => trackWrap.removeEventListener('click', onTrackClick));
+
+        filterRow.appendChild(trackWrap);
+
+        // Value display
+        const valSpan = document.createElement('span');
+        valSpan.textContent = filter.value + filter.unit;
+        Object.assign(valSpan.style, {
+          fontSize: '11px',
+          fontWeight: '450',
+          color: tv(V.text),
+          fontVariantNumeric: 'tabular-nums',
+          minWidth: '36px',
+          textAlign: 'right',
+          flexShrink: '0',
+        });
+        filterRow.appendChild(valSpan);
+
+        body.appendChild(filterRow);
+      }
+
+      section.appendChild(body);
+    }
+
+    parent.appendChild(section);
+  }
+
+  // -----------------------------------------------------------------------
+  // Section structure helpers (exact dimensions)
   // -----------------------------------------------------------------------
 
   private createSection(): HTMLDivElement {
@@ -1514,10 +2097,10 @@ export class PropertyPanel {
     const titleEl = document.createElement('span');
     titleEl.textContent = title;
     Object.assign(titleEl.style, {
-      fontSize: '13px',
-      fontWeight: '600',
+      fontSize: '12px',
+      fontWeight: '500',
       color: tv(V.text),
-      letterSpacing: '-0.01em',
+      lineHeight: '20px',
     });
     header.appendChild(titleEl);
 
@@ -1538,10 +2121,9 @@ export class PropertyPanel {
         opacity: '0',
         transition: 'opacity 120ms, background 120ms',
       });
-      addBtn.appendChild(plusIcon(14));
+      addBtn.appendChild(plus(24));
 
       // Show add button on section hover
-      const sectionEl = header.parentElement;
       const onHeaderEnter = () => {
         addBtn.style.opacity = '1';
       };
@@ -1602,16 +2184,30 @@ export class PropertyPanel {
     return row;
   }
 
-  // Group label inline: 11px, weight 500, color textTertiary
+  // Group label inline: 11px, weight 400, color textTertiary
   private makeGroupLabelInline(text: string): HTMLSpanElement {
     const label = document.createElement('span');
     label.textContent = text;
     Object.assign(label.style, {
-      fontSize: '12px',
-      fontWeight: '500',
-      color: tv(V.textSecondary),
+      fontSize: '11px',
+      fontWeight: '400',
+      letterSpacing: '-0.005em',
+      color: tv(V.textTertiary),
+      lineHeight: '16px',
       flexShrink: '0',
-      padding: '0',
+    });
+    return label;
+  }
+
+  private makeFieldLabel(text: string): HTMLSpanElement {
+    const label = document.createElement('span');
+    label.textContent = text;
+    Object.assign(label.style, {
+      fontSize: '11px',
+      fontWeight: '400',
+      letterSpacing: '-0.005em',
+      color: tv(V.textTertiary),
+      lineHeight: '16px',
     });
     return label;
   }
@@ -1631,7 +2227,7 @@ export class PropertyPanel {
       fontFamily: FONT,
       border: 'none',
       cursor: 'pointer',
-      background: active ? tv(V.blueBg) : tv(V.inputBg),
+      background: active ? tv(V.blueBg) : tv(V.surfaceHover),
       color: active ? tv(V.blueText) : tv(V.textSecondary),
       transition: 'background 120ms, color 120ms',
     });
@@ -1639,7 +2235,7 @@ export class PropertyPanel {
   }
 
   // -----------------------------------------------------------------------
-  // Split button (32x32)
+  // Split button (32x32) with minus icon
   // -----------------------------------------------------------------------
 
   private makeSplitButton(): HTMLButtonElement {
@@ -1658,7 +2254,7 @@ export class PropertyPanel {
       padding: '0',
       flexShrink: '0',
     });
-    btn.appendChild(splitIcon(12));
+    btn.appendChild(alPaddingSides(24));
 
     const onEnter = () => {
       btn.style.background = tv(V.surfaceHover);
@@ -1720,15 +2316,16 @@ export class PropertyPanel {
   }
 
   // -----------------------------------------------------------------------
-  // PropInput control (Retune-exact: h32, r8, bg inputBg, label 32px)
+  // PropInput control (exact: h32, r8, bg inputBg)
   // -----------------------------------------------------------------------
 
   private makePropInput(
     property: string,
-    iconPath: string | null,
+    _iconPath: string | null,
     computedStyles: Record<string, string>,
     step: number = 1,
     showDash: boolean = false,
+    textLabel: string | null = null,
   ): HTMLDivElement {
     const rawValue = getVal(computedStyles, property);
     const parsed = parseNumericValue(rawValue);
@@ -1738,21 +2335,21 @@ export class PropertyPanel {
       position: 'relative',
       height: '32px',
       borderRadius: '8px',
-      background: tv(V.inputBg),
+      background: tv(V.surfaceHover),
       display: 'flex',
       alignItems: 'center',
-      overflow: 'hidden',
+      overflow: 'visible',
       flex: '1',
       minWidth: '0',
+      transition: 'background-color 0.15s',
     });
 
-    // Hover: bg -> border color (rgba(255,255,255,0.1))
     const onEnter = () => {
       wrapper.style.background = tv(V.border);
     };
     const onLeave = () => {
       if (wrapper.querySelector('input:focus')) return;
-      wrapper.style.background = tv(V.inputBg);
+      wrapper.style.background = tv(V.surfaceHover);
     };
     wrapper.addEventListener('mouseenter', onEnter);
     wrapper.addEventListener('mouseleave', onLeave);
@@ -1761,39 +2358,29 @@ export class PropertyPanel {
       wrapper.removeEventListener('mouseleave', onLeave);
     });
 
-    // Icon label area (32px wide, ew-resize cursor, flex-shrink 0)
-    if (iconPath) {
+    // Text label area (e.g. "T", "R", "B", "L" for offsets)
+    if (textLabel) {
       const labelEl = document.createElement('div');
       Object.assign(labelEl.style, {
+        position: 'absolute',
+        left: '0',
         width: '32px',
+        height: '32px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        cursor: 'ew-resize',
-        userSelect: 'none',
+        fontSize: '11px',
+        fontWeight: '450',
+        letterSpacing: '-0.005em',
+        color: tv(V.text),
         flexShrink: '0',
-        color: tv(V.textTertiary),
-        position: 'relative',
+        userSelect: 'none',
+        cursor: 'ew-resize',
+        zIndex: '1',
       });
-
-      const icon = svgIcon(12, 12, iconPath);
-      labelEl.appendChild(icon);
-
-      // Reset dot inside label area
-      const resetDot = this.makeResetDot(property, rawValue, () => {
-        const origKey = cssPropToCamel(property);
-        const origVal =
-          this.originalValues[origKey] ??
-          this.originalValues[property] ??
-          '';
-        input.value = origVal;
-        this.emitChange(property, origVal);
-      });
-      labelEl.appendChild(resetDot);
-
+      labelEl.textContent = textLabel;
       wrapper.appendChild(labelEl);
 
-      // Scrub on label area
       if (parsed !== null) {
         const unit = parsed.unit || 'px';
         const cleanup = attachScrub(labelEl, {
@@ -1809,19 +2396,19 @@ export class PropertyPanel {
         });
         this.cleanups.push(cleanup);
       }
-    } else {
-      // No icon - still add reset dot
-      const resetDot = this.makeResetDot(property, rawValue, () => {
-        const origKey = cssPropToCamel(property);
-        const origVal =
-          this.originalValues[origKey] ??
-          this.originalValues[property] ??
-          '';
-        input.value = origVal;
-        this.emitChange(property, origVal);
-      });
-      wrapper.appendChild(resetDot);
     }
+
+    // Reset dot
+    const resetDot = this.makeResetDot(property, rawValue, () => {
+      const origKey = cssPropToCamel(property);
+      const origVal =
+        this.originalValues[origKey] ??
+        this.originalValues[property] ??
+        '';
+      input.value = origVal;
+      this.emitChange(property, origVal);
+    });
+    wrapper.appendChild(resetDot);
 
     // Input field
     const input = document.createElement('input');
@@ -1843,20 +2430,19 @@ export class PropertyPanel {
       fontSize: '11px',
       fontWeight: '450',
       fontFamily: FONT,
-      padding: '0 8px',
+      padding: textLabel ? '0 8px 0 32px' : '0 8px',
       boxSizing: 'border-box',
       letterSpacing: '-0.005em',
       fontVariantNumeric: 'tabular-nums',
     });
 
-    // Focus: outline 1px solid border
     const onFocus = () => {
       wrapper.style.outline = '1px solid ' + tv(V.border);
       wrapper.style.background = tv(V.border);
     };
     const onBlur = () => {
       wrapper.style.outline = 'none';
-      wrapper.style.background = tv(V.inputBg);
+      wrapper.style.background = tv(V.surfaceHover);
     };
     input.addEventListener('focus', onFocus);
     input.addEventListener('blur', onBlur);
@@ -1896,7 +2482,252 @@ export class PropertyPanel {
   }
 
   // -----------------------------------------------------------------------
-  // ComboInput (input + dropdown trigger chevron, 32px chevron area)
+  // PropInput with reference SVG icon (icon factory function, not path string)
+  // -----------------------------------------------------------------------
+
+  private makePropInputWithIcon(
+    property: string,
+    iconFn: () => SVGSVGElement,
+    computedStyles: Record<string, string>,
+    step: number = 1,
+  ): HTMLDivElement {
+    const rawValue = getVal(computedStyles, property);
+    const parsed = parseNumericValue(rawValue);
+
+    const wrapper = document.createElement('div');
+    Object.assign(wrapper.style, {
+      position: 'relative',
+      height: '32px',
+      borderRadius: '8px',
+      background: tv(V.surfaceHover),
+      display: 'flex',
+      alignItems: 'center',
+      overflow: 'visible',
+      flex: '1',
+      minWidth: '0',
+      transition: 'background-color 0.15s',
+    });
+
+    const onEnter = () => {
+      wrapper.style.background = tv(V.border);
+    };
+    const onLeave = () => {
+      if (wrapper.querySelector('input:focus')) return;
+      wrapper.style.background = tv(V.surfaceHover);
+    };
+    wrapper.addEventListener('mouseenter', onEnter);
+    wrapper.addEventListener('mouseleave', onLeave);
+    this.cleanups.push(() => {
+      wrapper.removeEventListener('mouseenter', onEnter);
+      wrapper.removeEventListener('mouseleave', onLeave);
+    });
+
+    // Icon label area (32px wide, ew-resize cursor)
+    const labelEl = document.createElement('div');
+    Object.assign(labelEl.style, {
+      width: '32px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      cursor: 'ew-resize',
+      userSelect: 'none',
+      flexShrink: '0',
+      color: tv(V.textTertiary),
+      position: 'relative',
+    });
+
+    labelEl.appendChild(iconFn());
+
+    // Reset dot inside label area
+    const resetDot = this.makeResetDot(property, rawValue, () => {
+      const origKey = cssPropToCamel(property);
+      const origVal =
+        this.originalValues[origKey] ??
+        this.originalValues[property] ??
+        '';
+      input.value = origVal;
+      this.emitChange(property, origVal);
+    });
+    labelEl.appendChild(resetDot);
+
+    wrapper.appendChild(labelEl);
+
+    // Scrub on label area
+    if (parsed !== null) {
+      const unit = parsed.unit || 'px';
+      const cleanup = attachScrub(labelEl, {
+        initialValue: parsed.number,
+        step,
+        onUpdate: (val) => {
+          input.value = String(Math.round(val * 1000) / 1000);
+        },
+        onCommit: (val) => {
+          input.value = String(Math.round(val * 1000) / 1000);
+          this.emitChange(property, formatNumericValue(val, unit));
+        },
+      });
+      this.cleanups.push(cleanup);
+    }
+
+    // Input field
+    const input = document.createElement('input');
+    input.type = 'text';
+    const displayVal = parsed
+      ? String(Math.round(parsed.number * 1000) / 1000)
+      : rawValue || '';
+    input.value = displayVal;
+    Object.assign(input.style, {
+      flex: '1',
+      height: '100%',
+      border: 'none',
+      outline: 'none',
+      background: 'transparent',
+      color: tv(V.text),
+      fontSize: '11px',
+      fontWeight: '450',
+      fontFamily: FONT,
+      padding: '0 8px',
+      boxSizing: 'border-box',
+      letterSpacing: '-0.005em',
+      fontVariantNumeric: 'tabular-nums',
+    });
+
+    const onFocus = () => {
+      wrapper.style.outline = '1px solid ' + tv(V.border);
+      wrapper.style.background = tv(V.border);
+    };
+    const onBlur = () => {
+      wrapper.style.outline = 'none';
+      wrapper.style.background = tv(V.surfaceHover);
+    };
+    input.addEventListener('focus', onFocus);
+    input.addEventListener('blur', onBlur);
+    this.cleanups.push(() => {
+      input.removeEventListener('focus', onFocus);
+      input.removeEventListener('blur', onBlur);
+    });
+
+    // Commit on Enter or change
+    const onCommit = () => {
+      const val = input.value.trim();
+      if (parsed) {
+        const num = parseFloat(val);
+        if (!isNaN(num)) {
+          const unit = parsed.unit || 'px';
+          this.emitChange(property, formatNumericValue(num, unit));
+        }
+      } else {
+        this.emitChange(property, val);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        onCommit();
+        input.blur();
+      }
+    };
+    input.addEventListener('change', onCommit);
+    input.addEventListener('keydown', onKeyDown);
+    this.cleanups.push(() => {
+      input.removeEventListener('change', onCommit);
+      input.removeEventListener('keydown', onKeyDown);
+    });
+
+    wrapper.appendChild(input);
+    return wrapper;
+  }
+
+  // -----------------------------------------------------------------------
+  // Shadow prop input (modifies shadow object and emits box-shadow)
+  // -----------------------------------------------------------------------
+
+  private makeShadowPropInput(
+    shadow: ParsedShadow,
+    key: 'x' | 'y' | 'blur' | 'spread',
+  ): HTMLDivElement {
+    const wrapper = document.createElement('div');
+    Object.assign(wrapper.style, {
+      position: 'relative',
+      height: '32px',
+      borderRadius: '8px',
+      background: tv(V.surfaceHover),
+      display: 'flex',
+      alignItems: 'center',
+      overflow: 'visible',
+      flex: '1',
+      minWidth: '0',
+      transition: 'background-color 0.15s',
+    });
+
+    const onEnter = () => { wrapper.style.background = tv(V.border); };
+    const onLeave = () => {
+      if (wrapper.querySelector('input:focus')) return;
+      wrapper.style.background = tv(V.surfaceHover);
+    };
+    wrapper.addEventListener('mouseenter', onEnter);
+    wrapper.addEventListener('mouseleave', onLeave);
+    this.cleanups.push(() => {
+      wrapper.removeEventListener('mouseenter', onEnter);
+      wrapper.removeEventListener('mouseleave', onLeave);
+    });
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = String(shadow[key]);
+    Object.assign(input.style, {
+      flex: '1',
+      height: '100%',
+      border: 'none',
+      outline: 'none',
+      background: 'transparent',
+      color: tv(V.text),
+      fontSize: '11px',
+      fontWeight: '450',
+      fontFamily: FONT,
+      padding: '0 8px',
+      boxSizing: 'border-box',
+      letterSpacing: '-0.005em',
+      fontVariantNumeric: 'tabular-nums',
+    });
+
+    const onFocus = () => {
+      wrapper.style.outline = '1px solid ' + tv(V.border);
+      wrapper.style.background = tv(V.border);
+    };
+    const onBlur = () => {
+      wrapper.style.outline = 'none';
+      wrapper.style.background = tv(V.surfaceHover);
+    };
+    input.addEventListener('focus', onFocus);
+    input.addEventListener('blur', onBlur);
+    this.cleanups.push(() => {
+      input.removeEventListener('focus', onFocus);
+      input.removeEventListener('blur', onBlur);
+    });
+
+    const onCommit = () => {
+      const num = parseFloat(input.value.trim());
+      if (!isNaN(num)) {
+        shadow[key] = num;
+        this.emitChange('box-shadow', buildBoxShadow(shadow));
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') { onCommit(); input.blur(); }
+    };
+    input.addEventListener('change', onCommit);
+    input.addEventListener('keydown', onKeyDown);
+    this.cleanups.push(() => {
+      input.removeEventListener('change', onCommit);
+      input.removeEventListener('keydown', onKeyDown);
+    });
+
+    wrapper.appendChild(input);
+    return wrapper;
+  }
+
+  // -----------------------------------------------------------------------
+  // ComboInput (split structure: input + chevron trigger with 1px gap)
   // -----------------------------------------------------------------------
 
   private makeComboInput(
@@ -1911,30 +2742,39 @@ export class PropertyPanel {
     Object.assign(wrapper.style, {
       position: 'relative',
       height: '32px',
-      borderRadius: '8px',
-      background: tv(V.inputBg),
       display: 'flex',
       alignItems: 'center',
       flex: '1',
       minWidth: '0',
+      gap: '1px',
     });
 
-    // Hover
-    const onEnter = () => {
-      wrapper.style.background = tv(V.border);
+    // Left: input area
+    const inputArea = document.createElement('div');
+    Object.assign(inputArea.style, {
+      flex: '1',
+      height: '32px',
+      borderRadius: '8px 0 0 8px',
+      background: tv(V.surfaceHover),
+      display: 'flex',
+      alignItems: 'center',
+      paddingLeft: '8px',
+      minWidth: '0',
+      transition: 'background 0.15s',
+    });
+
+    const onInputAreaEnter = () => { inputArea.style.background = tv(V.border); };
+    const onInputAreaLeave = () => {
+      if (inputArea.querySelector('input:focus')) return;
+      inputArea.style.background = tv(V.surfaceHover);
     };
-    const onLeave = () => {
-      if (wrapper.querySelector('input:focus')) return;
-      wrapper.style.background = tv(V.inputBg);
-    };
-    wrapper.addEventListener('mouseenter', onEnter);
-    wrapper.addEventListener('mouseleave', onLeave);
+    inputArea.addEventListener('mouseenter', onInputAreaEnter);
+    inputArea.addEventListener('mouseleave', onInputAreaLeave);
     this.cleanups.push(() => {
-      wrapper.removeEventListener('mouseenter', onEnter);
-      wrapper.removeEventListener('mouseleave', onLeave);
+      inputArea.removeEventListener('mouseenter', onInputAreaEnter);
+      inputArea.removeEventListener('mouseleave', onInputAreaLeave);
     });
 
-    // Input
     const input = document.createElement('input');
     input.type = 'text';
     let displayVal = '';
@@ -1959,21 +2799,21 @@ export class PropertyPanel {
       fontSize: '11px',
       fontWeight: '450',
       fontFamily: FONT,
-      paddingLeft: '8px',
-      paddingRight: '32px',
+      padding: '0',
+      paddingRight: '4px',
       boxSizing: 'border-box',
       letterSpacing: '-0.005em',
       fontVariantNumeric: 'tabular-nums',
+      minWidth: '0',
     });
 
-    // Focus
     const onFocus = () => {
-      wrapper.style.outline = '1px solid ' + tv(V.border);
-      wrapper.style.background = tv(V.border);
+      inputArea.style.outline = '1px solid ' + tv(V.border);
+      inputArea.style.background = tv(V.border);
     };
     const onBlur = () => {
-      wrapper.style.outline = 'none';
-      wrapper.style.background = tv(V.inputBg);
+      inputArea.style.outline = 'none';
+      inputArea.style.background = tv(V.surfaceHover);
     };
     input.addEventListener('focus', onFocus);
     input.addEventListener('blur', onBlur);
@@ -2008,30 +2848,42 @@ export class PropertyPanel {
       input.removeEventListener('keydown', onKeyDown);
     });
 
-    wrapper.appendChild(input);
+    inputArea.appendChild(input);
+    wrapper.appendChild(inputArea);
 
-    // Chevron trigger on right (32px wide area)
-    const chevronArea = document.createElement('div');
-    Object.assign(chevronArea.style, {
-      position: 'absolute',
-      right: '0',
-      top: '0',
-      bottom: '0',
+    // Right: chevron trigger (32x32)
+    const chevronTrigger = document.createElement('div');
+    Object.assign(chevronTrigger.style, {
       width: '32px',
+      height: '32px',
+      borderRadius: '0 8px 8px 0',
+      background: tv(V.surfaceHover),
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       cursor: 'pointer',
       color: tv(V.textTertiary),
+      flexShrink: '0',
+      transition: 'background 0.15s',
     });
-    chevronArea.appendChild(chevronDownIcon(12));
-    wrapper.appendChild(chevronArea);
+    chevronTrigger.appendChild(chevronDown(24));
+
+    const onChevEnter = () => { chevronTrigger.style.background = tv(V.border); };
+    const onChevLeave = () => { chevronTrigger.style.background = tv(V.surfaceHover); };
+    chevronTrigger.addEventListener('mouseenter', onChevEnter);
+    chevronTrigger.addEventListener('mouseleave', onChevLeave);
+    this.cleanups.push(() => {
+      chevronTrigger.removeEventListener('mouseenter', onChevEnter);
+      chevronTrigger.removeEventListener('mouseleave', onChevLeave);
+    });
+
+    wrapper.appendChild(chevronTrigger);
 
     return wrapper;
   }
 
   // -----------------------------------------------------------------------
-  // SelectControl (Retune-exact: h32, r8, bg inputBg, 32px chevron area)
+  // SelectControl (exact: h32, r8, bg inputBg, 32px chevron area)
   // -----------------------------------------------------------------------
 
   private makeSelectControl(
@@ -2044,7 +2896,7 @@ export class PropertyPanel {
       position: 'relative',
       height: '32px',
       borderRadius: '8px',
-      background: tv(V.inputBg),
+      background: tv(V.surfaceHover),
       display: 'flex',
       alignItems: 'center',
       flex: '1',
@@ -2052,6 +2904,7 @@ export class PropertyPanel {
       cursor: 'pointer',
       padding: '0',
       border: 'none',
+      overflow: 'visible',
     });
 
     const valueText = document.createElement('span');
@@ -2060,35 +2913,35 @@ export class PropertyPanel {
       flex: '1',
       fontSize: '11px',
       fontWeight: '450',
+      letterSpacing: '-0.005em',
       color: tv(V.text),
-      paddingLeft: '8px',
+      paddingLeft: '32px',
       overflow: 'hidden',
       textOverflow: 'ellipsis',
       whiteSpace: 'nowrap',
       textAlign: 'left',
     });
 
-    // Chevron area (32px)
     const chevronWrap = document.createElement('div');
     Object.assign(chevronWrap.style, {
       width: '32px',
+      height: '32px',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      color: tv(V.textTertiary),
+      color: tv(V.textSecondary),
       flexShrink: '0',
     });
-    chevronWrap.appendChild(chevronDownIcon(10));
+    chevronWrap.appendChild(chevronDown(24));
 
     wrapper.appendChild(valueText);
     wrapper.appendChild(chevronWrap);
 
-    // Hover
     const onEnter = () => {
       wrapper.style.background = tv(V.border);
     };
     const onLeave = () => {
-      wrapper.style.background = tv(V.inputBg);
+      wrapper.style.background = tv(V.surfaceHover);
     };
     wrapper.addEventListener('mouseenter', onEnter);
     wrapper.addEventListener('mouseleave', onLeave);
@@ -2121,7 +2974,7 @@ export class PropertyPanel {
         top: '34px',
         left: '0',
         right: '0',
-        background: '#222',
+        background: tv(V.surface),
         borderRadius: '8px',
         border: '1px solid ' + tv(V.border),
         boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
@@ -2146,7 +2999,7 @@ export class PropertyPanel {
         item.textContent = opt;
 
         const onItemEnter = () => {
-          if (!isActive) item.style.background = tv(V.inputBg);
+          if (!isActive) item.style.background = tv(V.surfaceHover);
         };
         const onItemLeave = () => {
           if (!isActive) item.style.background = 'transparent';
@@ -2194,11 +3047,11 @@ export class PropertyPanel {
   }
 
   // -----------------------------------------------------------------------
-  // SegmentedControl (Retune-exact: bg inputBg, r8, pad 2px, pill h calc(100%-4px), r6)
+  // SegmentedControl with reference icon factory functions
   // -----------------------------------------------------------------------
 
-  private makeSegmentedControl(
-    items: Array<{ icon: string; value: string; label: string }>,
+  private makeSegmentedControlWithIcons(
+    items: Array<{ iconFn: () => SVGSVGElement; value: string; label: string }>,
     activeValue: string,
     onChange: (val: string) => void,
   ): HTMLDivElement {
@@ -2206,21 +3059,26 @@ export class PropertyPanel {
     Object.assign(outer.style, {
       position: 'relative',
       display: 'flex',
-      alignItems: 'center',
-      background: tv(V.inputBg),
+      height: '32px',
+      background: tv(V.surfaceHover),
       borderRadius: '8px',
-      padding: '2px',
+      overflow: 'hidden',
       flex: '1',
     });
 
-    // Sliding pill
+    // Sliding pill (reference: surface bg + border)
     const pill = document.createElement('div');
     Object.assign(pill.style, {
       position: 'absolute',
-      height: 'calc(100% - 4px)',
-      background: 'rgba(255,255,255,0.08)',
-      borderRadius: '6px',
-      transition: 'transform 0.2s ' + EASE,
+      top: '0',
+      left: '0',
+      height: '100%',
+      background: tv(V.surface),
+      border: '1px solid ' + tv(V.border),
+      borderRadius: '8px',
+      boxSizing: 'border-box',
+      transition: 'transform 200ms cubic-bezier(0.77, 0, 0.175, 1)',
+      willChange: 'transform',
       pointerEvents: 'none',
       zIndex: '0',
     });
@@ -2233,26 +3091,25 @@ export class PropertyPanel {
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       const btn = document.createElement('button');
-      const isActive = i === activeIdx;
       Object.assign(btn.style, {
         flex: '1',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        height: '28px',
+        height: '32px',
         border: 'none',
         background: 'transparent',
-        color: isActive ? tv(V.text) : tv(V.textTertiary),
+        color: tv(V.text),
         cursor: 'pointer',
         position: 'relative',
         zIndex: '1',
         padding: '0',
-        borderRadius: '6px',
+        borderRadius: '8px',
         transition: 'color 150ms',
       });
       btn.title = item.label;
       btn.setAttribute('aria-label', item.label);
-      btn.appendChild(svgIcon(16, 16, item.icon));
+      btn.appendChild(item.iconFn());
 
       const onClick = () => {
         activeIdx = i;
@@ -2286,89 +3143,109 @@ export class PropertyPanel {
   }
 
   // -----------------------------------------------------------------------
-  // Icon button group (for alignment - 28x28, r6)
+  // Alignment 3x3 grid with reference iconDot/iconPosition* icons
   // -----------------------------------------------------------------------
 
-  private makeIconButtonGroup(
-    items: Array<{ icon: string; value: string }>,
-    activeValue: string,
-    onChange: (val: string) => void,
+  private makeAlignmentGrid(
+    cs: Record<string, string>,
   ): HTMLDivElement {
-    const group = document.createElement('div');
-    Object.assign(group.style, {
-      display: 'flex',
-      gap: '2px',
+    const grid = document.createElement('div');
+    Object.assign(grid.style, {
+      display: 'grid',
+      gridTemplateColumns: 'repeat(3, 1fr)',
+      gridTemplateRows: 'repeat(3, 1fr)',
+      background: tv(V.surfaceHover),
+      borderRadius: '8px',
+      width: '100%',
+      height: '72px',
     });
 
-    const buttons: HTMLButtonElement[] = [];
+    const BLUE = '#0D99FF';
+    const GRAY = '#a8a29e';
 
-    for (const item of items) {
-      const btn = document.createElement('button');
-      const isActive = item.value === activeValue;
-      Object.assign(btn.style, {
+    // Each position maps to jc+ai values and a position-specific icon
+    const positionIcons = [
+      { jc: 'flex-start', ai: 'flex-start', icon: (c: string) => iconPositionTop(16, c) },
+      { jc: 'center', ai: 'flex-start', icon: (c: string) => iconPositionCenterV(16, c) },
+      { jc: 'flex-end', ai: 'flex-start', icon: (c: string) => iconPositionBottom(16, c) },
+      { jc: 'flex-start', ai: 'center', icon: (c: string) => iconPositionTop(16, c) },
+      { jc: 'center', ai: 'center', icon: (c: string) => iconPositionCenterV(16, c) },
+      { jc: 'flex-end', ai: 'center', icon: (c: string) => iconPositionBottom(16, c) },
+      { jc: 'flex-start', ai: 'flex-end', icon: (c: string) => iconPositionTop(16, c) },
+      { jc: 'center', ai: 'flex-end', icon: (c: string) => iconPositionCenterV(16, c) },
+      { jc: 'flex-end', ai: 'flex-end', icon: (c: string) => iconPositionBottom(16, c) },
+    ];
+
+    const currentJC = getVal(cs, 'justify-content') || 'flex-start';
+    const currentAI = getVal(cs, 'align-items') || 'flex-start';
+
+    const cells: HTMLButtonElement[] = [];
+
+    for (let idx = 0; idx < positionIcons.length; idx++) {
+      const pos = positionIcons[idx];
+      const cell = document.createElement('button');
+      const isActive = pos.jc === currentJC && pos.ai === currentAI;
+      Object.assign(cell.style, {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: '32px',
-        height: '32px',
-        borderRadius: '8px',
         border: 'none',
-        background: isActive ? tv(V.inputBg) : 'transparent',
-        color: isActive ? tv(V.text) : tv(V.textTertiary),
-        cursor: 'pointer',
+        background: 'transparent',
         padding: '0',
-        transition: 'background 120ms, color 120ms',
+        cursor: 'pointer',
+        overflow: 'hidden',
       });
-      btn.appendChild(svgIcon(18, 18, item.icon));
 
-      const onClick = () => {
-        for (const b of buttons) {
-          b.style.background = 'transparent';
-          b.style.color = tv(V.textTertiary);
-        }
-        btn.style.background = tv(V.inputBg);
-        btn.style.color = tv(V.text);
-        onChange(item.value);
-      };
-      btn.addEventListener('click', onClick);
-      this.cleanups.push(() =>
-        btn.removeEventListener('click', onClick),
-      );
+      // Active: show position icon in blue. Inactive: show dot in gray.
+      if (isActive) {
+        cell.appendChild(pos.icon(BLUE));
+      } else {
+        cell.appendChild(iconDot(16, GRAY));
+      }
 
-      const onEnter = () => {
-        if (btn.style.background !== tv(V.border)) {
-          btn.style.background = tv(V.surfaceHover);
+      const onCellEnter = () => {
+        if (!isActive) cell.style.color = tv(V.text);
+      };
+      const onCellLeave = () => {
+        if (!isActive) cell.style.color = tv(V.textTertiary);
+      };
+      const onCellClick = () => {
+        this.emitChange('justify-content', pos.jc);
+        this.emitChange('align-items', pos.ai);
+        for (let i = 0; i < cells.length; i++) {
+          const c = cells[i];
+          const p = positions[i];
+          const active = p.jc === pos.jc && p.ai === pos.ai;
+          c.style.color = active ? tv(V.text) : tv(V.textTertiary);
         }
       };
-      const onLeave = () => {
-        if (btn.style.background === tv(V.surfaceHover)) {
-          btn.style.background = 'transparent';
-        }
-      };
-      btn.addEventListener('mouseenter', onEnter);
-      btn.addEventListener('mouseleave', onLeave);
+      cell.addEventListener('mouseenter', onCellEnter);
+      cell.addEventListener('mouseleave', onCellLeave);
+      cell.addEventListener('click', onCellClick);
       this.cleanups.push(() => {
-        btn.removeEventListener('mouseenter', onEnter);
-        btn.removeEventListener('mouseleave', onLeave);
+        cell.removeEventListener('mouseenter', onCellEnter);
+        cell.removeEventListener('mouseleave', onCellLeave);
+        cell.removeEventListener('click', onCellClick);
       });
 
-      buttons.push(btn);
-      group.appendChild(btn);
+      cells.push(cell);
+      grid.appendChild(cell);
     }
 
-    return group;
+    return grid;
   }
 
   // -----------------------------------------------------------------------
-  // ColorRow (Retune-exact: swatch 16x16, inset shadow, hex input in same container)
+  // ColorInput (exact: swatch + hex + opacity, split into two sections)
   // -----------------------------------------------------------------------
 
-  private makeColorRow(
+  private makeColorInput(
     property: string,
     computedStyles: Record<string, string>,
   ): HTMLDivElement {
     const rawValue = getVal(computedStyles, property);
     const hexValue = parseColor(rawValue);
+    const opacityVal = parseOpacity(rawValue);
 
     // Container row
     const row = document.createElement('div');
@@ -2376,21 +3253,36 @@ export class PropertyPanel {
       display: 'flex',
       alignItems: 'center',
       height: '32px',
+      gap: '1px',
     });
 
-    // Hex section (flex 1, contains swatch + hex input)
+    // Left: hex section (swatch + hex input)
     const hexSection = document.createElement('div');
     Object.assign(hexSection.style, {
       flex: '1',
       display: 'flex',
       alignItems: 'center',
-      background: tv(V.inputBg),
-      borderRadius: '8px',
-      overflow: 'hidden',
+      minWidth: '0',
       height: '32px',
+      position: 'relative',
+      background: tv(V.surfaceHover),
+      borderRadius: '8px 0 0 8px',
+      transition: 'background 0.15s',
     });
 
-    // Swatch container (32px wide, centers 16x16 swatch)
+    const onHexEnter = () => { hexSection.style.background = tv(V.border); };
+    const onHexLeave = () => {
+      if (hexSection.querySelector('input:focus')) return;
+      hexSection.style.background = tv(V.surfaceHover);
+    };
+    hexSection.addEventListener('mouseenter', onHexEnter);
+    hexSection.addEventListener('mouseleave', onHexLeave);
+    this.cleanups.push(() => {
+      hexSection.removeEventListener('mouseenter', onHexEnter);
+      hexSection.removeEventListener('mouseleave', onHexLeave);
+    });
+
+    // Swatch container (32px wide, centers 20x20 swatch)
     const swatchContainer = document.createElement('div');
     Object.assign(swatchContainer.style, {
       width: '32px',
@@ -2401,14 +3293,15 @@ export class PropertyPanel {
       position: 'relative',
     });
 
-    // Swatch inner (16x16 circle)
+    // Swatch inner (20x20 rounded square)
     const swatchInner = document.createElement('div');
     Object.assign(swatchInner.style, {
-      width: '16px',
-      height: '16px',
-      borderRadius: '50%',
+      width: '20px',
+      height: '20px',
+      borderRadius: '2px',
       background: hexValue,
-      boxShadow: 'rgba(0,0,0,0.1) 0px 0px 0px 1px inset',
+      position: 'relative',
+      overflow: 'hidden',
     });
 
     // Hidden native color input over swatch
@@ -2442,7 +3335,7 @@ export class PropertyPanel {
       fontSize: '11px',
       fontWeight: '450',
       fontFamily: FONT,
-      padding: '0 8px',
+      padding: '0',
       boxSizing: 'border-box',
       letterSpacing: '-0.005em',
     });
@@ -2486,6 +3379,7 @@ export class PropertyPanel {
     };
     const onBlur = () => {
       hexSection.style.outline = 'none';
+      hexSection.style.background = tv(V.surfaceHover);
     };
     hexInput.addEventListener('focus', onFocus);
     hexInput.addEventListener('blur', onBlur);
@@ -2496,8 +3390,61 @@ export class PropertyPanel {
 
     hexSection.appendChild(swatchContainer);
     hexSection.appendChild(hexInput);
-
     row.appendChild(hexSection);
+
+    // Right: opacity section
+    const opSection = document.createElement('div');
+    Object.assign(opSection.style, {
+      display: 'flex',
+      alignItems: 'center',
+      height: '32px',
+      background: tv(V.surfaceHover),
+      borderRadius: '0 8px 8px 0',
+      padding: '0 8px 0 4px',
+      transition: 'background 0.15s',
+    });
+
+    const onOpEnter = () => { opSection.style.background = tv(V.border); };
+    const onOpLeave = () => {
+      if (opSection.querySelector('input:focus')) return;
+      opSection.style.background = tv(V.surfaceHover);
+    };
+    opSection.addEventListener('mouseenter', onOpEnter);
+    opSection.addEventListener('mouseleave', onOpLeave);
+    this.cleanups.push(() => {
+      opSection.removeEventListener('mouseenter', onOpEnter);
+      opSection.removeEventListener('mouseleave', onOpLeave);
+    });
+
+    const opInput = document.createElement('input');
+    opInput.type = 'text';
+    opInput.value = String(opacityVal);
+    Object.assign(opInput.style, {
+      width: '28px',
+      height: '100%',
+      border: 'none',
+      outline: 'none',
+      background: 'transparent',
+      color: tv(V.text),
+      fontSize: '11px',
+      fontWeight: '450',
+      fontFamily: FONT,
+      textAlign: 'right',
+      letterSpacing: '-0.005em',
+      fontVariantNumeric: 'tabular-nums',
+    });
+
+    const pctLabel = document.createElement('span');
+    pctLabel.textContent = '%';
+    Object.assign(pctLabel.style, {
+      fontSize: '11px',
+      color: tv(V.textTertiary),
+    });
+
+    opSection.appendChild(opInput);
+    opSection.appendChild(pctLabel);
+    row.appendChild(opSection);
+
     return row;
   }
 

@@ -42,7 +42,7 @@ if not reason and ("\u2014" in content or "\u2013" in content):
     reason = "Emdash/endash forbidden by CLAUDE.md - use hyphens or rewrite"
 
 if not reason:
-    if re.search(r"gpt-4o|gpt-4\.1|gpt-3\.5|gpt-4(?![\.\-\d])|claude-3-(opus|sonnet|haiku)", content):
+    if re.search(r"gpt-4o(?!-mini-tts)|gpt-4\.1|gpt-3\.5|gpt-4(?![o\.\-\d])|claude-3-(opus|sonnet|haiku)", content):
         reason = "Legacy model ID forbidden by CLAUDE.md - use latest model versions only"
 
 if not reason:

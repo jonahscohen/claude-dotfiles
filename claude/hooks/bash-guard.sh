@@ -23,7 +23,7 @@ if [ -z "$REASON" ] && echo "$CMD" | grep -qE 'rm[[:space:]]+(-[a-zA-Z]*r[a-zA-Z
 fi
 
 # Legacy model IDs in any command
-if [ -z "$REASON" ] && echo "$CMD" | grep -qE 'gpt-4o|gpt-4\.1|gpt-3\.5|gpt-4[^.\-]|claude-3-(opus|sonnet|haiku)'; then
+if [ -z "$REASON" ] && echo "$CMD" | grep -qP 'gpt-4o(?!-mini-tts)|gpt-4\.1|gpt-3\.5|gpt-4[^o.\-]|claude-3-(opus|sonnet|haiku)'; then
   REASON="BLOCKED: legacy model ID detected. CLAUDE.md mandates latest model versions only."
 fi
 

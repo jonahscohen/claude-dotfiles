@@ -10,7 +10,7 @@ Improv v1 shipped as a working technical skeleton - types, MCP server, WebSocket
 
 ## Problem 1: Activation is too hard
 
-**Current behavior:** User has to ask Claude to inject the script via Chrome MCP tools into a specific tab. Every page reload requires re-injection. The keystroke (CMD+SHIFT+.) only works after injection. This is not how Retune, Agentation, or React Grab work.
+**Current behavior:** User has to ask Claude to inject the script via Chrome MCP tools into a specific tab. Every page reload requires re-injection. The keystroke (CMD+SHIFT+.) only works after injection. This is not how reference tool, reference annotation tool, or React Grab work.
 
 **How the reference tools work:** You add a component or import to your project once (dev-only), and it's always there. No AI involvement to activate. No browser tools. No injection.
 
@@ -45,13 +45,13 @@ For projects using Node.js dev servers (Next.js, Vite, Webpack Dev Server), Impr
 
 This can coexist with `improv init` - the middleware is for JS projects, `improv init` is for everything else.
 
-## Problem 2: Manipulate mode doesn't match Retune
+## Problem 2: Manipulate mode doesn't match the reference
 
 **Current behavior:** Barebones property panel with scrub-to-adjust values. No visual handles on elements. Finnicky controls. No state toggles.
 
-**Required behavior:** Copy Retune exactly. Reference their source analysis from the design phase.
+**Required behavior:** Copy reference tool exactly. Reference their source analysis from the design phase.
 
-### What Retune has that Improv doesn't:
+### What reference tool has that Improv doesn't:
 
 1. **Element handles** - padding/margin edges you drag directly on the element, corner radius handles on corners. Visual, not just panel controls.
 
@@ -73,21 +73,21 @@ This can coexist with `improv init` - the middleware is for JS projects, `improv
 
 ### Implementation approach
 
-Study Retune's overlay source carefully. Their property panel renders inside Shadow DOM with adopted stylesheets. Their control architecture detects element type and shows appropriate controls. Their scrub interaction uses the exact same Shift/Alt modifier pattern we already have.
+Study the reference tool's overlay source carefully. Their property panel renders inside Shadow DOM with adopted stylesheets. Their control architecture detects element type and shows appropriate controls. Their scrub interaction uses the exact same Shift/Alt modifier pattern we already have.
 
-The key files to study from the Retune analysis:
+The key files to study from the reference tool analysis:
 - `packages/overlay/src/overlay/mount.ts` - Shadow DOM mounting
 - `packages/overlay/src/inspector/style-source.ts` - CSSOM style tracing
 - `packages/overlay/src/engine/output.ts` - structured diff output
 - `packages/overlay/src/engine/live-preview.ts` - Constructable Stylesheets
 
-## Problem 3: Annotate mode doesn't match Agentation
+## Problem 3: Annotate mode doesn't match reference annotation tool
 
 **Current behavior:** Basic annotation markers. No visual differentiation between intent types. No structured output visible to the user.
 
-**Required behavior:** Match Agentation's visual treatment. Split Annotate and Layout into two separate toolbar buttons for clarity.
+**Required behavior:** Match reference annotation tool's visual treatment. Split Annotate and Layout into two separate toolbar buttons for clarity.
 
-### What Agentation has that Improv doesn't:
+### What reference annotation tool has that Improv doesn't:
 
 1. **Visual annotation markers** with color-coded intent (fix=red, change=blue, question=yellow, approve=green). Numbered badges. Connecting lines from marker to element.
 
@@ -101,9 +101,9 @@ The key files to study from the Retune analysis:
 
 6. **Animation freeze indicator** - visible UI showing animations are paused, with an unfreeze button.
 
-## Problem 4: Layout mode doesn't match Agentation
+## Problem 4: Layout mode doesn't match reference annotation tool
 
-### What Agentation has that Improv doesn't:
+### What reference annotation tool has that Improv doesn't:
 
 1. **Component palette as a polished sidebar** - categorized, searchable, with visual thumbnails/icons per component type. Not a flat list.
 
@@ -130,11 +130,11 @@ Each mode should show a confirmation state after applying - what was sent, that 
 
 1. **Activation overhaul** (`improv init`, per-project setup, no Chrome MCP dependency)
 2. **Split toolbar** (4 mode buttons: Manipulate, Prompt, Annotate, Layout + Apply)
-3. **Manipulate UI rebuild** (match Retune: handles, box model, state toggles, polished panel)
-4. **Annotate UI rebuild** (match Agentation: colored markers, rich popups, output preview)
-5. **Layout UI rebuild** (match Agentation: polished palette, skeleton design, snap labels)
+3. **Manipulate UI rebuild** (match the reference: handles, box model, state toggles, polished panel)
+4. **Annotate UI rebuild** (match reference annotation tool: colored markers, rich popups, output preview)
+5. **Layout UI rebuild** (match reference annotation tool: polished palette, skeleton design, snap labels)
 6. **Apply confirmation UI** (green checkmarks, file paths, "sent to Claude" state)
 
 ## Reference material
 
-The deep technical analysis of Retune, Agentation, and React Grab from the brainstorming session is preserved in the design spec at `docs/superpowers/specs/2026-05-04-improv-design.md`. It contains source-level architecture details for all three tools.
+The deep technical analysis of reference tool, reference annotation tool, and React Grab from the brainstorming session is preserved in the design spec at `docs/superpowers/specs/2026-05-04-improv-design.md`. It contains source-level architecture details for all three tools.

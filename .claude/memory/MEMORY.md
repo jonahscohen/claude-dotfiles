@@ -35,3 +35,6 @@
 - [Plugin additions (2026-05-01)](session_2026-05-01_plugin-additions.md) - feature-dev, ralph-loop, code-review, etc. added to settings.json
 - [Design skills suite (2026-05-03)](session_2026-05-03_design-skills-suite.md) - 4 new peer skills: social-media, design-team, visual-effects, icon-source
 - [Voice mandate hook (2026-05-03)](session_2026-05-03_voice-mandate-hook.md) - SessionStart hook enforces voice output mechanically; rules-on-paper failed 3x
+- [Improv annotate rewrite (2026-05-03)](session_2026-05-03_improv-annotate-rewrite.md) - production-quality annotate: colored markers, rich popups, lasso overlays, freeze indicator
+- [Improv icons extraction (2026-05-04)](session_2026-05-04_improv-icons-extraction.md) - 58 SVG icon functions extracted verbatim from reference tool v0.7.6 into icons.ts
+- [Improv panel reference tool rewrite (2026-05-04)](session_2026-05-04_improv-panel-reference-tool-rewrite.md) - Full property-panel.ts rewrite: reference tool icons, Fill/Border/Shadow/Filters sections, split color/combo inputs, alignment UI fixes
