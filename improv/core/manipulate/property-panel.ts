@@ -183,7 +183,7 @@ const TOKENS: Record<string, string> = {
   [V.textSecondary]: 'rgba(255,255,255,0.7)',
   [V.textTertiary]: 'rgba(255,255,255,0.5)',
   [V.border]: 'rgba(255,255,255,0.1)',
-  [V.inputBg]: 'rgba(255,255,255,0.05)',
+  [V.inputBg]: 'rgba(255,255,255,0.08)',
   [V.blueBg]: 'color-mix(in srgb, #0768CF 50%, transparent)',
   [V.blueText]: '#0D99FF',
   [V.blue500]: '#0D99FF',
@@ -1504,9 +1504,10 @@ export class PropertyPanel {
     const titleEl = document.createElement('span');
     titleEl.textContent = title;
     Object.assign(titleEl.style, {
-      fontSize: '12px',
-      fontWeight: '500',
-      color: tv(V.textSecondary),
+      fontSize: '13px',
+      fontWeight: '600',
+      color: tv(V.text),
+      letterSpacing: '-0.01em',
     });
     header.appendChild(titleEl);
 
@@ -1596,9 +1597,9 @@ export class PropertyPanel {
     const label = document.createElement('span');
     label.textContent = text;
     Object.assign(label.style, {
-      fontSize: '11px',
+      fontSize: '12px',
       fontWeight: '500',
-      color: tv(V.textTertiary),
+      color: tv(V.textSecondary),
       flexShrink: '0',
       padding: '0',
     });
