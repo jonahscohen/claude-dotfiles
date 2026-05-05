@@ -214,6 +214,8 @@ export class Toolbar {
   private verbosity: (typeof VERBOSITY_OPTIONS)[number] = 'standard';
   private connected = false;
   private port = 3901;
+  private markerColor = '#ef4444';
+  private markerColorCallbacks: Array<(color: string) => void> = [];
 
   constructor(shadowRoot: ShadowRoot) {
     // ---- Inject animation keyframes ----
@@ -530,6 +532,63 @@ export class Toolbar {
     connSection.appendChild(connInfo);
     panel.appendChild(connSection);
 
+    // Marker color swatches
+    const colorSection = this.buildSettingsRow('Marker Color');
+    const swatchRow = document.createElement('div');
+    applyStyles(swatchRow, {
+      display: 'flex',
+      gap: '6px',
+      alignItems: 'center',
+    });
+
+    const SWATCHES = [
+      '#ef4444',
+      '#f97316',
+      '#eab308',
+      '#22c55e',
+      '#3b82f6',
+      '#8b5cf6',
+    ];
+
+    const swatchEls: HTMLDivElement[] = [];
+    for (const hex of SWATCHES) {
+      const dot = document.createElement('div');
+      const isActive = hex === this.markerColor;
+      applyStyles(dot, {
+        width: '18px',
+        height: '18px',
+        borderRadius: '50%',
+        background: hex,
+        cursor: 'pointer',
+        border: isActive ? '2px solid #fff' : '2px solid transparent',
+        boxShadow: isActive ? `0 0 0 1px ${hex}` : 'none',
+        transition: 'border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease',
+        flexShrink: '0',
+      });
+      dot.addEventListener('mouseenter', () => {
+        if (dot.style.borderColor !== 'rgb(255, 255, 255)') {
+          dot.style.transform = 'scale(1.15)';
+        }
+      });
+      dot.addEventListener('mouseleave', () => { dot.style.transform = ''; });
+      dot.addEventListener('mousedown', () => { dot.style.transform = 'scale(0.92)'; });
+      dot.addEventListener('mouseup', () => { dot.style.transform = ''; });
+      dot.addEventListener('click', () => {
+        for (const d of swatchEls) {
+          d.style.border = '2px solid transparent';
+          d.style.boxShadow = 'none';
+        }
+        dot.style.border = '2px solid #fff';
+        dot.style.boxShadow = `0 0 0 1px ${hex}`;
+        this.markerColor = hex;
+        for (const cb of this.markerColorCallbacks) cb(hex);
+      });
+      swatchEls.push(dot);
+      swatchRow.appendChild(dot);
+    }
+    colorSection.appendChild(swatchRow);
+    panel.appendChild(colorSection);
+
     // Insert into the same shadow root as the toolbar
     this.el.parentNode!.appendChild(panel);
   }
@@ -672,6 +731,14 @@ export class Toolbar {
 
   onClearAll(callback: ActionCallback): void {
     this.clearAllCallbacks.push(callback);
+  }
+
+  onMarkerColorChange(callback: (color: string) => void): void {
+    this.markerColorCallbacks.push(callback);
+  }
+
+  getMarkerColor(): string {
+    return this.markerColor;
   }
 
   setConnected(connected: boolean): void {
