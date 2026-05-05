@@ -18,13 +18,6 @@ function rgbToHex(rgb: string): string {
   return '#' + [r, g, b].map((n) => n.toString(16).padStart(2, '0')).join('');
 }
 
-function rgbaAlpha(val: string): number {
-  const match = val.match(
-    /^rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([\d.]+)\s*\)$/,
-  );
-  return match ? parseFloat(match[1]) : 1;
-}
-
 function parseColor(val: string): string {
   if (!val || val === 'transparent') return '#000000';
   if (val.startsWith('rgb')) return rgbToHex(val);
@@ -38,10 +31,6 @@ function parseColor(val: string): string {
 function parsePx(val: string): number {
   const n = parseFloat(val);
   return isNaN(n) ? 0 : n;
-}
-
-function fmtVal(val: string): string {
-  return String(Math.round(parsePx(val)));
 }
 
 function cssPropToCamel(property: string): string {
@@ -79,26 +68,6 @@ function svgIcon(w: number, h: number, pathData: string): SVGSVGElement {
   return el;
 }
 
-function svgIconMulti(w: number, h: number, elements: Array<{ tag: string; attrs: Record<string, string> }>): SVGSVGElement {
-  const el = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  el.setAttribute('width', String(w));
-  el.setAttribute('height', String(h));
-  el.setAttribute('viewBox', '0 0 24 24');
-  el.setAttribute('fill', 'none');
-  el.setAttribute('stroke', 'currentColor');
-  el.setAttribute('stroke-width', '2');
-  el.setAttribute('stroke-linecap', 'round');
-  el.setAttribute('stroke-linejoin', 'round');
-  for (const item of elements) {
-    const child = document.createElementNS('http://www.w3.org/2000/svg', item.tag);
-    for (const [k, v] of Object.entries(item.attrs)) {
-      child.setAttribute(k, v);
-    }
-    el.appendChild(child);
-  }
-  return el;
-}
-
 // Lucide chevron-down
 function chevronDownIcon(size: number = 12): SVGSVGElement {
   return svgIcon(size, size, 'M6 9l6 6l6-6');
@@ -107,6 +76,16 @@ function chevronDownIcon(size: number = 12): SVGSVGElement {
 // Lucide plus
 function plusIcon(size: number = 14): SVGSVGElement {
   return svgIcon(size, size, 'M12 5v14|M5 12h14');
+}
+
+// Lucide link/chain icon for aspect ratio lock
+function chainIcon(size: number = 14): SVGSVGElement {
+  return svgIcon(size, size, 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71|M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71');
+}
+
+// Lucide corner-down-right (for split/expand icon)
+function splitIcon(size: number = 14): SVGSVGElement {
+  return svgIcon(size, size, 'M9 4v8h8|M5 4v4a4 4 0 0 0 4 4h8');
 }
 
 // ---------------------------------------------------------------------------
@@ -139,26 +118,28 @@ const TEXT_VALIGN_TOP = 'M4 4h16|M12 8v12';
 const TEXT_VALIGN_MIDDLE = 'M4 12h16|M12 6v12';
 const TEXT_VALIGN_BOTTOM = 'M4 20h16|M12 4v12';
 
-// Spacing icons (simplified box representations)
+// Spacing icons
 const ICON_PADDING_H = 'M7 4v16|M17 4v16|M7 12h10';
 const ICON_PADDING_V = 'M4 7h16|M4 17h16|M12 7v10';
 const ICON_MARGIN_H = 'M3 4v16|M21 4v16|M3 12h18';
 const ICON_MARGIN_V = 'M4 3h16|M4 21h16|M12 3v18';
 
+// Corner radius icon
+const ICON_RADIUS = 'M3 12V5a2 2 0 0 1 2-2h7|M21 12v7a2 2 0 0 1-2 2h-7';
+
 // ---------------------------------------------------------------------------
-// Constants
+// Constants (Retune-exact values)
 // ---------------------------------------------------------------------------
 
 const PANEL_WIDTH = 280;
 const FONT = 'system-ui, -apple-system, sans-serif';
-const BG = '#1a1a1a';
+const BG = '#1c1c1c';
 const BORDER = 'rgba(255,255,255,0.06)';
 const SHADOW = '0 2px 12px rgba(0,0,0,0.08), 0 0 0 1px rgba(255,255,255,0.04)';
 const EASE = 'cubic-bezier(0.23, 1, 0.32, 1)';
 
 const TEXT_PRIMARY = 'rgba(255,255,255,0.85)';
 const TEXT_SECONDARY = 'rgba(255,255,255,0.65)';
-const TEXT_TERTIARY = 'rgba(255,255,255,0.45)';
 const TEXT_DIM = 'rgba(255,255,255,0.35)';
 const TEXT_FAINT = 'rgba(255,255,255,0.25)';
 
@@ -169,6 +150,7 @@ const INPUT_FOCUS = 'rgba(255,255,255,0.12)';
 
 const PILL_ACTIVE_BG = 'rgba(59,130,246,0.15)';
 const PILL_ACTIVE_COLOR = '#6dacfc';
+const RESET_DOT_COLOR = '#0D99FF';
 
 // ---------------------------------------------------------------------------
 // PropertyPanel
@@ -183,9 +165,10 @@ export class PropertyPanel {
   private tabContentEl: HTMLDivElement | null = null;
   private controls: DetectedControls | null = null;
   private computedStyles: Record<string, string> = {};
+  private originalValues: Record<string, string> = {};
 
-  constructor(shadow: ShadowRoot) {
-    this.shadow = shadow;
+  constructor(shadowRoot: ShadowRoot) {
+    this.shadow = shadowRoot;
     this.container = document.createElement('div');
     this.applyContainerStyles();
     this.shadow.appendChild(this.container);
@@ -210,7 +193,7 @@ export class PropertyPanel {
       boxShadow: SHADOW,
       pointerEvents: 'auto',
       fontFamily: FONT,
-      fontSize: '13px',
+      fontSize: '12px',
       color: TEXT_PRIMARY,
       zIndex: '2147483647',
       opacity: '0',
@@ -242,6 +225,12 @@ export class PropertyPanel {
     this.clearContainer();
     this.controls = controls;
     this.computedStyles = computedStyles;
+
+    // Capture initial values for per-field reset tracking
+    this.originalValues = {};
+    for (const key of Object.keys(computedStyles)) {
+      this.originalValues[key] = computedStyles[key];
+    }
 
     // Tab bar
     this.buildTabBar();
@@ -291,7 +280,7 @@ export class PropertyPanel {
   }
 
   // -----------------------------------------------------------------------
-  // Tab bar
+  // Tab bar (40px)
   // -----------------------------------------------------------------------
 
   private buildTabBar(): void {
@@ -300,7 +289,7 @@ export class PropertyPanel {
       display: 'flex',
       alignItems: 'center',
       height: '40px',
-      padding: '4px 8px',
+      padding: '0 8px',
       borderBottom: '1px solid ' + BORDER,
       position: 'relative',
     });
@@ -367,7 +356,7 @@ export class PropertyPanel {
       tabsWrap.appendChild(btn);
     }
 
-    // Version text
+    // Version text on right
     const version = document.createElement('span');
     version.textContent = 'v0.1';
     Object.assign(version.style, {
@@ -424,7 +413,7 @@ export class PropertyPanel {
   private buildElementsTab(parent: HTMLDivElement): void {
     const empty = document.createElement('div');
     Object.assign(empty.style, {
-      padding: '24px 12px',
+      padding: '32px 16px',
       textAlign: 'center',
       fontSize: '11px',
       color: TEXT_DIM,
@@ -434,7 +423,7 @@ export class PropertyPanel {
   }
 
   // -----------------------------------------------------------------------
-  // Design tab - all sections
+  // Design tab - all 11 sections
   // -----------------------------------------------------------------------
 
   private buildDesignTab(parent: HTMLDivElement): void {
@@ -444,16 +433,15 @@ export class PropertyPanel {
     const hasTypography = groupNames.has('typography');
     const hasFlex = groupNames.has('flex');
     const hasGrid = groupNames.has('grid');
-    const hasPosition = groupNames.has('position');
 
     // Determine element tag
     const tag = this.getElementTag();
 
-    // 1. Element Info
-    this.buildElementInfoSection(parent, tag);
+    // 1. Element Tag
+    this.buildElementTagSection(parent, tag);
 
     // 2. Position
-    this.buildPositionSection(parent, cs, hasPosition);
+    this.buildPositionSection(parent, cs);
 
     // 3. Layout
     this.buildLayoutSection(parent, cs, hasFlex, hasGrid);
@@ -466,36 +454,24 @@ export class PropertyPanel {
 
     // 6. Typography (only for text elements)
     if (hasTypography) {
-      const typoControls =
-        this.controls.groups.find((g) => g.name === 'typography')?.controls ?? [];
-      this.buildTypographySection(parent, typoControls, cs);
+      this.buildTypographySection(parent, cs);
     }
 
     // 7. Appearance
     this.buildAppearanceSection(parent, cs);
 
-    // 8. Fill (header only)
+    // 8-11. Collapsed sections
     this.buildCollapsedSection(parent, 'Fill');
-
-    // 9. Border (header only)
     this.buildCollapsedSection(parent, 'Border');
-
-    // 10. Shadow (header only)
     this.buildCollapsedSection(parent, 'Shadow');
-
-    // 11. Filters (header only)
     this.buildCollapsedSection(parent, 'Filters');
   }
 
   private getElementTag(): string {
-    // Attempt to read tag from the computed styles if stored, fall back to generic
-    // The control-detector groups don't expose the element tag, so we use a heuristic
-    // based on which groups are present.
     if (!this.controls) return 'div';
     const groups = new Set(this.controls.groups.map((g) => g.name));
     if (groups.has('image')) return 'img';
     if (groups.has('typography')) {
-      // Check font-size to guess heading vs paragraph
       const fs = parsePx(getVal(this.computedStyles, 'font-size'));
       if (fs >= 28) return 'h1';
       if (fs >= 22) return 'h2';
@@ -507,41 +483,23 @@ export class PropertyPanel {
   }
 
   // -----------------------------------------------------------------------
-  // 1. Element Info Section
+  // 1. Element Tag Section
   // -----------------------------------------------------------------------
 
-  private buildElementInfoSection(parent: HTMLDivElement, tag: string): void {
-    const section = document.createElement('div');
+  private buildElementTagSection(parent: HTMLDivElement, tag: string): void {
+    const section = this.createSection();
 
-    // Header
+    // Header with element tag as title
     const header = this.makeSectionHeader(tag);
     section.appendChild(header);
 
     // Body
-    const body = document.createElement('div');
-    Object.assign(body.style, {
-      padding: '8px 12px 12px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '8px',
-    });
+    const body = this.makeSectionBody();
 
-    // Target row
-    const targetRow = document.createElement('div');
-    Object.assign(targetRow.style, {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-    });
+    // Target row (group-label-inline)
+    const targetRow = this.makeSectionRow();
 
-    const targetLabel = document.createElement('span');
-    targetLabel.textContent = 'Target';
-    Object.assign(targetLabel.style, {
-      fontSize: '11px',
-      color: TEXT_DIM,
-      minWidth: '42px',
-      flexShrink: '0',
-    });
+    const targetLabel = this.makeInlineLabel('Target');
     targetRow.appendChild(targetLabel);
 
     // Selector pills
@@ -559,21 +517,9 @@ export class PropertyPanel {
     body.appendChild(targetRow);
 
     // Trigger row
-    const triggerRow = document.createElement('div');
-    Object.assign(triggerRow.style, {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-    });
+    const triggerRow = this.makeSectionRow();
 
-    const triggerLabel = document.createElement('span');
-    triggerLabel.textContent = 'Trigger';
-    Object.assign(triggerLabel.style, {
-      fontSize: '11px',
-      color: TEXT_DIM,
-      minWidth: '42px',
-      flexShrink: '0',
-    });
+    const triggerLabel = this.makeInlineLabel('Trigger');
     triggerRow.appendChild(triggerLabel);
 
     const triggerSelect = this.makeSelectControl(
@@ -590,24 +536,6 @@ export class PropertyPanel {
     parent.appendChild(section);
   }
 
-  private makeSelectorPill(text: string, active: boolean): HTMLButtonElement {
-    const btn = document.createElement('button');
-    btn.textContent = text;
-    Object.assign(btn.style, {
-      padding: '6px 8px',
-      borderRadius: '8px',
-      fontSize: '11px',
-      fontWeight: '500',
-      fontFamily: FONT,
-      border: 'none',
-      cursor: 'pointer',
-      background: active ? PILL_ACTIVE_BG : INPUT_BG,
-      color: active ? PILL_ACTIVE_COLOR : TEXT_SECONDARY,
-      transition: 'background 120ms, color 120ms',
-    });
-    return btn;
-  }
-
   // -----------------------------------------------------------------------
   // 2. Position Section
   // -----------------------------------------------------------------------
@@ -615,27 +543,20 @@ export class PropertyPanel {
   private buildPositionSection(
     parent: HTMLDivElement,
     cs: Record<string, string>,
-    _hasPosition: boolean,
   ): void {
-    const section = document.createElement('div');
+    const section = this.createSection();
 
-    const header = this.makeSectionHeader('POSITION');
+    const header = this.makeSectionHeader('Position');
     section.appendChild(header);
 
-    const body = document.createElement('div');
-    Object.assign(body.style, {
-      padding: '8px 12px 12px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '8px',
-    });
+    const body = this.makeSectionBody();
 
     // Alignment row: two groups of 3 icon buttons
-    const alignRow = document.createElement('div');
+    const alignRow = this.makeSectionRow();
     Object.assign(alignRow.style, {
       display: 'flex',
       alignItems: 'center',
-      gap: '6px',
+      gap: '8px',
     });
 
     // Horizontal alignment group
@@ -650,7 +571,11 @@ export class PropertyPanel {
     );
     alignRow.appendChild(hGroup);
 
-    // Vertical alignment group
+    // Vertical alignment group (disabled for block elements by default)
+    const display = getVal(cs, 'display') || 'block';
+    const isFlexOrGrid = display === 'flex' || display === 'inline-flex' ||
+      display === 'grid' || display === 'inline-grid';
+
     const vGroup = this.makeIconButtonGroup(
       [
         { icon: ALIGN_V_TOP, value: 'flex-start' },
@@ -660,26 +585,28 @@ export class PropertyPanel {
       '',
       (val) => this.emitChange('align-items', val),
     );
+    if (!isFlexOrGrid) {
+      Object.assign(vGroup.style, {
+        opacity: '0.3',
+        pointerEvents: 'none',
+      });
+    }
     alignRow.appendChild(vGroup);
 
     body.appendChild(alignRow);
 
     // Position type row
     const positionVal = getVal(cs, 'position') || 'static';
-    const posRow = document.createElement('div');
-    Object.assign(posRow.style, {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-    });
-
+    const typeRow = this.makeSectionRow();
+    const posLabel = this.makeInlineLabel('Type');
+    typeRow.appendChild(posLabel);
     const posSelect = this.makeSelectControl(
       ['static', 'relative', 'absolute', 'fixed', 'sticky'],
       positionVal,
       (val) => this.emitChange('position', val),
     );
-    posRow.appendChild(posSelect);
-    body.appendChild(posRow);
+    typeRow.appendChild(posSelect);
+    body.appendChild(typeRow);
 
     section.appendChild(body);
     parent.appendChild(section);
@@ -695,18 +622,12 @@ export class PropertyPanel {
     hasFlex: boolean,
     hasGrid: boolean,
   ): void {
-    const section = document.createElement('div');
+    const section = this.createSection();
 
-    const header = this.makeSectionHeader('LAYOUT');
+    const header = this.makeSectionHeader('Layout');
     section.appendChild(header);
 
-    const body = document.createElement('div');
-    Object.assign(body.style, {
-      padding: '8px 12px 12px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '8px',
-    });
+    const body = this.makeSectionBody();
 
     // Determine active display mode
     const display = getVal(cs, 'display') || 'block';
@@ -719,11 +640,12 @@ export class PropertyPanel {
     }
 
     // Display segmented control
+    const displayRow = this.makeSectionRow();
     const segmented = this.makeSegmentedControl(
       [
         { icon: ICON_BLOCK, value: 'block', label: 'Block' },
         { icon: ICON_FLEX_ROW, value: 'flex-row', label: 'Flex Row' },
-        { icon: ICON_FLEX_COL, value: 'flex-col', label: 'Flex Col' },
+        { icon: ICON_FLEX_COL, value: 'flex-col', label: 'Flex Column' },
         { icon: ICON_GRID, value: 'grid', label: 'Grid' },
       ],
       activeDisplay,
@@ -741,35 +663,58 @@ export class PropertyPanel {
         }
       },
     );
-    body.appendChild(segmented);
+    displayRow.appendChild(segmented);
+    body.appendChild(displayRow);
 
-    // Show flex-specific controls if flex
+    // Flex-specific controls
     if (hasFlex) {
-      const gapInput = this.makePropInput('gap', 'Gap', cs);
-      body.appendChild(gapInput);
+      const flexExtrasRow = this.makeSectionRow();
+      Object.assign(flexExtrasRow.style, {
+        display: 'flex',
+        gap: '8px',
+      });
 
       const wrapSelect = this.makeSelectControl(
         ['nowrap', 'wrap', 'wrap-reverse'],
         getVal(cs, 'flex-wrap') || 'nowrap',
         (val) => this.emitChange('flex-wrap', val),
       );
-      body.appendChild(wrapSelect);
+      flexExtrasRow.appendChild(wrapSelect);
+      body.appendChild(flexExtrasRow);
+
+      // Gap
+      const gapRow = this.makeSectionRow();
+      Object.assign(gapRow.style, { display: 'flex', gap: '8px' });
+      const gapLabel = this.makeInlineLabel('Gap');
+      gapRow.appendChild(gapLabel);
+      gapRow.appendChild(this.makePropInput('gap', null, cs));
+      body.appendChild(gapRow);
 
       // Justify content
+      const justifyRow = this.makeSectionRow();
+      Object.assign(justifyRow.style, { display: 'flex', gap: '8px' });
+      const justifyLabel = this.makeInlineLabel('Justify');
+      justifyRow.appendChild(justifyLabel);
       const justifySelect = this.makeSelectControl(
         ['flex-start', 'flex-end', 'center', 'space-between', 'space-around', 'space-evenly'],
         getVal(cs, 'justify-content') || 'flex-start',
         (val) => this.emitChange('justify-content', val),
       );
-      body.appendChild(justifySelect);
+      justifyRow.appendChild(justifySelect);
+      body.appendChild(justifyRow);
 
       // Align items
+      const alignRow = this.makeSectionRow();
+      Object.assign(alignRow.style, { display: 'flex', gap: '8px' });
+      const alignLabel = this.makeInlineLabel('Align');
+      alignRow.appendChild(alignLabel);
       const alignSelect = this.makeSelectControl(
         ['flex-start', 'flex-end', 'center', 'stretch', 'baseline'],
         getVal(cs, 'align-items') || 'stretch',
         (val) => this.emitChange('align-items', val),
       );
-      body.appendChild(alignSelect);
+      alignRow.appendChild(alignSelect);
+      body.appendChild(alignRow);
     }
 
     section.appendChild(body);
@@ -784,72 +729,53 @@ export class PropertyPanel {
     parent: HTMLDivElement,
     cs: Record<string, string>,
   ): void {
-    const section = document.createElement('div');
+    const section = this.createSection();
 
-    const header = this.makeSectionHeader('SPACING');
+    const header = this.makeSectionHeader('Spacing');
     section.appendChild(header);
 
-    const body = document.createElement('div');
-    Object.assign(body.style, {
-      padding: '8px 12px 12px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '8px',
-    });
+    const body = this.makeSectionBody();
 
-    // Padding group
-    const paddingGroup = document.createElement('div');
-    Object.assign(paddingGroup.style, {
+    // Padding group (group-label-inline)
+    const padRow = this.makeSectionRow();
+    Object.assign(padRow.style, {
       display: 'flex',
       alignItems: 'center',
       gap: '6px',
+      paddingRight: '8px',
     });
 
-    const padLabel = document.createElement('span');
-    padLabel.textContent = 'Padding';
-    Object.assign(padLabel.style, {
-      fontSize: '11px',
-      color: TEXT_DIM,
-      minWidth: '48px',
-      flexShrink: '0',
-    });
-    paddingGroup.appendChild(padLabel);
+    const padLabel = this.makeInlineLabel('Padding');
+    padRow.appendChild(padLabel);
 
-    // Horizontal padding (left/right shorthand)
-    const padH = this.makePropInput('padding-left', ICON_PADDING_H, cs, 1, true);
-    paddingGroup.appendChild(padH);
+    // Horizontal padding input with icon
+    padRow.appendChild(this.makePropInput('padding-left', ICON_PADDING_H, cs));
 
-    // Vertical padding (top/bottom shorthand)
-    const padV = this.makePropInput('padding-top', ICON_PADDING_V, cs, 1, true);
-    paddingGroup.appendChild(padV);
+    // Vertical padding input with icon
+    padRow.appendChild(this.makePropInput('padding-top', ICON_PADDING_V, cs));
 
-    body.appendChild(paddingGroup);
+    // Split button
+    padRow.appendChild(this.makeSplitButton());
 
-    // Margin group
-    const marginGroup = document.createElement('div');
-    Object.assign(marginGroup.style, {
+    body.appendChild(padRow);
+
+    // Margin group (group-label-inline)
+    const marRow = this.makeSectionRow();
+    Object.assign(marRow.style, {
       display: 'flex',
       alignItems: 'center',
       gap: '6px',
+      paddingRight: '8px',
     });
 
-    const marLabel = document.createElement('span');
-    marLabel.textContent = 'Margin';
-    Object.assign(marLabel.style, {
-      fontSize: '11px',
-      color: TEXT_DIM,
-      minWidth: '48px',
-      flexShrink: '0',
-    });
-    marginGroup.appendChild(marLabel);
+    const marLabel = this.makeInlineLabel('Margin');
+    marRow.appendChild(marLabel);
 
-    const marH = this.makePropInput('margin-left', ICON_MARGIN_H, cs, 1, true);
-    marginGroup.appendChild(marH);
+    marRow.appendChild(this.makePropInput('margin-left', ICON_MARGIN_H, cs));
+    marRow.appendChild(this.makePropInput('margin-top', ICON_MARGIN_V, cs));
+    marRow.appendChild(this.makeSplitButton());
 
-    const marV = this.makePropInput('margin-top', ICON_MARGIN_V, cs, 1, true);
-    marginGroup.appendChild(marV);
-
-    body.appendChild(marginGroup);
+    body.appendChild(marRow);
 
     section.appendChild(body);
     parent.appendChild(section);
@@ -863,33 +789,76 @@ export class PropertyPanel {
     parent: HTMLDivElement,
     cs: Record<string, string>,
   ): void {
-    const section = document.createElement('div');
+    const section = this.createSection();
 
-    const header = this.makeSectionHeader('SIZE');
+    const header = this.makeSectionHeader('Size', () => {
+      // Add size constraint action
+    });
     section.appendChild(header);
 
-    const body = document.createElement('div');
-    Object.assign(body.style, {
-      padding: '8px 12px 12px',
+    const body = this.makeSectionBody();
+
+    // Width + Height row
+    const whRow = this.makeSectionRow();
+    Object.assign(whRow.style, {
       display: 'flex',
-      flexDirection: 'column',
+      alignItems: 'center',
       gap: '8px',
     });
 
-    // Width + Height side by side
-    const whRow = document.createElement('div');
-    Object.assign(whRow.style, { display: 'flex', gap: '8px' });
+    const wLabel = this.makeInlineLabel('W');
+    whRow.appendChild(wLabel);
+    whRow.appendChild(this.makeComboInput('width', cs));
 
-    whRow.appendChild(this.makePropInput('width', 'W', cs));
-    whRow.appendChild(this.makePropInput('height', 'H', cs));
+    const hLabel = this.makeInlineLabel('H');
+    whRow.appendChild(hLabel);
+    whRow.appendChild(this.makeComboInput('height', cs));
+
     body.appendChild(whRow);
 
-    // Max W + Max H
-    const maxRow = document.createElement('div');
-    Object.assign(maxRow.style, { display: 'flex', gap: '8px' });
+    // Max W + Max H row
+    const maxRow = this.makeSectionRow();
+    Object.assign(maxRow.style, {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+    });
 
-    maxRow.appendChild(this.makePropInput('max-width', 'MW', cs));
-    maxRow.appendChild(this.makePropInput('max-height', 'MH', cs));
+    const mwLabel = this.makeInlineLabel('Max W');
+    maxRow.appendChild(mwLabel);
+    maxRow.appendChild(this.makePropInput('max-width', null, cs, 1, true));
+
+    const mhLabel = this.makeInlineLabel('Max H');
+    maxRow.appendChild(mhLabel);
+    maxRow.appendChild(this.makePropInput('max-height', null, cs, 1, true));
+
+    // Lock aspect ratio button
+    const lockBtn = document.createElement('button');
+    Object.assign(lockBtn.style, {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '28px',
+      height: '28px',
+      borderRadius: '6px',
+      border: 'none',
+      background: 'transparent',
+      color: TEXT_DIM,
+      cursor: 'pointer',
+      padding: '0',
+      flexShrink: '0',
+    });
+    lockBtn.appendChild(chainIcon(12));
+    const onLockEnter = () => { lockBtn.style.background = INPUT_BG; };
+    const onLockLeave = () => { lockBtn.style.background = 'transparent'; };
+    lockBtn.addEventListener('mouseenter', onLockEnter);
+    lockBtn.addEventListener('mouseleave', onLockLeave);
+    this.cleanups.push(() => {
+      lockBtn.removeEventListener('mouseenter', onLockEnter);
+      lockBtn.removeEventListener('mouseleave', onLockLeave);
+    });
+    maxRow.appendChild(lockBtn);
+
     body.appendChild(maxRow);
 
     section.appendChild(body);
@@ -902,24 +871,18 @@ export class PropertyPanel {
 
   private buildTypographySection(
     parent: HTMLDivElement,
-    controls: ControlDefinition[],
     cs: Record<string, string>,
   ): void {
-    const section = document.createElement('div');
+    const section = this.createSection();
 
-    const header = this.makeSectionHeader('TYPOGRAPHY');
+    const header = this.makeSectionHeader('Typography');
     section.appendChild(header);
 
-    const body = document.createElement('div');
-    Object.assign(body.style, {
-      padding: '8px 12px 12px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '8px',
-    });
+    const body = this.makeSectionBody();
 
-    // Font family picker button
+    // Font family picker
     const fontFamily = getVal(cs, 'font-family') || 'system-ui';
+    const fontRow = this.makeSectionRow();
     const fontBtn = document.createElement('button');
     Object.assign(fontBtn.style, {
       display: 'flex',
@@ -938,23 +901,42 @@ export class PropertyPanel {
       cursor: 'pointer',
       textAlign: 'left',
     });
-    // Show just the first font name
     const firstFont = fontFamily.split(',')[0].trim().replace(/["']/g, '');
     const fontText = document.createElement('span');
     fontText.textContent = firstFont;
-    fontText.style.overflow = 'hidden';
-    fontText.style.textOverflow = 'ellipsis';
-    fontText.style.whiteSpace = 'nowrap';
+    Object.assign(fontText.style, {
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
+    });
     fontBtn.appendChild(fontText);
     fontBtn.appendChild(chevronDownIcon(10));
-    body.appendChild(fontBtn);
+
+    const onFontEnter = () => { fontBtn.style.background = INPUT_BG_HOVER; };
+    const onFontLeave = () => { fontBtn.style.background = INPUT_BG; };
+    fontBtn.addEventListener('mouseenter', onFontEnter);
+    fontBtn.addEventListener('mouseleave', onFontLeave);
+    this.cleanups.push(() => {
+      fontBtn.removeEventListener('mouseenter', onFontEnter);
+      fontBtn.removeEventListener('mouseleave', onFontLeave);
+    });
+
+    fontRow.appendChild(fontBtn);
+    body.appendChild(fontRow);
 
     // Size + Weight row
-    const sizeWeightRow = document.createElement('div');
-    Object.assign(sizeWeightRow.style, { display: 'flex', gap: '8px' });
+    const sizeWeightRow = this.makeSectionRow();
+    Object.assign(sizeWeightRow.style, {
+      display: 'flex',
+      gap: '8px',
+    });
 
-    sizeWeightRow.appendChild(this.makePropInput('font-size', 'Sz', cs));
+    const sizeLabel = this.makeInlineLabel('Size');
+    sizeWeightRow.appendChild(sizeLabel);
+    sizeWeightRow.appendChild(this.makePropInput('font-size', null, cs));
 
+    const weightLabel = this.makeInlineLabel('Weight');
+    sizeWeightRow.appendChild(weightLabel);
     const weightVal = getVal(cs, 'font-weight') || '400';
     const weightSelect = this.makeSelectControl(
       ['100', '200', '300', '400', '500', '600', '700', '800', '900'],
@@ -965,18 +947,34 @@ export class PropertyPanel {
     body.appendChild(sizeWeightRow);
 
     // Line height + Letter spacing
-    const lineLetterRow = document.createElement('div');
-    Object.assign(lineLetterRow.style, { display: 'flex', gap: '8px' });
+    const lineLetterRow = this.makeSectionRow();
+    Object.assign(lineLetterRow.style, {
+      display: 'flex',
+      gap: '8px',
+    });
+    const lhLabel = this.makeInlineLabel('LH');
+    lineLetterRow.appendChild(lhLabel);
+    lineLetterRow.appendChild(this.makeComboInput('line-height', cs, 0.1));
 
-    lineLetterRow.appendChild(this.makePropInput('line-height', 'LH', cs, 0.1));
-    lineLetterRow.appendChild(this.makePropInput('letter-spacing', 'LS', cs, 0.1));
+    const lsLabel = this.makeInlineLabel('LS');
+    lineLetterRow.appendChild(lsLabel);
+    lineLetterRow.appendChild(this.makeComboInput('letter-spacing', cs, 0.1));
     body.appendChild(lineLetterRow);
 
     // Color row
-    const colorRow = this.makeColorRow('color', cs);
+    const colorRow = this.makeSectionRow();
+    const colorControl = this.makeColorRow('color', cs);
+    colorRow.appendChild(colorControl);
     body.appendChild(colorRow);
 
     // Text align segmented
+    const alignRow = this.makeSectionRow();
+    Object.assign(alignRow.style, {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+    });
+
     const currentAlign = getVal(cs, 'text-align') || 'left';
     const alignSeg = this.makeSegmentedControl(
       [
@@ -987,9 +985,15 @@ export class PropertyPanel {
       currentAlign,
       (val) => this.emitChange('text-align', val),
     );
-    body.appendChild(alignSeg);
+    alignRow.appendChild(alignSeg);
+
+    // Split/settings button at end of align row
+    alignRow.appendChild(this.makeSplitButton());
+
+    body.appendChild(alignRow);
 
     // Vertical align segmented
+    const vAlignRow = this.makeSectionRow();
     const currentVAlign = getVal(cs, 'vertical-align') || 'top';
     let vAlignVal = 'top';
     if (currentVAlign === 'middle') vAlignVal = 'middle';
@@ -1004,7 +1008,8 @@ export class PropertyPanel {
       vAlignVal,
       (val) => this.emitChange('vertical-align', val),
     );
-    body.appendChild(vAlignSeg);
+    vAlignRow.appendChild(vAlignSeg);
+    body.appendChild(vAlignRow);
 
     section.appendChild(body);
     parent.appendChild(section);
@@ -1018,50 +1023,64 @@ export class PropertyPanel {
     parent: HTMLDivElement,
     cs: Record<string, string>,
   ): void {
-    const section = document.createElement('div');
+    const section = this.createSection();
 
-    const header = this.makeSectionHeader('APPEARANCE');
+    const header = this.makeSectionHeader('Appearance');
     section.appendChild(header);
 
-    const body = document.createElement('div');
-    Object.assign(body.style, {
-      padding: '8px 12px 12px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '8px',
-    });
+    const body = this.makeSectionBody();
 
-    // Opacity + Z-index
-    const opZRow = document.createElement('div');
+    // Opacity + Z-index row
+    const opZRow = this.makeSectionRow();
     Object.assign(opZRow.style, { display: 'flex', gap: '8px' });
 
-    opZRow.appendChild(this.makePropInput('opacity', 'Op', cs, 0.05));
-    opZRow.appendChild(this.makePropInput('z-index', 'Z', cs, 1));
+    const opLabel = this.makeInlineLabel('Opacity');
+    opZRow.appendChild(opLabel);
+    opZRow.appendChild(this.makePropInput('opacity', null, cs, 0.05));
+
+    const zLabel = this.makeInlineLabel('Z');
+    opZRow.appendChild(zLabel);
+    opZRow.appendChild(this.makePropInput('z-index', null, cs, 1));
     body.appendChild(opZRow);
 
-    // Corner radius
-    const radiusInput = this.makePropInput('border-radius', 'R', cs);
-    body.appendChild(radiusInput);
+    // Corner radius group
+    const radiusRow = this.makeSectionRow();
+    Object.assign(radiusRow.style, {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px',
+      paddingRight: '8px',
+    });
 
-    // Overflow
+    radiusRow.appendChild(this.makePropInput('border-radius', ICON_RADIUS, cs));
+    radiusRow.appendChild(this.makeSplitButton());
+
+    body.appendChild(radiusRow);
+
+    // Overflow row
+    const overflowRow = this.makeSectionRow();
+    Object.assign(overflowRow.style, { display: 'flex', gap: '8px' });
+    const overflowLabel = this.makeInlineLabel('Overflow');
+    overflowRow.appendChild(overflowLabel);
     const overflowVal = getVal(cs, 'overflow') || 'visible';
     const overflowSelect = this.makeSelectControl(
       ['visible', 'hidden', 'scroll', 'auto'],
       overflowVal,
       (val) => this.emitChange('overflow', val),
     );
-    body.appendChild(overflowSelect);
+    overflowRow.appendChild(overflowSelect);
+    body.appendChild(overflowRow);
 
     section.appendChild(body);
     parent.appendChild(section);
   }
 
   // -----------------------------------------------------------------------
-  // Collapsed section (header only with + button)
+  // 8-11. Collapsed sections (header only with + button)
   // -----------------------------------------------------------------------
 
   private buildCollapsedSection(parent: HTMLDivElement, title: string): void {
-    const section = document.createElement('div');
+    const section = this.createSection();
     const header = this.makeSectionHeader(title, () => {
       // Placeholder for add action
     });
@@ -1070,8 +1089,16 @@ export class PropertyPanel {
   }
 
   // -----------------------------------------------------------------------
-  // Section header
+  // Section structure helpers
   // -----------------------------------------------------------------------
+
+  private createSection(): HTMLDivElement {
+    const section = document.createElement('div');
+    Object.assign(section.style, {
+      borderBottom: '1px solid ' + BORDER,
+    });
+    return section;
+  }
 
   private makeSectionHeader(
     title: string,
@@ -1082,19 +1109,16 @@ export class PropertyPanel {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      height: '40px',
-      padding: '0 12px',
-      borderBottom: '1px solid ' + BORDER,
+      padding: '0 8px 0 16px',
+      height: '44px',
     });
 
     const titleEl = document.createElement('span');
     titleEl.textContent = title;
     Object.assign(titleEl.style, {
-      fontSize: '11px',
+      fontSize: '12px',
       fontWeight: '500',
-      color: TEXT_TERTIARY,
-      textTransform: 'uppercase',
-      letterSpacing: '0.5px',
+      color: TEXT_SECONDARY,
     });
     header.appendChild(titleEl);
 
@@ -1104,25 +1128,34 @@ export class PropertyPanel {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: '24px',
-        height: '24px',
-        borderRadius: '6px',
+        width: '32px',
+        height: '32px',
+        borderRadius: '8px',
         border: 'none',
         background: 'transparent',
-        color: TEXT_TERTIARY,
+        color: TEXT_DIM,
         cursor: 'pointer',
         padding: '0',
+        opacity: '0',
+        transition: 'opacity 120ms, background 120ms',
       });
       addBtn.appendChild(plusIcon(14));
 
-      const onEnter = () => { addBtn.style.background = INPUT_BG; };
-      const onLeave = () => { addBtn.style.background = 'transparent'; };
-      addBtn.addEventListener('mouseenter', onEnter);
-      addBtn.addEventListener('mouseleave', onLeave);
+      // Show add button on section hover
+      const onHeaderEnter = () => { addBtn.style.opacity = '1'; };
+      const onHeaderLeave = () => { addBtn.style.opacity = '0'; };
+      const onBtnEnter = () => { addBtn.style.background = INPUT_BG; };
+      const onBtnLeave = () => { addBtn.style.background = 'transparent'; };
+      header.addEventListener('mouseenter', onHeaderEnter);
+      header.addEventListener('mouseleave', onHeaderLeave);
+      addBtn.addEventListener('mouseenter', onBtnEnter);
+      addBtn.addEventListener('mouseleave', onBtnLeave);
       addBtn.addEventListener('click', onAdd);
       this.cleanups.push(() => {
-        addBtn.removeEventListener('mouseenter', onEnter);
-        addBtn.removeEventListener('mouseleave', onLeave);
+        header.removeEventListener('mouseenter', onHeaderEnter);
+        header.removeEventListener('mouseleave', onHeaderLeave);
+        addBtn.removeEventListener('mouseenter', onBtnEnter);
+        addBtn.removeEventListener('mouseleave', onBtnLeave);
         addBtn.removeEventListener('click', onAdd);
       });
 
@@ -1132,16 +1165,148 @@ export class PropertyPanel {
     return header;
   }
 
+  private makeSectionBody(): HTMLDivElement {
+    const body = document.createElement('div');
+    Object.assign(body.style, {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '12px',
+      paddingBottom: '16px',
+    });
+    return body;
+  }
+
+  private makeSectionRow(): HTMLDivElement {
+    const row = document.createElement('div');
+    Object.assign(row.style, {
+      padding: '0 48px 0 16px',
+    });
+    return row;
+  }
+
+  private makeInlineLabel(text: string): HTMLSpanElement {
+    const label = document.createElement('span');
+    label.textContent = text;
+    Object.assign(label.style, {
+      fontSize: '11px',
+      fontWeight: '500',
+      color: TEXT_DIM,
+      flexShrink: '0',
+      minWidth: '32px',
+    });
+    return label;
+  }
+
+  // -----------------------------------------------------------------------
+  // Selector pill (for Target row)
+  // -----------------------------------------------------------------------
+
+  private makeSelectorPill(text: string, active: boolean): HTMLButtonElement {
+    const btn = document.createElement('button');
+    btn.textContent = text;
+    Object.assign(btn.style, {
+      padding: '4px 8px',
+      borderRadius: '8px',
+      fontSize: '11px',
+      fontWeight: '500',
+      fontFamily: FONT,
+      border: 'none',
+      cursor: 'pointer',
+      background: active ? PILL_ACTIVE_BG : INPUT_BG,
+      color: active ? PILL_ACTIVE_COLOR : TEXT_SECONDARY,
+      transition: 'background 120ms, color 120ms',
+    });
+    return btn;
+  }
+
+  // -----------------------------------------------------------------------
+  // Split button (32x32, toggles shorthand vs individual values)
+  // -----------------------------------------------------------------------
+
+  private makeSplitButton(): HTMLButtonElement {
+    const btn = document.createElement('button');
+    Object.assign(btn.style, {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '32px',
+      height: '32px',
+      borderRadius: '8px',
+      border: 'none',
+      background: 'transparent',
+      color: TEXT_DIM,
+      cursor: 'pointer',
+      padding: '0',
+      flexShrink: '0',
+    });
+    btn.appendChild(splitIcon(12));
+
+    const onEnter = () => { btn.style.background = INPUT_BG; };
+    const onLeave = () => { btn.style.background = 'transparent'; };
+    btn.addEventListener('mouseenter', onEnter);
+    btn.addEventListener('mouseleave', onLeave);
+    this.cleanups.push(() => {
+      btn.removeEventListener('mouseenter', onEnter);
+      btn.removeEventListener('mouseleave', onLeave);
+    });
+
+    return btn;
+  }
+
+  // -----------------------------------------------------------------------
+  // Per-field reset dot
+  // -----------------------------------------------------------------------
+
+  private makeResetDot(
+    property: string,
+    currentValue: string,
+    onReset: () => void,
+  ): HTMLDivElement {
+    const dot = document.createElement('div');
+    Object.assign(dot.style, {
+      width: '4px',
+      height: '4px',
+      borderRadius: '50%',
+      background: RESET_DOT_COLOR,
+      cursor: 'pointer',
+      flexShrink: '0',
+      display: 'none',
+    });
+
+    // Check if value differs from original
+    const origKey = cssPropToCamel(property);
+    const origVal = this.originalValues[origKey] ?? this.originalValues[property] ?? '';
+    if (currentValue !== origVal && currentValue !== '') {
+      dot.style.display = 'block';
+    }
+
+    const onClick = (e: MouseEvent) => {
+      e.stopPropagation();
+      dot.style.display = 'none';
+      onReset();
+    };
+    dot.addEventListener('click', onClick);
+    this.cleanups.push(() => dot.removeEventListener('click', onClick));
+
+    return dot;
+  }
+
+  private updateResetDot(dot: HTMLDivElement, property: string, currentValue: string): void {
+    const origKey = cssPropToCamel(property);
+    const origVal = this.originalValues[origKey] ?? this.originalValues[property] ?? '';
+    dot.style.display = (currentValue !== origVal && currentValue !== '') ? 'block' : 'none';
+  }
+
   // -----------------------------------------------------------------------
   // PropInput control
   // -----------------------------------------------------------------------
 
   private makePropInput(
     property: string,
-    label: string,
+    iconPath: string | null,
     computedStyles: Record<string, string>,
     step: number = 1,
-    isIcon: boolean = false,
+    showDash: boolean = false,
   ): HTMLDivElement {
     const rawValue = getVal(computedStyles, property);
     const parsed = parseNumericValue(rawValue);
@@ -1172,43 +1337,55 @@ export class PropertyPanel {
       wrapper.removeEventListener('mouseleave', onLeave);
     });
 
-    // Label area (28px wide, ew-resize cursor)
-    const labelEl = document.createElement('div');
-    Object.assign(labelEl.style, {
-      position: 'absolute',
-      left: '0',
-      top: '0',
-      bottom: '0',
-      width: '28px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      cursor: 'ew-resize',
-      userSelect: 'none',
-      flexShrink: '0',
-      zIndex: '1',
-    });
-
-    if (isIcon) {
-      // Render a small icon from the label (which is SVG path data)
-      const icon = svgIcon(12, 12, label);
-      icon.style.color = TEXT_DIM;
-      labelEl.appendChild(icon);
-    } else {
-      const labelText = document.createElement('span');
-      labelText.textContent = label;
-      Object.assign(labelText.style, {
-        fontSize: '11px',
+    // Icon label area (28px wide, ew-resize cursor)
+    if (iconPath) {
+      const labelEl = document.createElement('div');
+      Object.assign(labelEl.style, {
+        position: 'absolute',
+        left: '0',
+        top: '0',
+        bottom: '0',
+        width: '28px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'ew-resize',
+        userSelect: 'none',
+        flexShrink: '0',
+        zIndex: '1',
         color: TEXT_DIM,
-        pointerEvents: 'none',
       });
-      labelEl.appendChild(labelText);
+
+      const icon = svgIcon(12, 12, iconPath);
+      labelEl.appendChild(icon);
+      wrapper.appendChild(labelEl);
+
+      // Scrub on label area
+      if (parsed !== null) {
+        const unit = parsed.unit || 'px';
+        const cleanup = attachScrub(labelEl, {
+          initialValue: parsed.number,
+          step,
+          onUpdate: (val) => {
+            input.value = String(Math.round(val * 1000) / 1000);
+          },
+          onCommit: (val) => {
+            input.value = String(Math.round(val * 1000) / 1000);
+            this.emitChange(property, formatNumericValue(val, unit));
+          },
+        });
+        this.cleanups.push(cleanup);
+      }
     }
 
     // Input field
     const input = document.createElement('input');
     input.type = 'text';
-    input.value = parsed ? String(Math.round(parsed.number * 1000) / 1000) : rawValue || '';
+    const displayVal = parsed ? String(Math.round(parsed.number * 1000) / 1000) : rawValue || '';
+    input.value = displayVal;
+    if (showDash && !displayVal) {
+      input.placeholder = '-';
+    }
     Object.assign(input.style, {
       width: '100%',
       height: '100%',
@@ -1219,7 +1396,7 @@ export class PropertyPanel {
       fontSize: '11px',
       fontWeight: '450',
       fontFamily: FONT,
-      paddingLeft: '28px',
+      paddingLeft: iconPath ? '28px' : '8px',
       paddingRight: '6px',
       boxSizing: 'border-box',
       fontVariantNumeric: 'tabular-nums',
@@ -1241,7 +1418,7 @@ export class PropertyPanel {
       input.removeEventListener('blur', onBlur);
     });
 
-    // Commit on Enter or blur
+    // Commit on Enter or change
     const onCommit = () => {
       const val = input.value.trim();
       if (parsed) {
@@ -1267,25 +1444,137 @@ export class PropertyPanel {
       input.removeEventListener('keydown', onKeyDown);
     });
 
-    // Scrub on label area
-    if (parsed !== null) {
-      const unit = parsed.unit || 'px';
-      const cleanup = attachScrub(labelEl, {
-        initialValue: parsed.number,
-        step,
-        onUpdate: (val) => {
-          input.value = String(Math.round(val * 1000) / 1000);
-        },
-        onCommit: (val) => {
-          input.value = String(Math.round(val * 1000) / 1000);
-          this.emitChange(property, formatNumericValue(val, unit));
-        },
-      });
-      this.cleanups.push(cleanup);
-    }
-
-    wrapper.appendChild(labelEl);
     wrapper.appendChild(input);
+    return wrapper;
+  }
+
+  // -----------------------------------------------------------------------
+  // ComboInput (input + dropdown trigger chevron)
+  // -----------------------------------------------------------------------
+
+  private makeComboInput(
+    property: string,
+    computedStyles: Record<string, string>,
+    step: number = 1,
+  ): HTMLDivElement {
+    const rawValue = getVal(computedStyles, property);
+    const parsed = parseNumericValue(rawValue);
+
+    const wrapper = document.createElement('div');
+    Object.assign(wrapper.style, {
+      position: 'relative',
+      height: '32px',
+      borderRadius: '8px',
+      background: INPUT_BG,
+      display: 'flex',
+      alignItems: 'center',
+      flex: '1',
+      minWidth: '0',
+    });
+
+    // Hover
+    const onEnter = () => { wrapper.style.background = INPUT_BG_HOVER; };
+    const onLeave = () => {
+      if (wrapper.querySelector('input:focus')) return;
+      wrapper.style.background = INPUT_BG;
+    };
+    wrapper.addEventListener('mouseenter', onEnter);
+    wrapper.addEventListener('mouseleave', onLeave);
+    this.cleanups.push(() => {
+      wrapper.removeEventListener('mouseenter', onEnter);
+      wrapper.removeEventListener('mouseleave', onLeave);
+    });
+
+    // Input
+    const input = document.createElement('input');
+    input.type = 'text';
+    // Display "Fill" for width auto, pixel value otherwise
+    let displayVal = '';
+    if (property === 'width' && (rawValue === 'auto' || !rawValue)) {
+      displayVal = 'Fill';
+    } else if (parsed) {
+      displayVal = String(Math.round(parsed.number * 1000) / 1000);
+    } else {
+      displayVal = rawValue || '';
+    }
+    input.value = displayVal;
+    Object.assign(input.style, {
+      width: '100%',
+      height: '100%',
+      border: 'none',
+      outline: 'none',
+      background: 'transparent',
+      color: TEXT_PRIMARY,
+      fontSize: '11px',
+      fontWeight: '450',
+      fontFamily: FONT,
+      paddingLeft: '8px',
+      paddingRight: '24px',
+      boxSizing: 'border-box',
+      fontVariantNumeric: 'tabular-nums',
+    });
+
+    // Focus
+    const onFocus = () => {
+      wrapper.style.outline = '1px solid ' + INPUT_FOCUS;
+      wrapper.style.background = INPUT_BG_HOVER;
+    };
+    const onBlur = () => {
+      wrapper.style.outline = 'none';
+      wrapper.style.background = INPUT_BG;
+    };
+    input.addEventListener('focus', onFocus);
+    input.addEventListener('blur', onBlur);
+    this.cleanups.push(() => {
+      input.removeEventListener('focus', onFocus);
+      input.removeEventListener('blur', onBlur);
+    });
+
+    // Commit
+    const onCommit = () => {
+      const val = input.value.trim();
+      if (parsed) {
+        const num = parseFloat(val);
+        if (!isNaN(num)) {
+          const unit = parsed.unit || 'px';
+          this.emitChange(property, formatNumericValue(num, unit));
+        }
+      } else {
+        this.emitChange(property, val);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        onCommit();
+        input.blur();
+      }
+    };
+    input.addEventListener('change', onCommit);
+    input.addEventListener('keydown', onKeyDown);
+    this.cleanups.push(() => {
+      input.removeEventListener('change', onCommit);
+      input.removeEventListener('keydown', onKeyDown);
+    });
+
+    wrapper.appendChild(input);
+
+    // Chevron trigger on right
+    const chevronBtn = document.createElement('div');
+    Object.assign(chevronBtn.style, {
+      position: 'absolute',
+      right: '0',
+      top: '0',
+      bottom: '0',
+      width: '24px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      cursor: 'pointer',
+      color: TEXT_DIM,
+    });
+    chevronBtn.appendChild(chevronDownIcon(12));
+    wrapper.appendChild(chevronBtn);
+
     return wrapper;
   }
 
@@ -1318,7 +1607,7 @@ export class PropertyPanel {
       fontSize: '11px',
       fontWeight: '450',
       color: TEXT_PRIMARY,
-      padding: '0 8px',
+      paddingLeft: '8px',
       overflow: 'hidden',
       textOverflow: 'ellipsis',
       whiteSpace: 'nowrap',
@@ -1451,6 +1740,7 @@ export class PropertyPanel {
       borderRadius: '8px',
       height: '28px',
       overflow: 'hidden',
+      flex: '1',
     });
 
     // Sliding pill
@@ -1458,8 +1748,8 @@ export class PropertyPanel {
     Object.assign(pill.style, {
       position: 'absolute',
       height: '100%',
-      background: INPUT_BG_ACTIVE,
-      borderRadius: '6px',
+      background: 'rgba(255,255,255,0.06)',
+      borderRadius: '8px',
       transition: 'transform 150ms ' + EASE + ', width 150ms ' + EASE,
       pointerEvents: 'none',
       zIndex: '0',
@@ -1490,6 +1780,7 @@ export class PropertyPanel {
         transition: 'color 150ms',
       });
       btn.title = item.label;
+      btn.setAttribute('aria-label', item.label);
       btn.appendChild(svgIcon(14, 14, item.icon));
 
       const onClick = () => {
@@ -1609,7 +1900,7 @@ export class PropertyPanel {
       height: '32px',
     });
 
-    // Swatch: 16x16 circle
+    // Swatch: 16px circle with inset shadow
     const swatchWrap = document.createElement('div');
     Object.assign(swatchWrap.style, {
       position: 'relative',
@@ -1619,7 +1910,7 @@ export class PropertyPanel {
       background: hexValue,
       flexShrink: '0',
       cursor: 'pointer',
-      boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.1)',
+      boxShadow: 'rgba(0,0,0,0.1) 0px 0px 0px 1px inset',
     });
 
     // Hidden native color input
@@ -1651,6 +1942,7 @@ export class PropertyPanel {
       borderRadius: '8px',
       color: TEXT_PRIMARY,
       fontSize: '11px',
+      fontWeight: '450',
       fontFamily: FONT,
       padding: '0 8px',
       boxSizing: 'border-box',
