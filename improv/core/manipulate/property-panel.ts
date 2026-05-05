@@ -2218,7 +2218,7 @@ export class PropertyPanel {
     Object.assign(pill.style, {
       position: 'absolute',
       height: 'calc(100% - 4px)',
-      background: tv(V.surfaceHover),
+      background: 'rgba(255,255,255,0.08)',
       borderRadius: '6px',
       transition: 'transform 0.2s ' + EASE,
       pointerEvents: 'none',
@@ -2252,7 +2252,7 @@ export class PropertyPanel {
       });
       btn.title = item.label;
       btn.setAttribute('aria-label', item.label);
-      btn.appendChild(svgIcon(14, 14, item.icon));
+      btn.appendChild(svgIcon(16, 16, item.icon));
 
       const onClick = () => {
         activeIdx = i;
