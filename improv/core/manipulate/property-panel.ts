@@ -1,7 +1,12 @@
-import { DetectedControls, ControlDefinition, ControlGroup } from './control-detector.js';
 import { attachScrub, parseNumericValue, formatNumericValue } from './scrub.js';
+import type { DetectedControls } from './control-detector.js';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 type PropertyChangeCallback = (property: string, value: string) => void;
+type ElementSelectCallback = (element: HTMLElement) => void;
 
 // ---------------------------------------------------------------------------
 // Color helpers
@@ -73,6 +78,11 @@ function chevronDownIcon(size: number = 12): SVGSVGElement {
   return svgIcon(size, size, 'M6 9l6 6l6-6');
 }
 
+// Lucide chevron-right (for tree expand/collapse)
+function chevronRightIcon(size: number = 16): SVGSVGElement {
+  return svgIcon(size, size, 'M9 18l6-6l-6-6');
+}
+
 // Lucide plus
 function plusIcon(size: number = 14): SVGSVGElement {
   return svgIcon(size, size, 'M12 5v14|M5 12h14');
@@ -80,12 +90,30 @@ function plusIcon(size: number = 14): SVGSVGElement {
 
 // Lucide link/chain icon for aspect ratio lock
 function chainIcon(size: number = 14): SVGSVGElement {
-  return svgIcon(size, size, 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71|M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71');
+  return svgIcon(
+    size,
+    size,
+    'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71|M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
+  );
 }
 
 // Lucide corner-down-right (for split/expand icon)
 function splitIcon(size: number = 14): SVGSVGElement {
   return svgIcon(size, size, 'M9 4v8h8|M5 4v4a4 4 0 0 0 4 4h8');
+}
+
+// Lucide code-2 icon for DOM element nodes
+function codeTagIcon(size: number = 16): SVGSVGElement {
+  return svgIcon(size, size, 'M18 16l4-4l-4-4|M6 8l-4 4l4 4|M14.5 4l-5 16');
+}
+
+// Lucide component icon for framework components
+function componentIcon(size: number = 16): SVGSVGElement {
+  return svgIcon(
+    size,
+    size,
+    'M5.5 8.5L9 12l-3.5 3.5L2 12l3.5-3.5z|M12 2l3.5 3.5L12 9L8.5 5.5L12 2z|M18.5 8.5L22 12l-3.5 3.5L15 12l3.5-3.5z|M12 15l3.5 3.5L12 22l-3.5-3.5L12 15z',
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -125,32 +153,68 @@ const ICON_MARGIN_H = 'M3 4v16|M21 4v16|M3 12h18';
 const ICON_MARGIN_V = 'M4 3h16|M4 21h16|M12 3v18';
 
 // Corner radius icon
-const ICON_RADIUS = 'M3 12V5a2 2 0 0 1 2-2h7|M21 12v7a2 2 0 0 1-2 2h-7';
+const ICON_RADIUS =
+  'M3 12V5a2 2 0 0 1 2-2h7|M21 12v7a2 2 0 0 1-2 2h-7';
 
 // ---------------------------------------------------------------------------
-// Constants (Retune-exact values)
+// CSS Custom Property names (set on panel root, referenced everywhere)
+// ---------------------------------------------------------------------------
+
+const V = {
+  surface: '--retune-surface',
+  surfaceHover: '--retune-surface-hover',
+  text: '--retune-text',
+  textSecondary: '--retune-text-secondary',
+  textTertiary: '--retune-text-tertiary',
+  border: '--retune-border',
+  inputBg: '--retune-input-bg',
+  blueBg: '--retune-blue-bg',
+  blueText: '--retune-blue-text',
+  blue500: '--retune-blue-500',
+  black: '--retune-black',
+  white: '--retune-white',
+} as const;
+
+// Resolved dark-mode values (scraped from retune.dev)
+const TOKENS: Record<string, string> = {
+  [V.surface]: 'color-mix(in srgb, #1c1917 95%, #ffffff)',
+  [V.surfaceHover]: 'rgba(255,255,255,0.05)',
+  [V.text]: 'rgba(255,255,255,0.9)',
+  [V.textSecondary]: 'rgba(255,255,255,0.7)',
+  [V.textTertiary]: 'rgba(255,255,255,0.5)',
+  [V.border]: 'rgba(255,255,255,0.1)',
+  [V.inputBg]: 'rgba(255,255,255,0.05)',
+  [V.blueBg]: 'color-mix(in srgb, #0768CF 50%, transparent)',
+  [V.blueText]: '#0D99FF',
+  [V.blue500]: '#0D99FF',
+  [V.black]: '#1c1917',
+  [V.white]: '#ffffff',
+};
+
+// ---------------------------------------------------------------------------
+// Constants
 // ---------------------------------------------------------------------------
 
 const PANEL_WIDTH = 280;
 const FONT = 'system-ui, -apple-system, sans-serif';
-const BG = '#1c1c1c';
-const BORDER = 'rgba(255,255,255,0.06)';
-const SHADOW = '0 2px 12px rgba(0,0,0,0.08), 0 0 0 1px rgba(255,255,255,0.04)';
 const EASE = 'cubic-bezier(0.23, 1, 0.32, 1)';
 
-const TEXT_PRIMARY = 'rgba(255,255,255,0.85)';
-const TEXT_SECONDARY = 'rgba(255,255,255,0.65)';
-const TEXT_DIM = 'rgba(255,255,255,0.35)';
-const TEXT_FAINT = 'rgba(255,255,255,0.25)';
+// Shorthand accessors for var() references
+const tv = (name: string) => `var(${name})`;
 
-const INPUT_BG = 'rgba(255,255,255,0.05)';
-const INPUT_BG_HOVER = 'rgba(255,255,255,0.08)';
-const INPUT_BG_ACTIVE = 'rgba(255,255,255,0.1)';
-const INPUT_FOCUS = 'rgba(255,255,255,0.12)';
+// ---------------------------------------------------------------------------
+// Tree node type for the Elements tab
+// ---------------------------------------------------------------------------
 
-const PILL_ACTIVE_BG = 'rgba(59,130,246,0.15)';
-const PILL_ACTIVE_COLOR = '#6dacfc';
-const RESET_DOT_COLOR = '#0D99FF';
+interface TreeNode {
+  element: HTMLElement;
+  depth: number;
+  children: TreeNode[];
+  expanded: boolean;
+  tagName: string;
+  displayName: string;
+  isComponent: boolean;
+}
 
 // ---------------------------------------------------------------------------
 // PropertyPanel
@@ -161,11 +225,14 @@ export class PropertyPanel {
   private container: HTMLDivElement;
   private cleanups: Array<() => void> = [];
   private changeCallback: PropertyChangeCallback | null = null;
+  private selectCallback: ElementSelectCallback | null = null;
   private activeTab: 'elements' | 'design' = 'design';
   private tabContentEl: HTMLDivElement | null = null;
   private controls: DetectedControls | null = null;
   private computedStyles: Record<string, string> = {};
   private originalValues: Record<string, string> = {};
+  private selectedElement: HTMLElement | null = null;
+  private treeRoot: TreeNode | null = null;
 
   constructor(shadowRoot: ShadowRoot) {
     this.shadow = shadowRoot;
@@ -175,10 +242,15 @@ export class PropertyPanel {
   }
 
   // -----------------------------------------------------------------------
-  // Container styles
+  // Container styles - set CSS custom properties on the root
   // -----------------------------------------------------------------------
 
   private applyContainerStyles(): void {
+    // Apply CSS custom properties
+    for (const [prop, value] of Object.entries(TOKENS)) {
+      this.container.style.setProperty(prop, value);
+    }
+
     Object.assign(this.container.style, {
       position: 'fixed',
       right: '16px',
@@ -187,14 +259,15 @@ export class PropertyPanel {
       maxHeight: 'calc(100vh - 84px)',
       overflowY: 'auto',
       scrollbarWidth: 'none',
-      background: BG,
+      background: tv(V.surface),
       borderRadius: '16px',
-      border: '1px solid ' + BORDER,
-      boxShadow: SHADOW,
+      border: '1px solid ' + tv(V.border),
+      boxShadow:
+        '0 2px 12px rgba(0,0,0,0.08), 0 0 0 1px rgba(255,255,255,0.04)',
       pointerEvents: 'auto',
       fontFamily: FONT,
-      fontSize: '12px',
-      color: TEXT_PRIMARY,
+      fontSize: '13px',
+      color: tv(V.text),
       zIndex: '2147483647',
       opacity: '0',
       transform: 'translateY(12px)',
@@ -220,7 +293,10 @@ export class PropertyPanel {
   // Public API
   // -----------------------------------------------------------------------
 
-  render(controls: DetectedControls, computedStyles: Record<string, string>): void {
+  render(
+    controls: DetectedControls,
+    computedStyles: Record<string, string>,
+  ): void {
     this.cleanup();
     this.clearContainer();
     this.controls = controls;
@@ -231,6 +307,9 @@ export class PropertyPanel {
     for (const key of Object.keys(computedStyles)) {
       this.originalValues[key] = computedStyles[key];
     }
+
+    // Build element tree from document.body
+    this.treeRoot = this.buildTree(document.body, 0);
 
     // Tab bar
     this.buildTabBar();
@@ -247,6 +326,10 @@ export class PropertyPanel {
     this.changeCallback = callback;
   }
 
+  onElementSelect(callback: ElementSelectCallback): void {
+    this.selectCallback = callback;
+  }
+
   show(): void {
     this.container.style.display = '';
   }
@@ -258,7 +341,9 @@ export class PropertyPanel {
   destroy(): void {
     this.cleanup();
     this.changeCallback = null;
+    this.selectCallback = null;
     this.controls = null;
+    this.treeRoot = null;
     if (this.shadow.contains(this.container)) {
       this.shadow.removeChild(this.container);
     }
@@ -280,7 +365,7 @@ export class PropertyPanel {
   }
 
   // -----------------------------------------------------------------------
-  // Tab bar (40px)
+  // Tab bar (Retune-exact: padding 4px 8px, border-bottom 1px solid border)
   // -----------------------------------------------------------------------
 
   private buildTabBar(): void {
@@ -288,31 +373,22 @@ export class PropertyPanel {
     Object.assign(bar.style, {
       display: 'flex',
       alignItems: 'center',
-      height: '40px',
-      padding: '0 8px',
-      borderBottom: '1px solid ' + BORDER,
+      padding: '4px 8px',
+      borderBottom: '1px solid ' + tv(V.border),
       position: 'relative',
     });
 
-    const tabsWrap = document.createElement('div');
-    Object.assign(tabsWrap.style, {
-      display: 'flex',
-      alignItems: 'center',
-      position: 'relative',
-      flex: '1',
-    });
-
-    // Sliding pill indicator
+    // Sliding pill indicator (behind tabs)
     const pill = document.createElement('div');
     Object.assign(pill.style, {
       position: 'absolute',
-      height: '28px',
-      background: INPUT_BG,
+      height: '32px',
+      background: tv(V.inputBg),
       borderRadius: '8px',
-      transition: 'transform 150ms ' + EASE + ', width 150ms ' + EASE,
+      transition: 'all 0.2s ' + EASE,
       pointerEvents: 'none',
     });
-    tabsWrap.appendChild(pill);
+    bar.appendChild(pill);
 
     const tabs: HTMLButtonElement[] = [];
     const tabDefs: Array<{ label: string; id: 'elements' | 'design' }> = [
@@ -328,12 +404,11 @@ export class PropertyPanel {
       Object.assign(btn.style, {
         background: 'none',
         border: 'none',
-        padding: '0 12px',
-        height: '28px',
+        padding: '8px 12px',
         fontSize: '12px',
         fontWeight: '500',
         fontFamily: FONT,
-        color: isActive ? TEXT_PRIMARY : TEXT_DIM,
+        color: isActive ? tv(V.text) : tv(V.textTertiary),
         cursor: 'pointer',
         position: 'relative',
         zIndex: '1',
@@ -344,7 +419,8 @@ export class PropertyPanel {
         this.activeTab = def.id;
         for (let i = 0; i < tabs.length; i++) {
           const t = tabs[i];
-          t.style.color = tabDefs[i].id === def.id ? TEXT_PRIMARY : TEXT_DIM;
+          t.style.color =
+            tabDefs[i].id === def.id ? tv(V.text) : tv(V.textTertiary);
         }
         this.updatePillPosition(pill, tabs, tabDefs);
         this.renderTabContent();
@@ -353,7 +429,7 @@ export class PropertyPanel {
       this.cleanups.push(() => btn.removeEventListener('click', onClick));
 
       tabs.push(btn);
-      tabsWrap.appendChild(btn);
+      bar.appendChild(btn);
     }
 
     // Version text on right
@@ -361,12 +437,12 @@ export class PropertyPanel {
     version.textContent = 'v0.1';
     Object.assign(version.style, {
       fontSize: '11px',
-      color: TEXT_FAINT,
+      color: tv(V.textTertiary),
       marginLeft: 'auto',
+      paddingRight: '8px',
       flexShrink: '0',
     });
 
-    bar.appendChild(tabsWrap);
     bar.appendChild(version);
     this.container.appendChild(bar);
 
@@ -407,19 +483,236 @@ export class PropertyPanel {
   }
 
   // -----------------------------------------------------------------------
-  // Elements tab (placeholder)
+  // Elements tab - DOM tree
   // -----------------------------------------------------------------------
 
+  private buildTree(element: HTMLElement, depth: number): TreeNode {
+    const tagName = element.tagName.toLowerCase();
+    const isComponent = this.isFrameworkComponent(element);
+    const displayName = this.getNodeDisplayName(element);
+
+    const node: TreeNode = {
+      element,
+      depth,
+      children: [],
+      expanded: depth < 2,
+      tagName,
+      displayName,
+      isComponent,
+    };
+
+    for (let i = 0; i < element.children.length; i++) {
+      const child = element.children[i] as HTMLElement;
+      if (!child || child.nodeType !== 1) continue;
+      // Skip our own panel
+      if (
+        child.tagName === 'IMPROV-PANEL' ||
+        child.classList.contains('improv-pp-retune')
+      )
+        continue;
+      // Skip script/style/noscript
+      const tag = child.tagName;
+      if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'NOSCRIPT') continue;
+      node.children.push(this.buildTree(child, depth + 1));
+    }
+
+    return node;
+  }
+
+  private isFrameworkComponent(el: HTMLElement): boolean {
+    // Check for React/Vue/Svelte component markers
+    for (const attr of el.getAttributeNames()) {
+      if (
+        attr.startsWith('data-reactroot') ||
+        attr.startsWith('data-v-') ||
+        attr.startsWith('data-svelte')
+      )
+        return true;
+    }
+    // Check for custom elements (web components)
+    if (el.tagName.includes('-')) return true;
+    return false;
+  }
+
+  private getNodeDisplayName(el: HTMLElement): string {
+    // Prefer class name
+    if (el.className && typeof el.className === 'string') {
+      const firstClass = el.className.split(/\s+/)[0];
+      if (firstClass && firstClass.length < 30) {
+        return '.' + firstClass;
+      }
+    }
+    // Then id
+    if (el.id) {
+      return '#' + el.id;
+    }
+    // Then text content (truncated)
+    const text = el.textContent?.trim();
+    if (text && text.length > 0) {
+      const truncated = text.length > 30 ? text.substring(0, 27) + '...' : text;
+      // Only show text if this element has direct text nodes
+      let hasDirectText = false;
+      for (const child of el.childNodes) {
+        if (child.nodeType === 3 && child.textContent?.trim()) {
+          hasDirectText = true;
+          break;
+        }
+      }
+      if (hasDirectText) return truncated;
+    }
+    // Fallback to tag
+    return el.tagName.toLowerCase();
+  }
+
   private buildElementsTab(parent: HTMLDivElement): void {
-    const empty = document.createElement('div');
-    Object.assign(empty.style, {
-      padding: '32px 16px',
-      textAlign: 'center',
-      fontSize: '11px',
-      color: TEXT_DIM,
+    const treeContainer = document.createElement('div');
+    Object.assign(treeContainer.style, {
+      padding: '4px 0',
+      overflowX: 'auto',
     });
-    empty.textContent = 'Element tree coming soon';
-    parent.appendChild(empty);
+
+    if (this.treeRoot) {
+      this.renderTreeNode(treeContainer, this.treeRoot);
+    }
+
+    parent.appendChild(treeContainer);
+  }
+
+  private renderTreeNode(container: HTMLElement, node: TreeNode): void {
+    const row = document.createElement('div');
+    const paddingLeft = node.depth * 20 + 12;
+    Object.assign(row.style, {
+      display: 'flex',
+      alignItems: 'center',
+      height: '32px',
+      paddingLeft: paddingLeft + 'px',
+      paddingRight: '8px',
+      cursor: 'pointer',
+      userSelect: 'none',
+      transition: 'background 0.12s',
+    });
+
+    // Check if this is the selected element
+    const isSelected = node.element === this.selectedElement;
+    if (isSelected) {
+      row.style.background = tv(V.blueBg);
+    }
+
+    // Hover
+    const onEnter = () => {
+      if (!isSelected) {
+        row.style.background = tv(V.surfaceHover);
+      }
+    };
+    const onLeave = () => {
+      if (!isSelected) {
+        row.style.background = 'transparent';
+      }
+    };
+    row.addEventListener('mouseenter', onEnter);
+    row.addEventListener('mouseleave', onLeave);
+    this.cleanups.push(() => {
+      row.removeEventListener('mouseenter', onEnter);
+      row.removeEventListener('mouseleave', onLeave);
+    });
+
+    // Arrow (expand/collapse) - 16x16
+    const arrowWrap = document.createElement('div');
+    Object.assign(arrowWrap.style, {
+      width: '16px',
+      height: '16px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: '0',
+      marginRight: '4px',
+    });
+
+    if (node.children.length > 0) {
+      const arrow = chevronRightIcon(16);
+      Object.assign(arrow.style, {
+        transition: 'transform 0.12s',
+        transform: node.expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+        color: tv(V.textTertiary),
+      });
+      arrowWrap.appendChild(arrow);
+
+      const onArrowClick = (e: MouseEvent) => {
+        e.stopPropagation();
+        node.expanded = !node.expanded;
+        arrow.style.transform = node.expanded
+          ? 'rotate(90deg)'
+          : 'rotate(0deg)';
+        // Toggle children visibility
+        const childContainer = row.nextElementSibling as HTMLElement | null;
+        if (childContainer && childContainer.dataset.treeChildren === 'true') {
+          childContainer.style.display = node.expanded ? 'block' : 'none';
+        }
+      };
+      arrowWrap.addEventListener('click', onArrowClick);
+      arrowWrap.style.cursor = 'pointer';
+      this.cleanups.push(() =>
+        arrowWrap.removeEventListener('click', onArrowClick),
+      );
+    }
+    row.appendChild(arrowWrap);
+
+    // Icon - 16x16 (tag icon for DOM, component icon for framework)
+    const iconWrap = document.createElement('div');
+    Object.assign(iconWrap.style, {
+      width: '16px',
+      height: '16px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: '0',
+      marginRight: '6px',
+      color: node.isComponent ? tv(V.blueText) : tv(V.textTertiary),
+    });
+    iconWrap.appendChild(
+      node.isComponent ? componentIcon(16) : codeTagIcon(16),
+    );
+    row.appendChild(iconWrap);
+
+    // Name
+    const nameEl = document.createElement('span');
+    nameEl.textContent = node.displayName;
+    Object.assign(nameEl.style, {
+      fontSize: '13px',
+      fontWeight: '400',
+      color: isSelected ? tv(V.text) : tv(V.text),
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      whiteSpace: 'nowrap',
+      flex: '1',
+      minWidth: '0',
+    });
+    row.appendChild(nameEl);
+
+    // Click to select element
+    const onRowClick = () => {
+      this.selectedElement = node.element;
+      this.selectCallback?.(node.element);
+      // Re-render tree to update selection highlighting
+      if (this.tabContentEl) {
+        this.renderTabContent();
+      }
+    };
+    row.addEventListener('click', onRowClick);
+    this.cleanups.push(() => row.removeEventListener('click', onRowClick));
+
+    container.appendChild(row);
+
+    // Children container
+    if (node.children.length > 0) {
+      const childContainer = document.createElement('div');
+      childContainer.dataset.treeChildren = 'true';
+      childContainer.style.display = node.expanded ? 'block' : 'none';
+      for (const child of node.children) {
+        this.renderTreeNode(childContainer, child);
+      }
+      container.appendChild(childContainer);
+    }
   }
 
   // -----------------------------------------------------------------------
@@ -496,10 +789,10 @@ export class PropertyPanel {
     // Body
     const body = this.makeSectionBody();
 
-    // Target row (group-label-inline)
+    // Target group
     const targetRow = this.makeSectionRow();
 
-    const targetLabel = this.makeInlineLabel('Target');
+    const targetLabel = this.makeGroupLabelInline('Target');
     targetRow.appendChild(targetLabel);
 
     // Selector pills
@@ -516,10 +809,10 @@ export class PropertyPanel {
     targetRow.appendChild(pillWrap);
     body.appendChild(targetRow);
 
-    // Trigger row
+    // Trigger group
     const triggerRow = this.makeSectionRow();
 
-    const triggerLabel = this.makeInlineLabel('Trigger');
+    const triggerLabel = this.makeGroupLabelInline('Trigger');
     triggerRow.appendChild(triggerLabel);
 
     const triggerSelect = this.makeSelectControl(
@@ -551,7 +844,7 @@ export class PropertyPanel {
 
     const body = this.makeSectionBody();
 
-    // Alignment row: two groups of 3 icon buttons
+    // Alignment field: 6 icon buttons in 2 groups of 3
     const alignRow = this.makeSectionRow();
     Object.assign(alignRow.style, {
       display: 'flex',
@@ -571,10 +864,13 @@ export class PropertyPanel {
     );
     alignRow.appendChild(hGroup);
 
-    // Vertical alignment group (disabled for block elements by default)
+    // Vertical alignment group
     const display = getVal(cs, 'display') || 'block';
-    const isFlexOrGrid = display === 'flex' || display === 'inline-flex' ||
-      display === 'grid' || display === 'inline-grid';
+    const isFlexOrGrid =
+      display === 'flex' ||
+      display === 'inline-flex' ||
+      display === 'grid' ||
+      display === 'inline-grid';
 
     const vGroup = this.makeIconButtonGroup(
       [
@@ -595,10 +891,15 @@ export class PropertyPanel {
 
     body.appendChild(alignRow);
 
-    // Position type row
+    // Position type field
     const positionVal = getVal(cs, 'position') || 'static';
     const typeRow = this.makeSectionRow();
-    const posLabel = this.makeInlineLabel('Type');
+    Object.assign(typeRow.style, {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+    });
+    const posLabel = this.makeGroupLabelInline('Type');
     typeRow.appendChild(posLabel);
     const posSelect = this.makeSelectControl(
       ['static', 'relative', 'absolute', 'fixed', 'sticky'],
@@ -620,7 +921,7 @@ export class PropertyPanel {
     parent: HTMLDivElement,
     cs: Record<string, string>,
     hasFlex: boolean,
-    hasGrid: boolean,
+    _hasGrid: boolean,
   ): void {
     const section = this.createSection();
 
@@ -639,7 +940,7 @@ export class PropertyPanel {
       activeDisplay = 'grid';
     }
 
-    // Display segmented control
+    // Display segmented control with sliding pill
     const displayRow = this.makeSectionRow();
     const segmented = this.makeSegmentedControl(
       [
@@ -666,7 +967,7 @@ export class PropertyPanel {
     displayRow.appendChild(segmented);
     body.appendChild(displayRow);
 
-    // Flex-specific controls
+    // Flex-specific controls: Reverse + Wrap
     if (hasFlex) {
       const flexExtrasRow = this.makeSectionRow();
       Object.assign(flexExtrasRow.style, {
@@ -674,6 +975,25 @@ export class PropertyPanel {
         gap: '8px',
       });
 
+      // Reverse (No dropdown by default)
+      const reverseLabel = this.makeGroupLabelInline('Reverse');
+      flexExtrasRow.appendChild(reverseLabel);
+      const reverseSelect = this.makeSelectControl(
+        ['No', 'Yes'],
+        flexDir.includes('reverse') ? 'Yes' : 'No',
+        (val) => {
+          const baseDir =
+            activeDisplay === 'flex-col' ? 'column' : 'row';
+          this.emitChange(
+            'flex-direction',
+            val === 'Yes' ? baseDir + '-reverse' : baseDir,
+          );
+        },
+      );
+      flexExtrasRow.appendChild(reverseSelect);
+
+      const wrapLabel = this.makeGroupLabelInline('Wrap');
+      flexExtrasRow.appendChild(wrapLabel);
       const wrapSelect = this.makeSelectControl(
         ['nowrap', 'wrap', 'wrap-reverse'],
         getVal(cs, 'flex-wrap') || 'nowrap',
@@ -685,7 +1005,7 @@ export class PropertyPanel {
       // Gap
       const gapRow = this.makeSectionRow();
       Object.assign(gapRow.style, { display: 'flex', gap: '8px' });
-      const gapLabel = this.makeInlineLabel('Gap');
+      const gapLabel = this.makeGroupLabelInline('Gap');
       gapRow.appendChild(gapLabel);
       gapRow.appendChild(this.makePropInput('gap', null, cs));
       body.appendChild(gapRow);
@@ -693,10 +1013,17 @@ export class PropertyPanel {
       // Justify content
       const justifyRow = this.makeSectionRow();
       Object.assign(justifyRow.style, { display: 'flex', gap: '8px' });
-      const justifyLabel = this.makeInlineLabel('Justify');
+      const justifyLabel = this.makeGroupLabelInline('Justify');
       justifyRow.appendChild(justifyLabel);
       const justifySelect = this.makeSelectControl(
-        ['flex-start', 'flex-end', 'center', 'space-between', 'space-around', 'space-evenly'],
+        [
+          'flex-start',
+          'flex-end',
+          'center',
+          'space-between',
+          'space-around',
+          'space-evenly',
+        ],
         getVal(cs, 'justify-content') || 'flex-start',
         (val) => this.emitChange('justify-content', val),
       );
@@ -706,7 +1033,7 @@ export class PropertyPanel {
       // Align items
       const alignRow = this.makeSectionRow();
       Object.assign(alignRow.style, { display: 'flex', gap: '8px' });
-      const alignLabel = this.makeInlineLabel('Align');
+      const alignLabel = this.makeGroupLabelInline('Align');
       alignRow.appendChild(alignLabel);
       const alignSelect = this.makeSelectControl(
         ['flex-start', 'flex-end', 'center', 'stretch', 'baseline'],
@@ -736,43 +1063,49 @@ export class PropertyPanel {
 
     const body = this.makeSectionBody();
 
-    // Padding group (group-label-inline)
-    const padRow = this.makeSectionRow();
+    // Padding group
+    const padRow = this.makeSectionRowWithSplit();
     Object.assign(padRow.style, {
       display: 'flex',
       alignItems: 'center',
       gap: '6px',
-      paddingRight: '8px',
     });
 
-    const padLabel = this.makeInlineLabel('Padding');
+    const padLabel = this.makeGroupLabelInline('Padding');
     padRow.appendChild(padLabel);
 
     // Horizontal padding input with icon
-    padRow.appendChild(this.makePropInput('padding-left', ICON_PADDING_H, cs));
+    padRow.appendChild(
+      this.makePropInput('padding-left', ICON_PADDING_H, cs),
+    );
 
     // Vertical padding input with icon
-    padRow.appendChild(this.makePropInput('padding-top', ICON_PADDING_V, cs));
+    padRow.appendChild(
+      this.makePropInput('padding-top', ICON_PADDING_V, cs),
+    );
 
     // Split button
     padRow.appendChild(this.makeSplitButton());
 
     body.appendChild(padRow);
 
-    // Margin group (group-label-inline)
-    const marRow = this.makeSectionRow();
+    // Margin group
+    const marRow = this.makeSectionRowWithSplit();
     Object.assign(marRow.style, {
       display: 'flex',
       alignItems: 'center',
       gap: '6px',
-      paddingRight: '8px',
     });
 
-    const marLabel = this.makeInlineLabel('Margin');
+    const marLabel = this.makeGroupLabelInline('Margin');
     marRow.appendChild(marLabel);
 
-    marRow.appendChild(this.makePropInput('margin-left', ICON_MARGIN_H, cs));
-    marRow.appendChild(this.makePropInput('margin-top', ICON_MARGIN_V, cs));
+    marRow.appendChild(
+      this.makePropInput('margin-left', ICON_MARGIN_H, cs),
+    );
+    marRow.appendChild(
+      this.makePropInput('margin-top', ICON_MARGIN_V, cs),
+    );
     marRow.appendChild(this.makeSplitButton());
 
     body.appendChild(marRow);
@@ -798,7 +1131,26 @@ export class PropertyPanel {
 
     const body = this.makeSectionBody();
 
-    // Width + Height row
+    // Width + Height row with labels above
+    const labelsRow = this.makeSectionRow();
+    Object.assign(labelsRow.style, {
+      display: 'flex',
+      gap: '8px',
+    });
+    const wLabelSpan = this.makeGroupLabelInline('Width');
+    wLabelSpan.style.flex = '1';
+    const hLabelSpan = this.makeGroupLabelInline('Height');
+    hLabelSpan.style.flex = '1';
+    labelsRow.appendChild(wLabelSpan);
+    labelsRow.appendChild(hLabelSpan);
+    // Spacer for lock button
+    const lockSpacer = document.createElement('div');
+    lockSpacer.style.width = '32px';
+    lockSpacer.style.flexShrink = '0';
+    labelsRow.appendChild(lockSpacer);
+    body.appendChild(labelsRow);
+
+    // Combo inputs row
     const whRow = this.makeSectionRow();
     Object.assign(whRow.style, {
       display: 'flex',
@@ -806,17 +1158,58 @@ export class PropertyPanel {
       gap: '8px',
     });
 
-    const wLabel = this.makeInlineLabel('W');
-    whRow.appendChild(wLabel);
     whRow.appendChild(this.makeComboInput('width', cs));
-
-    const hLabel = this.makeInlineLabel('H');
-    whRow.appendChild(hLabel);
     whRow.appendChild(this.makeComboInput('height', cs));
+
+    // Lock aspect ratio button (chain icon)
+    const lockBtn = document.createElement('button');
+    Object.assign(lockBtn.style, {
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '32px',
+      height: '32px',
+      borderRadius: '8px',
+      border: 'none',
+      background: 'transparent',
+      color: tv(V.textTertiary),
+      cursor: 'pointer',
+      padding: '0',
+      flexShrink: '0',
+    });
+    lockBtn.appendChild(chainIcon(14));
+    const onLockEnter = () => {
+      lockBtn.style.background = tv(V.surfaceHover);
+    };
+    const onLockLeave = () => {
+      lockBtn.style.background = 'transparent';
+    };
+    lockBtn.addEventListener('mouseenter', onLockEnter);
+    lockBtn.addEventListener('mouseleave', onLockLeave);
+    this.cleanups.push(() => {
+      lockBtn.removeEventListener('mouseenter', onLockEnter);
+      lockBtn.removeEventListener('mouseleave', onLockLeave);
+    });
+    whRow.appendChild(lockBtn);
 
     body.appendChild(whRow);
 
-    // Max W + Max H row
+    // Max W + Max H labels
+    const maxLabelsRow = this.makeSectionRow();
+    Object.assign(maxLabelsRow.style, {
+      display: 'flex',
+      gap: '8px',
+      marginTop: '4px',
+    });
+    const mwLabelSpan = this.makeGroupLabelInline('Max W');
+    mwLabelSpan.style.flex = '1';
+    const mhLabelSpan = this.makeGroupLabelInline('Max H');
+    mhLabelSpan.style.flex = '1';
+    maxLabelsRow.appendChild(mwLabelSpan);
+    maxLabelsRow.appendChild(mhLabelSpan);
+    body.appendChild(maxLabelsRow);
+
+    // Max W + Max H inputs
     const maxRow = this.makeSectionRow();
     Object.assign(maxRow.style, {
       display: 'flex',
@@ -824,40 +1217,12 @@ export class PropertyPanel {
       gap: '8px',
     });
 
-    const mwLabel = this.makeInlineLabel('Max W');
-    maxRow.appendChild(mwLabel);
-    maxRow.appendChild(this.makePropInput('max-width', null, cs, 1, true));
-
-    const mhLabel = this.makeInlineLabel('Max H');
-    maxRow.appendChild(mhLabel);
-    maxRow.appendChild(this.makePropInput('max-height', null, cs, 1, true));
-
-    // Lock aspect ratio button
-    const lockBtn = document.createElement('button');
-    Object.assign(lockBtn.style, {
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      width: '28px',
-      height: '28px',
-      borderRadius: '6px',
-      border: 'none',
-      background: 'transparent',
-      color: TEXT_DIM,
-      cursor: 'pointer',
-      padding: '0',
-      flexShrink: '0',
-    });
-    lockBtn.appendChild(chainIcon(12));
-    const onLockEnter = () => { lockBtn.style.background = INPUT_BG; };
-    const onLockLeave = () => { lockBtn.style.background = 'transparent'; };
-    lockBtn.addEventListener('mouseenter', onLockEnter);
-    lockBtn.addEventListener('mouseleave', onLockLeave);
-    this.cleanups.push(() => {
-      lockBtn.removeEventListener('mouseenter', onLockEnter);
-      lockBtn.removeEventListener('mouseleave', onLockLeave);
-    });
-    maxRow.appendChild(lockBtn);
+    maxRow.appendChild(
+      this.makePropInput('max-width', null, cs, 1, true),
+    );
+    maxRow.appendChild(
+      this.makePropInput('max-height', null, cs, 1, true),
+    );
 
     body.appendChild(maxRow);
 
@@ -892,9 +1257,9 @@ export class PropertyPanel {
       height: '32px',
       padding: '0 8px',
       borderRadius: '8px',
-      background: INPUT_BG,
+      background: tv(V.inputBg),
       border: 'none',
-      color: TEXT_PRIMARY,
+      color: tv(V.text),
       fontSize: '11px',
       fontWeight: '450',
       fontFamily: FONT,
@@ -912,8 +1277,12 @@ export class PropertyPanel {
     fontBtn.appendChild(fontText);
     fontBtn.appendChild(chevronDownIcon(10));
 
-    const onFontEnter = () => { fontBtn.style.background = INPUT_BG_HOVER; };
-    const onFontLeave = () => { fontBtn.style.background = INPUT_BG; };
+    const onFontEnter = () => {
+      fontBtn.style.background = tv(V.border);
+    };
+    const onFontLeave = () => {
+      fontBtn.style.background = tv(V.inputBg);
+    };
     fontBtn.addEventListener('mouseenter', onFontEnter);
     fontBtn.addEventListener('mouseleave', onFontLeave);
     this.cleanups.push(() => {
@@ -931,11 +1300,11 @@ export class PropertyPanel {
       gap: '8px',
     });
 
-    const sizeLabel = this.makeInlineLabel('Size');
+    const sizeLabel = this.makeGroupLabelInline('Size');
     sizeWeightRow.appendChild(sizeLabel);
     sizeWeightRow.appendChild(this.makePropInput('font-size', null, cs));
 
-    const weightLabel = this.makeInlineLabel('Weight');
+    const weightLabel = this.makeGroupLabelInline('Weight');
     sizeWeightRow.appendChild(weightLabel);
     const weightVal = getVal(cs, 'font-weight') || '400';
     const weightSelect = this.makeSelectControl(
@@ -952,28 +1321,35 @@ export class PropertyPanel {
       display: 'flex',
       gap: '8px',
     });
-    const lhLabel = this.makeInlineLabel('LH');
+    const lhLabel = this.makeGroupLabelInline('Line height');
     lineLetterRow.appendChild(lhLabel);
-    lineLetterRow.appendChild(this.makeComboInput('line-height', cs, 0.1));
+    lineLetterRow.appendChild(
+      this.makeComboInput('line-height', cs, 0.1),
+    );
 
-    const lsLabel = this.makeInlineLabel('LS');
+    const lsLabel = this.makeGroupLabelInline('Letter spacing');
     lineLetterRow.appendChild(lsLabel);
-    lineLetterRow.appendChild(this.makeComboInput('letter-spacing', cs, 0.1));
+    lineLetterRow.appendChild(
+      this.makeComboInput('letter-spacing', cs, 0.1),
+    );
     body.appendChild(lineLetterRow);
 
-    // Color row
+    // Color row (swatch + hex input in one container)
     const colorRow = this.makeSectionRow();
     const colorControl = this.makeColorRow('color', cs);
     colorRow.appendChild(colorControl);
     body.appendChild(colorRow);
 
-    // Text align segmented
+    // Text align segmented - 3-option
     const alignRow = this.makeSectionRow();
     Object.assign(alignRow.style, {
       display: 'flex',
       alignItems: 'center',
       gap: '8px',
     });
+
+    const alignLabel = this.makeGroupLabelInline('Align');
+    alignRow.appendChild(alignLabel);
 
     const currentAlign = getVal(cs, 'text-align') || 'left';
     const alignSeg = this.makeSegmentedControl(
@@ -986,14 +1362,19 @@ export class PropertyPanel {
       (val) => this.emitChange('text-align', val),
     );
     alignRow.appendChild(alignSeg);
-
-    // Split/settings button at end of align row
-    alignRow.appendChild(this.makeSplitButton());
-
     body.appendChild(alignRow);
 
-    // Vertical align segmented
+    // Vertical align segmented - 3-option
     const vAlignRow = this.makeSectionRow();
+    Object.assign(vAlignRow.style, {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+    });
+
+    const vAlignLabel = this.makeGroupLabelInline('Vertical');
+    vAlignRow.appendChild(vAlignLabel);
+
     const currentVAlign = getVal(cs, 'vertical-align') || 'top';
     let vAlignVal = 'top';
     if (currentVAlign === 'middle') vAlignVal = 'middle';
@@ -1034,33 +1415,40 @@ export class PropertyPanel {
     const opZRow = this.makeSectionRow();
     Object.assign(opZRow.style, { display: 'flex', gap: '8px' });
 
-    const opLabel = this.makeInlineLabel('Opacity');
+    const opLabel = this.makeGroupLabelInline('Opacity');
     opZRow.appendChild(opLabel);
     opZRow.appendChild(this.makePropInput('opacity', null, cs, 0.05));
 
-    const zLabel = this.makeInlineLabel('Z');
+    const zLabel = this.makeGroupLabelInline('Z index');
     opZRow.appendChild(zLabel);
     opZRow.appendChild(this.makePropInput('z-index', null, cs, 1));
     body.appendChild(opZRow);
 
-    // Corner radius group
-    const radiusRow = this.makeSectionRow();
+    // Corner radius group with split button
+    const radiusRow = this.makeSectionRowWithSplit();
     Object.assign(radiusRow.style, {
       display: 'flex',
       alignItems: 'center',
       gap: '6px',
-      paddingRight: '8px',
     });
 
-    radiusRow.appendChild(this.makePropInput('border-radius', ICON_RADIUS, cs));
+    const radiusLabel = this.makeGroupLabelInline('Corner radius');
+    radiusRow.appendChild(radiusLabel);
+    radiusRow.appendChild(
+      this.makePropInput('border-radius', ICON_RADIUS, cs),
+    );
     radiusRow.appendChild(this.makeSplitButton());
 
     body.appendChild(radiusRow);
 
     // Overflow row
     const overflowRow = this.makeSectionRow();
-    Object.assign(overflowRow.style, { display: 'flex', gap: '8px' });
-    const overflowLabel = this.makeInlineLabel('Overflow');
+    Object.assign(overflowRow.style, {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+    });
+    const overflowLabel = this.makeGroupLabelInline('Overflow');
     overflowRow.appendChild(overflowLabel);
     const overflowVal = getVal(cs, 'overflow') || 'visible';
     const overflowSelect = this.makeSelectControl(
@@ -1089,13 +1477,13 @@ export class PropertyPanel {
   }
 
   // -----------------------------------------------------------------------
-  // Section structure helpers
+  // Section structure helpers (Retune-exact dimensions)
   // -----------------------------------------------------------------------
 
   private createSection(): HTMLDivElement {
     const section = document.createElement('div');
     Object.assign(section.style, {
-      borderBottom: '1px solid ' + BORDER,
+      borderBottom: '1px solid ' + tv(V.border),
     });
     return section;
   }
@@ -1118,7 +1506,7 @@ export class PropertyPanel {
     Object.assign(titleEl.style, {
       fontSize: '12px',
       fontWeight: '500',
-      color: TEXT_SECONDARY,
+      color: tv(V.textSecondary),
     });
     header.appendChild(titleEl);
 
@@ -1133,7 +1521,7 @@ export class PropertyPanel {
         borderRadius: '8px',
         border: 'none',
         background: 'transparent',
-        color: TEXT_DIM,
+        color: tv(V.textTertiary),
         cursor: 'pointer',
         padding: '0',
         opacity: '0',
@@ -1142,10 +1530,19 @@ export class PropertyPanel {
       addBtn.appendChild(plusIcon(14));
 
       // Show add button on section hover
-      const onHeaderEnter = () => { addBtn.style.opacity = '1'; };
-      const onHeaderLeave = () => { addBtn.style.opacity = '0'; };
-      const onBtnEnter = () => { addBtn.style.background = INPUT_BG; };
-      const onBtnLeave = () => { addBtn.style.background = 'transparent'; };
+      const sectionEl = header.parentElement;
+      const onHeaderEnter = () => {
+        addBtn.style.opacity = '1';
+      };
+      const onHeaderLeave = () => {
+        addBtn.style.opacity = '0';
+      };
+      const onBtnEnter = () => {
+        addBtn.style.background = tv(V.surfaceHover);
+      };
+      const onBtnLeave = () => {
+        addBtn.style.background = 'transparent';
+      };
       header.addEventListener('mouseenter', onHeaderEnter);
       header.addEventListener('mouseleave', onHeaderLeave);
       addBtn.addEventListener('mouseenter', onBtnEnter);
@@ -1176,6 +1573,7 @@ export class PropertyPanel {
     return body;
   }
 
+  // Row with standard padding: 0 48px 0 16px
   private makeSectionRow(): HTMLDivElement {
     const row = document.createElement('div');
     Object.assign(row.style, {
@@ -1184,15 +1582,25 @@ export class PropertyPanel {
     return row;
   }
 
-  private makeInlineLabel(text: string): HTMLSpanElement {
+  // Row with split button padding: 0 8px 0 16px
+  private makeSectionRowWithSplit(): HTMLDivElement {
+    const row = document.createElement('div');
+    Object.assign(row.style, {
+      padding: '0 8px 0 16px',
+    });
+    return row;
+  }
+
+  // Group label inline: 11px, weight 500, color textTertiary
+  private makeGroupLabelInline(text: string): HTMLSpanElement {
     const label = document.createElement('span');
     label.textContent = text;
     Object.assign(label.style, {
       fontSize: '11px',
       fontWeight: '500',
-      color: TEXT_DIM,
+      color: tv(V.textTertiary),
       flexShrink: '0',
-      minWidth: '32px',
+      padding: '0',
     });
     return label;
   }
@@ -1212,15 +1620,15 @@ export class PropertyPanel {
       fontFamily: FONT,
       border: 'none',
       cursor: 'pointer',
-      background: active ? PILL_ACTIVE_BG : INPUT_BG,
-      color: active ? PILL_ACTIVE_COLOR : TEXT_SECONDARY,
+      background: active ? tv(V.blueBg) : tv(V.inputBg),
+      color: active ? tv(V.blueText) : tv(V.textSecondary),
       transition: 'background 120ms, color 120ms',
     });
     return btn;
   }
 
   // -----------------------------------------------------------------------
-  // Split button (32x32, toggles shorthand vs individual values)
+  // Split button (32x32)
   // -----------------------------------------------------------------------
 
   private makeSplitButton(): HTMLButtonElement {
@@ -1234,15 +1642,19 @@ export class PropertyPanel {
       borderRadius: '8px',
       border: 'none',
       background: 'transparent',
-      color: TEXT_DIM,
+      color: tv(V.textTertiary),
       cursor: 'pointer',
       padding: '0',
       flexShrink: '0',
     });
     btn.appendChild(splitIcon(12));
 
-    const onEnter = () => { btn.style.background = INPUT_BG; };
-    const onLeave = () => { btn.style.background = 'transparent'; };
+    const onEnter = () => {
+      btn.style.background = tv(V.surfaceHover);
+    };
+    const onLeave = () => {
+      btn.style.background = 'transparent';
+    };
     btn.addEventListener('mouseenter', onEnter);
     btn.addEventListener('mouseleave', onLeave);
     this.cleanups.push(() => {
@@ -1254,7 +1666,7 @@ export class PropertyPanel {
   }
 
   // -----------------------------------------------------------------------
-  // Per-field reset dot
+  // Per-field reset dot (4px, #0D99FF)
   // -----------------------------------------------------------------------
 
   private makeResetDot(
@@ -1267,15 +1679,20 @@ export class PropertyPanel {
       width: '4px',
       height: '4px',
       borderRadius: '50%',
-      background: RESET_DOT_COLOR,
+      background: tv(V.blue500),
       cursor: 'pointer',
       flexShrink: '0',
       display: 'none',
+      position: 'absolute',
+      left: '4px',
+      top: '50%',
+      transform: 'translateY(-50%)',
     });
 
     // Check if value differs from original
     const origKey = cssPropToCamel(property);
-    const origVal = this.originalValues[origKey] ?? this.originalValues[property] ?? '';
+    const origVal =
+      this.originalValues[origKey] ?? this.originalValues[property] ?? '';
     if (currentValue !== origVal && currentValue !== '') {
       dot.style.display = 'block';
     }
@@ -1291,14 +1708,8 @@ export class PropertyPanel {
     return dot;
   }
 
-  private updateResetDot(dot: HTMLDivElement, property: string, currentValue: string): void {
-    const origKey = cssPropToCamel(property);
-    const origVal = this.originalValues[origKey] ?? this.originalValues[property] ?? '';
-    dot.style.display = (currentValue !== origVal && currentValue !== '') ? 'block' : 'none';
-  }
-
   // -----------------------------------------------------------------------
-  // PropInput control
+  // PropInput control (Retune-exact: h32, r8, bg inputBg, label 32px)
   // -----------------------------------------------------------------------
 
   private makePropInput(
@@ -1316,7 +1727,7 @@ export class PropertyPanel {
       position: 'relative',
       height: '32px',
       borderRadius: '8px',
-      background: INPUT_BG,
+      background: tv(V.inputBg),
       display: 'flex',
       alignItems: 'center',
       overflow: 'hidden',
@@ -1324,11 +1735,13 @@ export class PropertyPanel {
       minWidth: '0',
     });
 
-    // Hover
-    const onEnter = () => { wrapper.style.background = INPUT_BG_HOVER; };
+    // Hover: bg -> border color (rgba(255,255,255,0.1))
+    const onEnter = () => {
+      wrapper.style.background = tv(V.border);
+    };
     const onLeave = () => {
       if (wrapper.querySelector('input:focus')) return;
-      wrapper.style.background = INPUT_BG;
+      wrapper.style.background = tv(V.inputBg);
     };
     wrapper.addEventListener('mouseenter', onEnter);
     wrapper.addEventListener('mouseleave', onLeave);
@@ -1337,27 +1750,36 @@ export class PropertyPanel {
       wrapper.removeEventListener('mouseleave', onLeave);
     });
 
-    // Icon label area (28px wide, ew-resize cursor)
+    // Icon label area (32px wide, ew-resize cursor, flex-shrink 0)
     if (iconPath) {
       const labelEl = document.createElement('div');
       Object.assign(labelEl.style, {
-        position: 'absolute',
-        left: '0',
-        top: '0',
-        bottom: '0',
-        width: '28px',
+        width: '32px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         cursor: 'ew-resize',
         userSelect: 'none',
         flexShrink: '0',
-        zIndex: '1',
-        color: TEXT_DIM,
+        color: tv(V.textTertiary),
+        position: 'relative',
       });
 
       const icon = svgIcon(12, 12, iconPath);
       labelEl.appendChild(icon);
+
+      // Reset dot inside label area
+      const resetDot = this.makeResetDot(property, rawValue, () => {
+        const origKey = cssPropToCamel(property);
+        const origVal =
+          this.originalValues[origKey] ??
+          this.originalValues[property] ??
+          '';
+        input.value = origVal;
+        this.emitChange(property, origVal);
+      });
+      labelEl.appendChild(resetDot);
+
       wrapper.appendChild(labelEl);
 
       // Scrub on label area
@@ -1376,40 +1798,54 @@ export class PropertyPanel {
         });
         this.cleanups.push(cleanup);
       }
+    } else {
+      // No icon - still add reset dot
+      const resetDot = this.makeResetDot(property, rawValue, () => {
+        const origKey = cssPropToCamel(property);
+        const origVal =
+          this.originalValues[origKey] ??
+          this.originalValues[property] ??
+          '';
+        input.value = origVal;
+        this.emitChange(property, origVal);
+      });
+      wrapper.appendChild(resetDot);
     }
 
     // Input field
     const input = document.createElement('input');
     input.type = 'text';
-    const displayVal = parsed ? String(Math.round(parsed.number * 1000) / 1000) : rawValue || '';
+    const displayVal = parsed
+      ? String(Math.round(parsed.number * 1000) / 1000)
+      : rawValue || '';
     input.value = displayVal;
     if (showDash && !displayVal) {
       input.placeholder = '-';
     }
     Object.assign(input.style, {
-      width: '100%',
+      flex: '1',
       height: '100%',
       border: 'none',
       outline: 'none',
       background: 'transparent',
-      color: TEXT_PRIMARY,
+      color: tv(V.text),
       fontSize: '11px',
       fontWeight: '450',
       fontFamily: FONT,
-      paddingLeft: iconPath ? '28px' : '8px',
-      paddingRight: '6px',
+      padding: '0 8px',
       boxSizing: 'border-box',
+      letterSpacing: '-0.005em',
       fontVariantNumeric: 'tabular-nums',
     });
 
-    // Focus outline on wrapper
+    // Focus: outline 1px solid border
     const onFocus = () => {
-      wrapper.style.outline = '1px solid ' + INPUT_FOCUS;
-      wrapper.style.background = INPUT_BG_HOVER;
+      wrapper.style.outline = '1px solid ' + tv(V.border);
+      wrapper.style.background = tv(V.border);
     };
     const onBlur = () => {
       wrapper.style.outline = 'none';
-      wrapper.style.background = INPUT_BG;
+      wrapper.style.background = tv(V.inputBg);
     };
     input.addEventListener('focus', onFocus);
     input.addEventListener('blur', onBlur);
@@ -1449,7 +1885,7 @@ export class PropertyPanel {
   }
 
   // -----------------------------------------------------------------------
-  // ComboInput (input + dropdown trigger chevron)
+  // ComboInput (input + dropdown trigger chevron, 32px chevron area)
   // -----------------------------------------------------------------------
 
   private makeComboInput(
@@ -1465,7 +1901,7 @@ export class PropertyPanel {
       position: 'relative',
       height: '32px',
       borderRadius: '8px',
-      background: INPUT_BG,
+      background: tv(V.inputBg),
       display: 'flex',
       alignItems: 'center',
       flex: '1',
@@ -1473,10 +1909,12 @@ export class PropertyPanel {
     });
 
     // Hover
-    const onEnter = () => { wrapper.style.background = INPUT_BG_HOVER; };
+    const onEnter = () => {
+      wrapper.style.background = tv(V.border);
+    };
     const onLeave = () => {
       if (wrapper.querySelector('input:focus')) return;
-      wrapper.style.background = INPUT_BG;
+      wrapper.style.background = tv(V.inputBg);
     };
     wrapper.addEventListener('mouseenter', onEnter);
     wrapper.addEventListener('mouseleave', onLeave);
@@ -1488,9 +1926,11 @@ export class PropertyPanel {
     // Input
     const input = document.createElement('input');
     input.type = 'text';
-    // Display "Fill" for width auto, pixel value otherwise
     let displayVal = '';
-    if (property === 'width' && (rawValue === 'auto' || !rawValue)) {
+    if (
+      property === 'width' &&
+      (rawValue === 'auto' || !rawValue)
+    ) {
       displayVal = 'Fill';
     } else if (parsed) {
       displayVal = String(Math.round(parsed.number * 1000) / 1000);
@@ -1499,29 +1939,30 @@ export class PropertyPanel {
     }
     input.value = displayVal;
     Object.assign(input.style, {
-      width: '100%',
+      flex: '1',
       height: '100%',
       border: 'none',
       outline: 'none',
       background: 'transparent',
-      color: TEXT_PRIMARY,
+      color: tv(V.text),
       fontSize: '11px',
       fontWeight: '450',
       fontFamily: FONT,
       paddingLeft: '8px',
-      paddingRight: '24px',
+      paddingRight: '32px',
       boxSizing: 'border-box',
+      letterSpacing: '-0.005em',
       fontVariantNumeric: 'tabular-nums',
     });
 
     // Focus
     const onFocus = () => {
-      wrapper.style.outline = '1px solid ' + INPUT_FOCUS;
-      wrapper.style.background = INPUT_BG_HOVER;
+      wrapper.style.outline = '1px solid ' + tv(V.border);
+      wrapper.style.background = tv(V.border);
     };
     const onBlur = () => {
       wrapper.style.outline = 'none';
-      wrapper.style.background = INPUT_BG;
+      wrapper.style.background = tv(V.inputBg);
     };
     input.addEventListener('focus', onFocus);
     input.addEventListener('blur', onBlur);
@@ -1558,28 +1999,28 @@ export class PropertyPanel {
 
     wrapper.appendChild(input);
 
-    // Chevron trigger on right
-    const chevronBtn = document.createElement('div');
-    Object.assign(chevronBtn.style, {
+    // Chevron trigger on right (32px wide area)
+    const chevronArea = document.createElement('div');
+    Object.assign(chevronArea.style, {
       position: 'absolute',
       right: '0',
       top: '0',
       bottom: '0',
-      width: '24px',
+      width: '32px',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       cursor: 'pointer',
-      color: TEXT_DIM,
+      color: tv(V.textTertiary),
     });
-    chevronBtn.appendChild(chevronDownIcon(12));
-    wrapper.appendChild(chevronBtn);
+    chevronArea.appendChild(chevronDownIcon(12));
+    wrapper.appendChild(chevronArea);
 
     return wrapper;
   }
 
   // -----------------------------------------------------------------------
-  // SelectControl
+  // SelectControl (Retune-exact: h32, r8, bg inputBg, 32px chevron area)
   // -----------------------------------------------------------------------
 
   private makeSelectControl(
@@ -1592,12 +2033,14 @@ export class PropertyPanel {
       position: 'relative',
       height: '32px',
       borderRadius: '8px',
-      background: INPUT_BG,
+      background: tv(V.inputBg),
       display: 'flex',
       alignItems: 'center',
       flex: '1',
       minWidth: '0',
       cursor: 'pointer',
+      padding: '0',
+      border: 'none',
     });
 
     const valueText = document.createElement('span');
@@ -1606,26 +2049,36 @@ export class PropertyPanel {
       flex: '1',
       fontSize: '11px',
       fontWeight: '450',
-      color: TEXT_PRIMARY,
+      color: tv(V.text),
       paddingLeft: '8px',
       overflow: 'hidden',
       textOverflow: 'ellipsis',
       whiteSpace: 'nowrap',
+      textAlign: 'left',
     });
 
-    const chevron = chevronDownIcon(10);
-    Object.assign(chevron.style, {
+    // Chevron area (32px)
+    const chevronWrap = document.createElement('div');
+    Object.assign(chevronWrap.style, {
+      width: '32px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: tv(V.textTertiary),
       flexShrink: '0',
-      marginRight: '8px',
-      color: TEXT_DIM,
     });
+    chevronWrap.appendChild(chevronDownIcon(10));
 
     wrapper.appendChild(valueText);
-    wrapper.appendChild(chevron);
+    wrapper.appendChild(chevronWrap);
 
     // Hover
-    const onEnter = () => { wrapper.style.background = INPUT_BG_HOVER; };
-    const onLeave = () => { wrapper.style.background = INPUT_BG; };
+    const onEnter = () => {
+      wrapper.style.background = tv(V.border);
+    };
+    const onLeave = () => {
+      wrapper.style.background = tv(V.inputBg);
+    };
     wrapper.addEventListener('mouseenter', onEnter);
     wrapper.addEventListener('mouseleave', onLeave);
     this.cleanups.push(() => {
@@ -1659,7 +2112,7 @@ export class PropertyPanel {
         right: '0',
         background: '#222',
         borderRadius: '8px',
-        border: '1px solid ' + BORDER,
+        border: '1px solid ' + tv(V.border),
         boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
         zIndex: '10',
         maxHeight: '200px',
@@ -1670,19 +2123,19 @@ export class PropertyPanel {
 
       for (const opt of options) {
         const item = document.createElement('div');
-        const isActive = opt === currentValue;
+        const isActive = opt === valueText.textContent;
         Object.assign(item.style, {
           padding: '6px 8px',
           borderRadius: '6px',
           fontSize: '11px',
-          color: isActive ? PILL_ACTIVE_COLOR : TEXT_SECONDARY,
-          background: isActive ? PILL_ACTIVE_BG : 'transparent',
+          color: isActive ? tv(V.blueText) : tv(V.textSecondary),
+          background: isActive ? tv(V.blueBg) : 'transparent',
           cursor: 'pointer',
         });
         item.textContent = opt;
 
         const onItemEnter = () => {
-          if (!isActive) item.style.background = INPUT_BG;
+          if (!isActive) item.style.background = tv(V.inputBg);
         };
         const onItemLeave = () => {
           if (!isActive) item.style.background = 'transparent';
@@ -1712,18 +2165,25 @@ export class PropertyPanel {
         closeDropdown();
         document.removeEventListener('click', onDocClick);
       };
-      setTimeout(() => document.addEventListener('click', onDocClick), 0);
-      this.cleanups.push(() => document.removeEventListener('click', onDocClick));
+      setTimeout(
+        () => document.addEventListener('click', onDocClick),
+        0,
+      );
+      this.cleanups.push(() =>
+        document.removeEventListener('click', onDocClick),
+      );
     };
 
     wrapper.addEventListener('click', onClick);
-    this.cleanups.push(() => wrapper.removeEventListener('click', onClick));
+    this.cleanups.push(() =>
+      wrapper.removeEventListener('click', onClick),
+    );
 
     return wrapper;
   }
 
   // -----------------------------------------------------------------------
-  // SegmentedControl
+  // SegmentedControl (Retune-exact: bg inputBg, r8, pad 2px, pill h calc(100%-4px), r6)
   // -----------------------------------------------------------------------
 
   private makeSegmentedControl(
@@ -1736,10 +2196,9 @@ export class PropertyPanel {
       position: 'relative',
       display: 'flex',
       alignItems: 'center',
-      background: INPUT_BG,
+      background: tv(V.inputBg),
       borderRadius: '8px',
-      height: '28px',
-      overflow: 'hidden',
+      padding: '2px',
       flex: '1',
     });
 
@@ -1747,10 +2206,10 @@ export class PropertyPanel {
     const pill = document.createElement('div');
     Object.assign(pill.style, {
       position: 'absolute',
-      height: '100%',
-      background: 'rgba(255,255,255,0.06)',
-      borderRadius: '8px',
-      transition: 'transform 150ms ' + EASE + ', width 150ms ' + EASE,
+      height: 'calc(100% - 4px)',
+      background: tv(V.surfaceHover),
+      borderRadius: '6px',
+      transition: 'transform 0.2s ' + EASE,
       pointerEvents: 'none',
       zIndex: '0',
     });
@@ -1769,14 +2228,15 @@ export class PropertyPanel {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        height: '100%',
+        height: '28px',
         border: 'none',
         background: 'transparent',
-        color: isActive ? TEXT_PRIMARY : TEXT_DIM,
+        color: isActive ? tv(V.text) : tv(V.textTertiary),
         cursor: 'pointer',
         position: 'relative',
         zIndex: '1',
         padding: '0',
+        borderRadius: '6px',
         transition: 'color 150ms',
       });
       btn.title = item.label;
@@ -1786,13 +2246,16 @@ export class PropertyPanel {
       const onClick = () => {
         activeIdx = i;
         for (let j = 0; j < buttons.length; j++) {
-          buttons[j].style.color = j === i ? TEXT_PRIMARY : TEXT_DIM;
+          buttons[j].style.color =
+            j === i ? tv(V.text) : tv(V.textTertiary);
         }
         updatePill();
         onChange(item.value);
       };
       btn.addEventListener('click', onClick);
-      this.cleanups.push(() => btn.removeEventListener('click', onClick));
+      this.cleanups.push(() =>
+        btn.removeEventListener('click', onClick),
+      );
 
       buttons.push(btn);
       outer.appendChild(btn);
@@ -1802,7 +2265,8 @@ export class PropertyPanel {
       if (!buttons[activeIdx]) return;
       const segW = 100 / items.length;
       pill.style.width = segW + '%';
-      pill.style.transform = 'translateX(' + (activeIdx * 100) + '%)';
+      pill.style.transform =
+        'translateX(' + activeIdx * 100 + '%)';
     };
 
     requestAnimationFrame(updatePill);
@@ -1811,7 +2275,7 @@ export class PropertyPanel {
   }
 
   // -----------------------------------------------------------------------
-  // Icon button group (for alignment)
+  // Icon button group (for alignment - 28x28, r6)
   // -----------------------------------------------------------------------
 
   private makeIconButtonGroup(
@@ -1838,8 +2302,8 @@ export class PropertyPanel {
         height: '28px',
         borderRadius: '6px',
         border: 'none',
-        background: isActive ? INPUT_BG_ACTIVE : 'transparent',
-        color: isActive ? TEXT_PRIMARY : TEXT_DIM,
+        background: isActive ? tv(V.border) : 'transparent',
+        color: isActive ? tv(V.text) : tv(V.textTertiary),
         cursor: 'pointer',
         padding: '0',
       });
@@ -1848,22 +2312,24 @@ export class PropertyPanel {
       const onClick = () => {
         for (const b of buttons) {
           b.style.background = 'transparent';
-          b.style.color = TEXT_DIM;
+          b.style.color = tv(V.textTertiary);
         }
-        btn.style.background = INPUT_BG_ACTIVE;
-        btn.style.color = TEXT_PRIMARY;
+        btn.style.background = tv(V.border);
+        btn.style.color = tv(V.text);
         onChange(item.value);
       };
       btn.addEventListener('click', onClick);
-      this.cleanups.push(() => btn.removeEventListener('click', onClick));
+      this.cleanups.push(() =>
+        btn.removeEventListener('click', onClick),
+      );
 
       const onEnter = () => {
-        if (btn.style.background !== INPUT_BG_ACTIVE) {
-          btn.style.background = INPUT_BG;
+        if (btn.style.background !== tv(V.border)) {
+          btn.style.background = tv(V.surfaceHover);
         }
       };
       const onLeave = () => {
-        if (btn.style.background === INPUT_BG) {
+        if (btn.style.background === tv(V.surfaceHover)) {
           btn.style.background = 'transparent';
         }
       };
@@ -1882,7 +2348,7 @@ export class PropertyPanel {
   }
 
   // -----------------------------------------------------------------------
-  // ColorRow
+  // ColorRow (Retune-exact: swatch 16x16, inset shadow, hex input in same container)
   // -----------------------------------------------------------------------
 
   private makeColorRow(
@@ -1892,28 +2358,48 @@ export class PropertyPanel {
     const rawValue = getVal(computedStyles, property);
     const hexValue = parseColor(rawValue);
 
+    // Container row
     const row = document.createElement('div');
     Object.assign(row.style, {
       display: 'flex',
       alignItems: 'center',
-      gap: '8px',
       height: '32px',
     });
 
-    // Swatch: 16px circle with inset shadow
-    const swatchWrap = document.createElement('div');
-    Object.assign(swatchWrap.style, {
+    // Hex section (flex 1, contains swatch + hex input)
+    const hexSection = document.createElement('div');
+    Object.assign(hexSection.style, {
+      flex: '1',
+      display: 'flex',
+      alignItems: 'center',
+      background: tv(V.inputBg),
+      borderRadius: '8px',
+      overflow: 'hidden',
+      height: '32px',
+    });
+
+    // Swatch container (32px wide, centers 16x16 swatch)
+    const swatchContainer = document.createElement('div');
+    Object.assign(swatchContainer.style, {
+      width: '32px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: '0',
       position: 'relative',
+    });
+
+    // Swatch inner (16x16 circle)
+    const swatchInner = document.createElement('div');
+    Object.assign(swatchInner.style, {
       width: '16px',
       height: '16px',
       borderRadius: '50%',
       background: hexValue,
-      flexShrink: '0',
-      cursor: 'pointer',
       boxShadow: 'rgba(0,0,0,0.1) 0px 0px 0px 1px inset',
     });
 
-    // Hidden native color input
+    // Hidden native color input over swatch
     const colorInput = document.createElement('input');
     colorInput.type = 'color';
     colorInput.value = hexValue;
@@ -1927,7 +2413,8 @@ export class PropertyPanel {
       padding: '0',
       border: 'none',
     });
-    swatchWrap.appendChild(colorInput);
+    swatchContainer.appendChild(swatchInner);
+    swatchContainer.appendChild(colorInput);
 
     // Hex text input
     const hexInput = document.createElement('input');
@@ -1935,45 +2422,59 @@ export class PropertyPanel {
     hexInput.value = hexValue;
     Object.assign(hexInput.style, {
       flex: '1',
-      height: '32px',
+      height: '100%',
       border: 'none',
       outline: 'none',
-      background: INPUT_BG,
-      borderRadius: '8px',
-      color: TEXT_PRIMARY,
+      background: 'transparent',
+      color: tv(V.text),
       fontSize: '11px',
       fontWeight: '450',
       fontFamily: FONT,
       padding: '0 8px',
       boxSizing: 'border-box',
+      letterSpacing: '-0.005em',
     });
 
     const onColorInput = () => {
-      swatchWrap.style.background = colorInput.value;
+      swatchInner.style.background = colorInput.value;
       hexInput.value = colorInput.value;
       this.emitChange(property, colorInput.value);
     };
     colorInput.addEventListener('input', onColorInput);
-    this.cleanups.push(() => colorInput.removeEventListener('input', onColorInput));
+    this.cleanups.push(() =>
+      colorInput.removeEventListener('input', onColorInput),
+    );
 
     const onHexChange = () => {
       const val = hexInput.value.trim();
       if (/^#[0-9a-fA-F]{3,6}$/.test(val)) {
         const normalized =
           val.length === 4
-            ? '#' + val[1] + val[1] + val[2] + val[2] + val[3] + val[3]
+            ? '#' +
+              val[1] +
+              val[1] +
+              val[2] +
+              val[2] +
+              val[3] +
+              val[3]
             : val;
-        swatchWrap.style.background = normalized;
+        swatchInner.style.background = normalized;
         colorInput.value = normalized;
         this.emitChange(property, normalized);
       }
     };
     hexInput.addEventListener('change', onHexChange);
-    this.cleanups.push(() => hexInput.removeEventListener('change', onHexChange));
+    this.cleanups.push(() =>
+      hexInput.removeEventListener('change', onHexChange),
+    );
 
-    // Focus style
-    const onFocus = () => { hexInput.style.outline = '1px solid ' + INPUT_FOCUS; };
-    const onBlur = () => { hexInput.style.outline = 'none'; };
+    // Focus style on hex section
+    const onFocus = () => {
+      hexSection.style.outline = '1px solid ' + tv(V.border);
+    };
+    const onBlur = () => {
+      hexSection.style.outline = 'none';
+    };
     hexInput.addEventListener('focus', onFocus);
     hexInput.addEventListener('blur', onBlur);
     this.cleanups.push(() => {
@@ -1981,8 +2482,10 @@ export class PropertyPanel {
       hexInput.removeEventListener('blur', onBlur);
     });
 
-    row.appendChild(swatchWrap);
-    row.appendChild(hexInput);
+    hexSection.appendChild(swatchContainer);
+    hexSection.appendChild(hexInput);
+
+    row.appendChild(hexSection);
     return row;
   }
 
