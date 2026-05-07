@@ -1,8 +1,8 @@
 # fonts
 font-family = "PolySans Neutral Mono"
 font-family-bold = "PolySans Neutral Mono"
-font-family-italic = "PolySans Neutral Mono Italic"
-font-family-bold-italic = "PolySans Neutral Mono Italic"
+font-family-italic = "PolySans Relax Mono"
+font-family-bold-italic = "PolySans Relax Mono"
 font-style = regular
 font-style-bold = regular
 font-style-italic = italic

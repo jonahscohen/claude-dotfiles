@@ -90,7 +90,7 @@ FILES=(
   # statusline
   "~/.claude/statusline-command.sh (symlink)"
   # cmux
-  "~/.config/cmux/settings.json (symlink)"
+  "~/.config/cmux/settings.json (symlink)\n~/.claude/hooks/resume-guard.sh\n~/.claude/hooks/resume-toggle.sh\n~/.claude/toggle-resume.sh"
   # nvm
   "~/.zshrc (one-line addition)"
   # ampersand
@@ -100,7 +100,7 @@ FILES=(
   # voice-input
   "~/.claude/transcribe (symlink)\n~/.cache/whisper/ggml-base.en.bin\nwhisper-cpp (brew)\nffmpeg (brew)"
   # voice-output
-  "~/.claude/voice-output/server.js\n~/.claude/tts-generate (symlink)\n~/.claude/.voice-config\n~/.claude/.voice-enabled (toggle)\n~/.claude/hooks/voice-mandate.sh\n~/.zshrc (voice-on/voice-off aliases)"
+  "~/.claude/voice-output/server.js\n~/.claude/tts-generate (symlink)\n~/.claude/.voice-config\n~/.claude/.voice-enabled (toggle)\n~/.claude/hooks/voice-mandate.sh\n~/.claude/hooks/voice-toggle.sh\n~/.claude/toggle-voice.sh\n~/.zshrc (voice-on/voice-off aliases)"
 )
 DIRS=(
   "$REPO_DIR/claude"           # brain
@@ -759,10 +759,10 @@ deactivate_voice_output() {
   rm -f "$CLAUDE_DIR/tts-generate"
   rm -f "$CLAUDE_DIR/.voice-enabled"
   rm -f "$CLAUDE_DIR/.voice-config"
-  # Remove voice-mandate hook symlink
-  if [ -L "$CLAUDE_DIR/hooks/voice-mandate.sh" ]; then
-    rm -f "$CLAUDE_DIR/hooks/voice-mandate.sh"
-  fi
+  # Remove voice hook symlinks
+  [ -L "$CLAUDE_DIR/hooks/voice-mandate.sh" ] && rm -f "$CLAUDE_DIR/hooks/voice-mandate.sh"
+  [ -L "$CLAUDE_DIR/hooks/voice-toggle.sh" ] && rm -f "$CLAUDE_DIR/hooks/voice-toggle.sh"
+  [ -L "$CLAUDE_DIR/toggle-voice.sh" ] && rm -f "$CLAUDE_DIR/toggle-voice.sh"
   if [ -f "$ZSHRC" ] && grep -Fq "# === claude-dotfiles:voice-output:begin ===" "$ZSHRC"; then
     sed -i.bak '/# === claude-dotfiles:voice-output:begin ===/,/# === claude-dotfiles:voice-output:end ===/d' "$ZSHRC"
     rm -f "$ZSHRC.bak"
@@ -785,11 +785,14 @@ p = '$SETTINGS_JSON'
 with open(p) as f: d = json.load(f)
 hooks = d.get('hooks', {})
 VOICE_CMD = '~/.claude/hooks/voice-mandate.sh'
+VTOGGLE_CMD = '~/.claude/hooks/voice-toggle.sh'
 for event in ['SessionStart', 'PostCompact']:
-    entries = hooks.get(event, [])
-    for entry in entries:
+    for entry in hooks.get(event, []):
         hl = entry.get('hooks', [])
         entry['hooks'] = [h for h in hl if h.get('command') != VOICE_CMD]
+for entry in hooks.get('UserPromptSubmit', []):
+    hl = entry.get('hooks', [])
+    entry['hooks'] = [h for h in hl if h.get('command') != VTOGGLE_CMD]
 with open(p, 'w') as f: json.dump(d, f, indent=2); f.write('\n')
 "
   fi
@@ -816,6 +819,31 @@ deactivate_statusline() {
 
 deactivate_cmux() {
   [ -L "$HOME/.config/cmux/settings.json" ] && rm -f "$HOME/.config/cmux/settings.json"
+  # Remove resume hooks
+  [ -L "$CLAUDE_DIR/hooks/resume-guard.sh" ] && rm -f "$CLAUDE_DIR/hooks/resume-guard.sh"
+  [ -L "$CLAUDE_DIR/hooks/resume-toggle.sh" ] && rm -f "$CLAUDE_DIR/hooks/resume-toggle.sh"
+  [ -L "$CLAUDE_DIR/toggle-resume.sh" ] && rm -f "$CLAUDE_DIR/toggle-resume.sh"
+  rm -f "$CLAUDE_DIR/.no-auto-resume"
+  # Remove resume hooks from settings.json
+  if command -v python3 >/dev/null 2>&1 && [ -f "$SETTINGS_JSON" ]; then
+    python3 -c "
+import json
+p = '$SETTINGS_JSON'
+with open(p) as f: d = json.load(f)
+hooks = d.get('hooks', {})
+GUARD_CMD = '~/.claude/hooks/resume-guard.sh'
+TOGGLE_CMD = '~/.claude/hooks/resume-toggle.sh'
+for event in ['SessionEnd']:
+    for entry in hooks.get(event, []):
+        hl = entry.get('hooks', [])
+        entry['hooks'] = [h for h in hl if h.get('command') != GUARD_CMD]
+for event in ['UserPromptSubmit']:
+    for entry in hooks.get(event, []):
+        hl = entry.get('hooks', [])
+        entry['hooks'] = [h for h in hl if h.get('command') != TOGGLE_CMD]
+with open(p, 'w') as f: json.dump(d, f, indent=2); f.write('\n')
+"
+  fi
 }
 
 deactivate_nvm() {
@@ -1569,6 +1597,53 @@ if picked cmux; then
   mkdir -p "$CMUX_CONFIG_DIR"
 
   make_symlink "$REPO_DIR/cmux/settings.json" "$CMUX_CONFIG_DIR/settings.json"
+
+  # Resume-guard: SessionEnd hook + UserPromptSubmit toggle + standalone script
+  chmod +x "$REPO_DIR/claude/hooks/resume-guard.sh"
+  make_symlink "$REPO_DIR/claude/hooks/resume-guard.sh" "$CLAUDE_DIR/hooks/resume-guard.sh"
+
+  chmod +x "$REPO_DIR/claude/hooks/resume-toggle.sh"
+  make_symlink "$REPO_DIR/claude/hooks/resume-toggle.sh" "$CLAUDE_DIR/hooks/resume-toggle.sh"
+
+  chmod +x "$REPO_DIR/claude/toggle-resume.sh"
+  make_symlink "$REPO_DIR/claude/toggle-resume.sh" "$CLAUDE_DIR/toggle-resume.sh"
+
+  # JSON-merge resume hooks into settings.json
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c "
+import json
+p = '$SETTINGS_JSON'
+with open(p) as f: d = json.load(f)
+hooks = d.setdefault('hooks', {})
+
+# SessionEnd: resume-guard
+GUARD_CMD = '~/.claude/hooks/resume-guard.sh'
+GUARD_HOOK = {'type': 'command', 'command': GUARD_CMD, 'timeout': 5}
+entries = hooks.setdefault('SessionEnd', [{}])
+entry = entries[0]
+hook_list = entry.setdefault('hooks', [])
+if not any(h.get('command') == GUARD_CMD for h in hook_list):
+    hook_list.append(GUARD_HOOK)
+
+# UserPromptSubmit: resume-toggle
+TOGGLE_CMD = '~/.claude/hooks/resume-toggle.sh'
+TOGGLE_HOOK = {'type': 'command', 'command': TOGGLE_CMD, 'timeout': 5}
+entries = hooks.setdefault('UserPromptSubmit', [{}])
+entry = entries[0]
+hook_list = entry.setdefault('hooks', [])
+if not any(h.get('command') == TOGGLE_CMD for h in hook_list):
+    hook_list.append(TOGGLE_HOOK)
+
+with open(p, 'w') as f: json.dump(d, f, indent=2); f.write('\n')
+"
+    ok "Resume hooks merged into settings.json (SessionEnd + UserPromptSubmit)"
+  else
+    warn "python3 not found - cannot merge resume hooks. Add manually to settings.json"
+  fi
+
+  # Default: auto-resume OFF
+  touch "$CLAUDE_DIR/.no-auto-resume" 2>/dev/null || true
+  info "Auto-resume starts OFF. Type 'resume on' in a session to enable."
 fi
 
 # ============================================================
@@ -1579,21 +1654,24 @@ if picked ghostty; then
   echo ""
   info "--- Ghostty ---"
 
-  GHOSTTY_CONFIG_DIR="$HOME/Library/Application Support/com.mitchellh.ghostty"
-  mkdir -p "$GHOSTTY_CONFIG_DIR"
-
   GHOSTTY_SOURCE="$REPO_DIR/ghostty/config.ghostty"
-  GHOSTTY_TARGET="$GHOSTTY_CONFIG_DIR/config.ghostty"
 
-  backup_if_exists "$GHOSTTY_TARGET"
-  if [ -L "$GHOSTTY_TARGET" ]; then
-    rm "$GHOSTTY_TARGET"
-  fi
-  # Substitute __DOTFILES_DIR__ with the actual repo path on this machine.
-  # Lets the dotfiles be cloned anywhere - the deployed config gets absolute
-  # paths baked in at install time.
-  sed "s|__DOTFILES_DIR__|$REPO_DIR|g" "$GHOSTTY_SOURCE" > "$GHOSTTY_TARGET"
-  ok "$GHOSTTY_TARGET (rendered from repo, paths -> $REPO_DIR)"
+  # Deploy to both standalone Ghostty and cmux's embedded Ghostty.
+  GHOSTTY_TARGETS=(
+    "$HOME/Library/Application Support/com.mitchellh.ghostty/config.ghostty"
+    "$HOME/Library/Application Support/com.cmuxterm.app/config.ghostty"
+  )
+
+  for GHOSTTY_TARGET in "${GHOSTTY_TARGETS[@]}"; do
+    mkdir -p "$(dirname "$GHOSTTY_TARGET")"
+    backup_if_exists "$GHOSTTY_TARGET"
+    if [ -L "$GHOSTTY_TARGET" ]; then
+      rm "$GHOSTTY_TARGET"
+    fi
+    # Substitute __DOTFILES_DIR__ with the actual repo path on this machine.
+    sed "s|__DOTFILES_DIR__|$REPO_DIR|g" "$GHOSTTY_SOURCE" > "$GHOSTTY_TARGET"
+    ok "$GHOSTTY_TARGET (rendered from repo, paths -> $REPO_DIR)"
+  done
 
   if ! picked shaders; then
     warn "Ghostty config references shaders/*.glsl but you skipped the shaders component."
@@ -1930,6 +2008,13 @@ with open(p, 'w') as f: json.dump(d, f, indent=2); f.write('\n')
   chmod +x "$REPO_DIR/claude/hooks/voice-mandate.sh"
   make_symlink "$REPO_DIR/claude/hooks/voice-mandate.sh" "$CLAUDE_DIR/hooks/voice-mandate.sh"
 
+  # Voice-toggle: UserPromptSubmit hook + standalone script
+  chmod +x "$REPO_DIR/claude/hooks/voice-toggle.sh"
+  make_symlink "$REPO_DIR/claude/hooks/voice-toggle.sh" "$CLAUDE_DIR/hooks/voice-toggle.sh"
+
+  chmod +x "$REPO_DIR/claude/toggle-voice.sh"
+  make_symlink "$REPO_DIR/claude/toggle-voice.sh" "$CLAUDE_DIR/toggle-voice.sh"
+
   # JSON-merge voice-mandate hook into SessionStart + PostCompact in settings.json
   if command -v python3 >/dev/null 2>&1; then
     python3 -c "
@@ -1945,9 +2030,19 @@ for event in ['SessionStart', 'PostCompact']:
     hook_list = entry.setdefault('hooks', [])
     if not any(h.get('command') == VOICE_CMD for h in hook_list):
         hook_list.append(VOICE_HOOK)
+
+# UserPromptSubmit: voice-toggle
+VTOGGLE_CMD = '~/.claude/hooks/voice-toggle.sh'
+VTOGGLE_HOOK = {'type': 'command', 'command': VTOGGLE_CMD, 'timeout': 5}
+entries = hooks.setdefault('UserPromptSubmit', [{}])
+entry = entries[0]
+hook_list = entry.setdefault('hooks', [])
+if not any(h.get('command') == VTOGGLE_CMD for h in hook_list):
+    hook_list.append(VTOGGLE_HOOK)
+
 with open(p, 'w') as f: json.dump(d, f, indent=2); f.write('\n')
 "
-    ok "Voice mandate hook merged into settings.json (SessionStart + PostCompact)"
+    ok "Voice hooks merged into settings.json (mandate + toggle)"
   else
     warn "python3 not found - cannot merge voice-mandate hook. Add manually to settings.json"
   fi
