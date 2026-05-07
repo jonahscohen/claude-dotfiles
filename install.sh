@@ -90,7 +90,7 @@ FILES=(
   # statusline
   "~/.claude/statusline-command.sh (symlink)"
   # cmux
-  "~/.config/cmux/settings.json (symlink)\n~/.claude/hooks/resume-guard.sh\n~/.claude/hooks/resume-toggle.sh\n~/.claude/toggle-resume.sh"
+  "~/.config/cmux/settings.json (symlink)\n~/.claude/hooks/resume-guard.sh\n~/.claude/hooks/resume-toggle.sh\n~/.claude/toggle-resume.sh\n~/.claude/claude-teams-launcher.sh\n~/.zshrc (teams launcher block)"
   # nvm
   "~/.zshrc (one-line addition)"
   # ampersand
@@ -819,6 +819,13 @@ deactivate_statusline() {
 
 deactivate_cmux() {
   [ -L "$HOME/.config/cmux/settings.json" ] && rm -f "$HOME/.config/cmux/settings.json"
+  # Remove Claude Teams launcher
+  [ -L "$CLAUDE_DIR/claude-teams-launcher.sh" ] && rm -f "$CLAUDE_DIR/claude-teams-launcher.sh"
+  rm -f "$CLAUDE_DIR/.skip-teams-launcher" "$CLAUDE_DIR/.teams-default-on"
+  if [ -f "$ZSHRC" ] && grep -Fq "# === claude-dotfiles:claude-teams:begin ===" "$ZSHRC"; then
+    sed -i.bak '/# === claude-dotfiles:claude-teams:begin ===/,/# === claude-dotfiles:claude-teams:end ===/d' "$ZSHRC"
+    rm -f "$ZSHRC.bak"
+  fi
   # Remove resume hooks
   [ -L "$CLAUDE_DIR/hooks/resume-guard.sh" ] && rm -f "$CLAUDE_DIR/hooks/resume-guard.sh"
   [ -L "$CLAUDE_DIR/hooks/resume-toggle.sh" ] && rm -f "$CLAUDE_DIR/hooks/resume-toggle.sh"
@@ -1644,6 +1651,27 @@ with open(p, 'w') as f: json.dump(d, f, indent=2); f.write('\n')
   # Default: auto-resume OFF
   touch "$CLAUDE_DIR/.no-auto-resume" 2>/dev/null || true
   info "Auto-resume starts OFF. Type 'resume on' in a session to enable."
+
+  # Claude Code Teams launcher (pre-session prompt inside cmux)
+  chmod +x "$REPO_DIR/bin/claude-teams-launcher.sh"
+  make_symlink "$REPO_DIR/bin/claude-teams-launcher.sh" "$CLAUDE_DIR/claude-teams-launcher.sh"
+
+  CT_BEGIN="# === claude-dotfiles:claude-teams:begin ==="
+  CT_END="# === claude-dotfiles:claude-teams:end ==="
+
+  if [ -f "$ZSHRC" ] && grep -Fq "$CT_BEGIN" "$ZSHRC"; then
+    ok "Claude Teams launcher already in $ZSHRC"
+  elif [ -f "$ZSHRC" ]; then
+    cat >> "$ZSHRC" <<EOF
+
+$CT_BEGIN
+[ -f "\$HOME/.claude/claude-teams-launcher.sh" ] && source "\$HOME/.claude/claude-teams-launcher.sh"
+$CT_END
+EOF
+    ok "Added Claude Teams launcher to $ZSHRC"
+  else
+    warn "$ZSHRC not found - skipping Claude Teams launcher (zsh only)."
+  fi
 fi
 
 # ============================================================

@@ -27,6 +27,7 @@ if [ -z "$REASON" ] && echo "$CMD" | grep -qP 'gpt-4o(?!-mini-tts)|gpt-4\.1|gpt-
   REASON="BLOCKED: legacy model ID detected. CLAUDE.md mandates latest model versions only."
 fi
 
+
 if [ -n "$REASON" ]; then
   python3 -c "import json,sys; print(json.dumps({'hookSpecificOutput':{'hookEventName':'PreToolUse','permissionDecision':'deny','permissionDecisionReason':sys.argv[1]}}))" "$REASON"
 else
