@@ -40,3 +40,4 @@
 - [Improv panel reference tool rewrite (2026-05-04)](session_2026-05-04_improv-panel-reference-tool-rewrite.md) - Full property-panel.ts rewrite: reference tool icons, Fill/Border/Shadow/Filters sections, split color/combo inputs, alignment UI fixes
 - [Memory nudge hook (2026-05-05)](session_2026-05-05_memory-nudge-hook.md) - PostToolUse hook fires after Write/Edit/MultiEdit to non-memory files, nudges dirty-state memory write
 - [Voice toggle hook (2026-05-07)](session_2026-05-07_voice-toggle.md) - chat commands `voice on/off/toggle/status`; mirrors resume-toggle pattern
+- [Voice gate hook (2026-05-08)](session_2026-05-08_voice-gate-hook.md) - PreToolUse hard-deny on speak calls when muted; no more wasted API calls
