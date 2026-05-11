@@ -96,6 +96,23 @@ Brand:         PRODUCT.md (register, users, anti-references)
 Verification:  cmux + Chrome MCP + QA gate pipeline
 ```
 
+## Reflect (Memory Corpus Analysis)
+
+The `reflect` skill spawns 5 parallel analysis agents against the accumulated `.claude/memory/` corpus to surface patterns, tensions, and gaps. It triggers naturally from conversation - "what patterns are you seeing?", "what are we missing?", "anything feel off?" - or via `/reflect`.
+
+Five lens agents run in parallel:
+- **Pattern Hunter** - recurring themes, revisited decisions, gravitational approaches
+- **Tension Detector** - contradictions between rules, decisions, or stated vs actual practice
+- **Gap Analyst** - missing decisions, underrepresented memory types, uncaptured reasoning
+- **Drift Tracker** - gradual shifts in practice, emerging/fading concerns, scope changes
+- **Decision Archaeologist** - stale decisions, met revisit conditions, outdated assumptions
+
+A synthesis agent weaves all findings into a unified narrative with ranked findings, open questions, and recommended actions. The output saves to `.claude/memory/reflection_YYYY-MM-DD.md`.
+
+A SessionStart hook (`reflect-nudge.sh`) counts new memory files since the last reflection. When the count exceeds the threshold (default 15, configurable via `REFLECT_THRESHOLD` env var), the session opener includes a one-line nudge. The user says yes and it runs, or no and it drops.
+
+Default scope is the current project's `.claude/memory/`. Say "reflect across everything" or pass `--all` to include global project memories from `~/.claude/projects/*/memory/`.
+
 ## Voice Output
 
 Claude can speak short verbal summaries aloud via OpenAI TTS API. Requires an OpenAI API key stored in macOS Keychain (`security add-generic-password -a 'claude-voice' -s 'openai-tts-api-key' -w 'YOUR_KEY'`). No key = feature unavailable, no fallback.
