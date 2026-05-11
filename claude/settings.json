@@ -76,6 +76,16 @@
             "statusMessage": "Loading memory..."
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "SESSION_CWD=\"$(pwd)\" ~/.claude/hooks/reflect-nudge.sh",
+            "timeout": 5,
+            "statusMessage": "Checking reflection status..."
+          }
+        ]
       }
     ],
     "PreCompact": [
