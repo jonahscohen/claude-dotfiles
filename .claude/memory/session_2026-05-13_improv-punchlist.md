@@ -30,7 +30,11 @@ relates_to: [session_2026-05-13_improv-changes-panel.md]
 - Send All fix: submitPrompt checked live selection (empty after queue). Added submitFromQueue that uses stored elements from queue items.
 - Revert: now sends a push_prompt with revert instructions (selector + oldValue) instead of useless PreviewEngine CSS override. Shows "Revert requested" toast.
 - markDone root cause: panel held stale array reference + duplicate promptIds. Fix: markDone delegates to ImprovCore callback which marks ALL matching entries on _changeHistory, then re-syncs panel with live array via show().
-- Panel auto-closes (slide+fade) when no actionable entries remain after marking done or clearing
+- Panel auto-closes (slide+fade) when no actionable entries remain
+- Claude button moved INTO the toolbar pill (was standalone floating element). Shows/hides via setClaudeButtonVisible. Active state: solid #D97757 bg + white icon. Hover: #D9775720 tint. Only visible when unreviewed changes exist.
+- Numbered task circles: #D97757 bg, white number, replaces green dots
+- Element highlighting: clicking task entry highlights matching DOM elements with #D97757 border + selector tooltip
+- Clear dismisses UI: clearing all tasks removes panel + Claude button
 - Postmortem: completed by agent, written to docs/superpowers/specs/2026-05-13-improv-postmortem.md
 - Design skill note saved to feedback_ai_icons_lobehub.md
 - Claude button restyled: 44x44, #1a1a1a bg, border + shadow matching toolbar "I" button, hover=#D9775715 (subtle orange warmth on dark, matches toolbar hover intensity), active=solid #D97757 + white icon

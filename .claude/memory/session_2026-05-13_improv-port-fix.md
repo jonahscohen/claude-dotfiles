@@ -25,10 +25,19 @@ Collaborator: Jonah
 
 **Also this session (port investigation):** Browser settings showing 3901 was toolbar config, not WS port. Port 9223 is correct. Changed all files to 3901 then reverted - no net port changes.
 
+**Phase 2 - MCP-independent watch loop:**
+The MCP stdio pipe drops unpredictably (Claude Code side, not server side). Added HTTP endpoints to the server so the watch loop can run entirely via Bash + curl, bypassing MCP:
+- `GET /prompts` - read pending prompts from prompts.json
+- `POST /prompts/clear` - clear prompts after reading
+- `POST /respond` - broadcast response to browser via WebSocket
+- `GET /status` - connection status (already existed)
+
+Watch loop: Bash polls prompts.json or GET /prompts. Respond via POST /respond. No MCP dependency.
+
 ### Files touched
 - `~/.claude/improv/dist/server/index.js` - process error handlers
-- `~/.claude/improv/dist/server/ws-server.js` - error handlers + try/catch hardening
+- `~/.claude/improv/dist/server/ws-server.js` - error handlers + try/catch + HTTP endpoints (/prompts, /respond, /prompts/clear)
 - `~/.claude/improv/dist/server/connection-manager.js` - broadcast try/catch
 - `improv/server/index.ts` - same (source)
-- `improv/server/ws-server.ts` - same (source)
+- `improv/server/ws-server.ts` - same (source, pending HTTP endpoint mirror)
 - `improv/server/connection-manager.ts` - same (source)

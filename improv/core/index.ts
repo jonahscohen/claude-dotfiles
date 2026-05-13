@@ -32,6 +32,7 @@ export class ImprovCore {
   private _changesPanel: ChangesPanel | null = null;
   private _claudeBtn: HTMLDivElement | null = null;
   private _claudePulseStyle: HTMLStyleElement | null = null;
+  private _taskHighlights: HTMLElement[] = [];
 
   constructor() {
     this.transport = new Transport();
@@ -206,6 +207,10 @@ export class ImprovCore {
       this._changeHistory = this._changeHistory.filter(e => !e.reviewed);
       try { localStorage.setItem('improv-change-history', JSON.stringify(this._changeHistory)); } catch {}
       this._updateClaudeBadge();
+      if (this._changeHistory.length === 0 && this._claudeBtn) {
+        this._claudeBtn.remove();
+        this._claudeBtn = null;
+      }
     });
 
     this._changesPanel.setOnPreviewToggle((_promptId: string, changes: any[], showOld: boolean) => {
@@ -213,6 +218,45 @@ export class ImprovCore {
         this.previewEngine.attach();
         for (const ch of changes) {
           this.previewEngine.applyChange(ch.selector, ch.property, showOld ? ch.oldValue : ch.newValue);
+        }
+      }
+    });
+
+    this._changesPanel.setOnSelect((selectors: string[]) => {
+      // Clear existing highlights
+      for (const el of this._taskHighlights) el.remove();
+      this._taskHighlights = [];
+
+      if (selectors.length === 0) return;
+
+      for (const sel of selectors) {
+        let els: Element[];
+        try { els = Array.from(document.querySelectorAll(sel)); } catch { continue; }
+
+        for (const el of els) {
+          const rect = (el as HTMLElement).getBoundingClientRect();
+          if (rect.width === 0 || rect.height === 0) continue;
+
+          const highlight = document.createElement('div');
+          highlight.dataset.improv = '';
+          highlight.style.cssText =
+            'position:fixed;pointer-events:none;z-index:2147483646;' +
+            'border:2px solid #D97757;border-radius:4px;' +
+            'top:' + rect.top + 'px;left:' + rect.left + 'px;' +
+            'width:' + rect.width + 'px;height:' + rect.height + 'px';
+
+          const label = document.createElement('div');
+          label.dataset.improv = '';
+          label.style.cssText =
+            'position:absolute;top:-22px;left:0;padding:2px 6px;border-radius:3px;' +
+            'background:#D97757;color:#fff;font-size:9px;font-weight:600;' +
+            'font-family:ui-monospace,monospace;white-space:nowrap;pointer-events:none;' +
+            'max-width:200px;overflow:hidden;text-overflow:ellipsis';
+          label.textContent = sel;
+          highlight.appendChild(label);
+
+          document.body.appendChild(highlight);
+          this._taskHighlights.push(highlight);
         }
       }
     });

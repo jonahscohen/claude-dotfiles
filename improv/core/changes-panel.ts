@@ -24,6 +24,7 @@ export class ChangesPanel {
   private onRevertCallback: ((promptId: string, changes: any[]) => void) | null = null;
   private onPreviewToggleCallback: ((promptId: string, changes: any[], showOld: boolean) => void) | null = null;
   private onClearReviewedCallback: (() => void) | null = null;
+  private onSelectCallback: ((selectors: string[]) => void) | null = null;
   private _clearReviewedBtn: HTMLButtonElement | null = null;
   private revertedPrompts = new Set<string>();
   private expandedPrompts = new Set<string>();
@@ -108,8 +109,13 @@ export class ChangesPanel {
     this._clearReviewedBtn.addEventListener('click', () => {
       this.entries = this.entries.filter(e => !e.reviewed);
       if (this.onClearReviewedCallback) this.onClearReviewedCallback();
-      this.render();
-      this._updateClearBtn();
+      this.filterEntries();
+      if (this.filteredEntries.length === 0) {
+        this.hide();
+      } else {
+        this.render();
+        this._updateClearBtn();
+      }
     });
     this.bottomBar.appendChild(this._clearReviewedBtn);
     this.container.appendChild(this.bottomBar);
@@ -190,6 +196,7 @@ export class ChangesPanel {
     this.container.style.transform = 'translateY(8px)';
     setTimeout(() => { if (!this.visible) this.container.style.display = 'none'; }, 200);
     this.focusedIndex = -1;
+    if (this.onSelectCallback) this.onSelectCallback([]);
     document.removeEventListener('keydown', this.boundKeydown, true);
   }
 
@@ -205,6 +212,7 @@ export class ChangesPanel {
   setOnRevert(cb: (promptId: string, changes: any[]) => void) { this.onRevertCallback = cb; }
   setOnPreviewToggle(cb: (promptId: string, changes: any[], showOld: boolean) => void) { this.onPreviewToggleCallback = cb; }
   setOnClearReviewed(cb: () => void) { this.onClearReviewedCallback = cb; }
+  setOnSelect(cb: (selectors: string[]) => void) { this.onSelectCallback = cb; }
 
   private markDone(promptId: string) {
     if (this.onDoneCallback) this.onDoneCallback(promptId);
@@ -311,12 +319,18 @@ export class ChangesPanel {
       const topRow = document.createElement('div');
       topRow.style.cssText = 'display:flex;align-items:flex-start;gap:8px';
 
-      const dot = document.createElement('div');
-      dot.style.cssText =
-        'width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px;background:' +
-        (entry.status === 'completed' ? '#22c55e' : entry.status === 'needsInfo' ? mc : '#ef4444');
-      dot.setAttribute('aria-label', entry.status);
-      topRow.appendChild(dot);
+      const numCircle = document.createElement('div');
+      numCircle.style.cssText =
+        'width:20px;height:20px;border-radius:50%;display:flex;align-items:center;' +
+        'justify-content:center;flex-shrink:0;background:#D97757';
+      numCircle.setAttribute('aria-label', entry.status);
+      const numSpan = document.createElement('span');
+      numSpan.style.cssText =
+        'font-size:10px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;' +
+        'font-family:system-ui,sans-serif';
+      numSpan.textContent = String(i + 1);
+      numCircle.appendChild(numSpan);
+      topRow.appendChild(numCircle);
 
       const summaryEl = document.createElement('div');
       summaryEl.style.cssText = 'flex:1;min-width:0';
@@ -518,6 +532,8 @@ export class ChangesPanel {
       item.addEventListener('click', () => {
         this.focusedIndex = i;
         this.render();
+        const selectors = [...new Set(entry.changes.map(c => c.selector))];
+        if (this.onSelectCallback) this.onSelectCallback(selectors);
       });
 
       this.listEl.appendChild(item);
