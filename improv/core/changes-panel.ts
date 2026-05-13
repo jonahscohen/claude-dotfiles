@@ -214,8 +214,16 @@ export class ChangesPanel {
     input.addEventListener('keydown', (e: KeyboardEvent) => {
       e.stopPropagation();
       if (e.key === 'Enter' && input.value.trim()) {
-        if (this.onReplyCallback) this.onReplyCallback(entry.promptId, input.value.trim());
-        replyWrap.remove();
+        const replyText = input.value.trim();
+        input.disabled = true;
+        input.value = 'Sending...';
+        input.style.color = 'rgba(255,255,255,0.35)';
+        if (this.onReplyCallback) this.onReplyCallback(entry.promptId, replyText);
+        setTimeout(() => {
+          input.value = 'Sent';
+          input.style.color = '#22c55e';
+          setTimeout(() => replyWrap.remove(), 800);
+        }, 300);
       } else if (e.key === 'Escape') {
         replyWrap.remove();
       }

@@ -194,7 +194,7 @@ export class ImprovCore {
         context: 'Reply to ' + promptId + ': ' + text,
         prompt: text,
         elementCount: 0
-      }).catch(() => {});
+      }).catch((e: unknown) => { console.warn('[Improv] Reply failed:', e); });
     });
 
     this._changesPanel.setOnClearReviewed(() => {
