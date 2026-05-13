@@ -7,6 +7,7 @@ import { ChangeBuffer } from './change-buffer';
 import { ApplyConfirmation } from './apply-confirmation';
 import { ManipulateMode } from './manipulate/index.js';
 import { PromptMode } from './prompt/index.js';
+import { ChangesPanel } from './changes-panel';
 import type { ImprovAdapter, ImprovMode } from './types';
 
 declare global {
@@ -31,7 +32,10 @@ export class ImprovCore {
   private promptMode: PromptMode | null = null;
   private applyConfirmation: ApplyConfirmation | null = null;
   private _toast: HTMLDivElement | null = null;
-  private _changeHistory: Array<Record<string, unknown>> = [];
+  _changeHistory: Array<Record<string, unknown>> = [];
+  private _changesPanel: ChangesPanel | null = null;
+  private _claudeBtn: HTMLDivElement | null = null;
+  private _claudeBadge: HTMLSpanElement | null = null;
 
   constructor() {
     this.transport = new Transport();
@@ -60,6 +64,7 @@ export class ImprovCore {
       try {
         localStorage.setItem('improv-change-history', JSON.stringify(this._changeHistory));
       } catch {}
+      this._updateClaudeBadge();
       const status = response.status as string;
       const summary = response.summary as string;
       if (status === 'completed') {
@@ -102,10 +107,36 @@ export class ImprovCore {
       }
       if (e.key === 'Escape' && this.active) {
         e.preventDefault();
-        if (this.currentMode) {
+        if (this._changesPanel?.isVisible()) {
+          this._changesPanel.hide();
+        } else if (this.currentMode) {
           this.switchMode(null);
           this.toolbar?.setActiveMode(null);
         }
+        return;
+      }
+
+      // Single-key shortcuts: suppress when text input is focused
+      const ae = document.activeElement;
+      const inInput = ae?.tagName === 'INPUT' || ae?.tagName === 'TEXTAREA' || (ae as HTMLElement)?.isContentEditable;
+      if (inInput) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (!this.toolbar || this.toolbar._collapsed) return;
+
+      if (e.key === 'p' || e.key === 'P') {
+        e.preventDefault();
+        const next = this.currentMode === 'prompt' ? null : 'prompt' as ImprovMode;
+        this.toolbar.setActiveMode(next);
+        this.switchMode(next);
+      } else if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        const next = this.currentMode === 'manipulate' ? null : 'manipulate' as ImprovMode;
+        this.toolbar.setActiveMode(next);
+        this.switchMode(next);
+      } else if (e.key === 'c' || e.key === 'C') {
+        e.preventDefault();
+        this._changesPanel?.toggle(this._changeHistory as any);
       }
     });
 
@@ -141,6 +172,30 @@ export class ImprovCore {
       this.toolbar?.updateModeButtonStyles();
       this._syncPromptModeColor(c);
     });
+
+    this._changesPanel = new ChangesPanel(
+      this.overlay.getShadowRoot(),
+      () => this.toolbar?.getMarkerColor() || '#3b82f6'
+    );
+    this._changesPanel.setOnDone((promptId: string) => {
+      const entry = this._changeHistory.find(e => e.promptId === promptId);
+      if (entry) {
+        entry.reviewed = true;
+        try { localStorage.setItem('improv-change-history', JSON.stringify(this._changeHistory)); } catch {}
+        this._updateClaudeBadge();
+      }
+    });
+    this._changesPanel.setOnReply((promptId: string, text: string) => {
+      this.transport.request('push_prompt', {
+        context: 'Reply to ' + promptId + ': ' + text,
+        prompt: text,
+        elementCount: 0
+      }).catch(() => {});
+    });
+
+    if (this._changeHistory.some(e => !e.reviewed)) {
+      this._updateClaudeBadge();
+    }
 
     const onDisconnected = () => this.toolbar?.setConnected(false);
     const onConnected = () => this.toolbar?.setConnected(true);
@@ -540,6 +595,74 @@ export class ImprovCore {
 
   getAdapters(): AdapterRegistry {
     return this.registry;
+  }
+
+  private _updateClaudeBadge(): void {
+    const unreviewed = this._changeHistory.filter(e => !e.reviewed).length;
+    if (unreviewed > 0 && !this._claudeBtn) {
+      this._claudeBtn = document.createElement('div');
+      this._claudeBtn.setAttribute('role', 'button');
+      this._claudeBtn.setAttribute('aria-label', 'Review Changes (' + unreviewed + ')');
+      this._claudeBtn.setAttribute('tabindex', '0');
+      this._claudeBtn.style.cssText =
+        'position:fixed;bottom:20px;left:20px;width:40px;height:40px;border-radius:50%;' +
+        'background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);cursor:pointer;' +
+        'display:flex;align-items:center;justify-content:center;z-index:2147483647;' +
+        'box-shadow:0 2px 12px rgba(0,0,0,0.3);pointer-events:all;transition:background 120ms ease';
+
+      const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      icon.setAttribute('width', '20');
+      icon.setAttribute('height', '20');
+      icon.setAttribute('viewBox', '0 0 24 24');
+      icon.setAttribute('fill', 'none');
+      icon.setAttribute('stroke', 'currentColor');
+      icon.setAttribute('stroke-width', '2');
+      icon.setAttribute('stroke-linecap', 'round');
+      icon.setAttribute('stroke-linejoin', 'round');
+      const sparkle = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      sparkle.setAttribute('d', 'M12 3v1m0 16v1m-7.07-2.93l.71-.71m12.73-12.73l.71-.71M3 12h1m16 0h1m-2.93 7.07l-.71-.71M5.64 5.64l-.71-.71M12 8a4 4 0 100 8 4 4 0 000-8z');
+      icon.appendChild(sparkle);
+      this._claudeBtn.appendChild(icon);
+
+      this._claudeBadge = document.createElement('span');
+      this._claudeBadge.setAttribute('aria-live', 'polite');
+      this._claudeBadge.style.cssText =
+        'position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;line-height:18px;' +
+        'text-align:center;border-radius:9px;padding:0 4px;font-size:10px;font-weight:700;' +
+        'font-family:system-ui,sans-serif;font-variant-numeric:tabular-nums;pointer-events:none';
+      this._claudeBtn.appendChild(this._claudeBadge);
+
+      const mc = this.toolbar?.getMarkerColor() || '#3b82f6';
+      this._claudeBtn.style.color = mc;
+      this._claudeBtn.addEventListener('mouseenter', () => {
+        this._claudeBtn!.style.background = 'rgba(255,255,255,0.08)';
+      });
+      this._claudeBtn.addEventListener('mouseleave', () => {
+        this._claudeBtn!.style.background = '#1a1a1a';
+      });
+      this._claudeBtn.addEventListener('click', () => {
+        this._changesPanel?.toggle(this._changeHistory as any);
+      });
+
+      this.overlay.getContainer().parentNode?.appendChild(this._claudeBtn);
+    }
+
+    if (this._claudeBtn && this._claudeBadge) {
+      const mc = this.toolbar?.getMarkerColor() || '#3b82f6';
+      const contrast = ['#f97316', '#eab308', '#22c55e'].indexOf(mc) !== -1 ? '#1a1a1a' : '#fff';
+      this._claudeBtn.style.color = mc;
+      this._claudeBtn.setAttribute('aria-label', 'Review Changes (' + unreviewed + ')');
+      this._claudeBadge.textContent = String(unreviewed);
+      this._claudeBadge.style.background = mc;
+      this._claudeBadge.style.color = contrast;
+      this._claudeBadge.style.display = unreviewed > 0 ? '' : 'none';
+
+      if (unreviewed === 0 && this._claudeBtn) {
+        this._claudeBtn.remove();
+        this._claudeBtn = null;
+        this._claudeBadge = null;
+      }
+    }
   }
 }
 

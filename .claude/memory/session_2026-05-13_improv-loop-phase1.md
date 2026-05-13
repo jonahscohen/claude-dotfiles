@@ -27,10 +27,22 @@ Skill (~/.claude/skills/improv/SKILL.md):
 
 **Verified:** Browser loads with `_changeHistory` and `_showResponseToast` present, transport connected.
 
-**Still needs:**
-- MCP server restart to pick up new mcp-tools.ts (server reads from installed location)
-- End-to-end test: submit prompt from browser, Claude watches and responds
-- Commit + push to remote
+**Verified end-to-end (Ralph loop iteration 1):**
+- Server restarted (killed old PID from May 4, new process picked up compiled code)
+- push_prompt returns promptId (prompt-1, prompt-2, etc.) - confirmed
+- improv_response listener stores to _changeHistory + localStorage - confirmed
+- Persistence survives page reload - confirmed
+- All three status paths work: completed, needsInfo (with question), failed
+- Toast displays and auto-dismisses - confirmed
+- Committed and pushed to remote (aef9c7e)
+
+**Remaining per spec:**
+- Phase 2: Claude button + changes panel UI
+- Phase 3: Element highlights + live feedback
+- Phase 4: Live preview via PreviewEngine
+- Keyboard shortcuts (P, M, C, Q, J, K, D, R)
+- ARIA accessibility attributes
+- Watch loop agent needs real-world test (requires Claude Agents session with improv MCP tools loaded)
 
 **Files touched:**
 - improv/server/mcp-tools.ts
