@@ -28,4 +28,4 @@ relates_to: [session_2026-05-13_improv-changes-panel.md]
 - Panel: filter non-actionable, scroll preservation, markDone/revert visual feedback, labels renamed, bottom bar, before/after toggle with Preview button
 - Preview toggle wired to PreviewEngine in ImprovCore
 - Design skill note saved to feedback_ai_icons_lobehub.md
-- Claude button restyled: 44x44, #1a1a1a bg, border + shadow matching toolbar "I" button, hover=orange 20% tint, active=solid #D97757 + white icon
+- Claude button restyled: 44x44, #1a1a1a bg, border + shadow matching toolbar "I" button, hover=#D9775715 (subtle orange warmth on dark, matches toolbar hover intensity), active=solid #D97757 + white icon

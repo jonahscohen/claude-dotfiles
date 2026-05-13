@@ -718,7 +718,7 @@ export class ImprovCore {
       this._claudeBtn.appendChild(icon);
 
       this._claudeBtn.addEventListener('mouseenter', () => {
-        if (!this._claudeBtn!.dataset.active) this._claudeBtn!.style.background = 'rgba(217,119,87,0.2)';
+        if (!this._claudeBtn!.dataset.active) this._claudeBtn!.style.background = '#D9775715';
       });
       this._claudeBtn.addEventListener('mouseleave', () => {
         if (!this._claudeBtn!.dataset.active) this._claudeBtn!.style.background = '#1a1a1a';
