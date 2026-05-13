@@ -34,7 +34,8 @@ export class ChangesPanel {
       'background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:16px;' +
       'box-shadow:0 8px 32px rgba(0,0,0,0.5);display:none;flex-direction:column;' +
       'z-index:2147483647;pointer-events:all;font-family:system-ui,-apple-system,sans-serif;' +
-      'overflow:hidden';
+      'overflow:hidden;opacity:0;transform:translateY(8px);' +
+      'transition:opacity 200ms ease,transform 200ms ease';
 
     const header = document.createElement('div');
     header.style.cssText =
@@ -128,6 +129,9 @@ export class ChangesPanel {
     this.entries = entries;
     this.visible = true;
     this.container.style.display = 'flex';
+    this.container.getBoundingClientRect();
+    this.container.style.opacity = '1';
+    this.container.style.transform = 'translateY(0)';
     this.render();
     document.addEventListener('keydown', this.boundKeydown, true);
     this.listEl.scrollTop = this.listEl.scrollHeight;
@@ -135,7 +139,9 @@ export class ChangesPanel {
 
   hide() {
     this.visible = false;
-    this.container.style.display = 'none';
+    this.container.style.opacity = '0';
+    this.container.style.transform = 'translateY(8px)';
+    setTimeout(() => { if (!this.visible) this.container.style.display = 'none'; }, 200);
     this.focusedIndex = -1;
     document.removeEventListener('keydown', this.boundKeydown, true);
   }

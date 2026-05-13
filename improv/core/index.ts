@@ -677,7 +677,8 @@ export class ImprovCore {
         'position:fixed;bottom:20px;left:20px;width:40px;height:40px;border-radius:50%;' +
         'background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);cursor:pointer;' +
         'display:flex;align-items:center;justify-content:center;z-index:2147483647;' +
-        'box-shadow:0 2px 12px rgba(0,0,0,0.3);pointer-events:all;transition:background 120ms ease';
+        'box-shadow:0 2px 12px rgba(0,0,0,0.3);pointer-events:all;transition:background 120ms ease;' +
+        'animation:improv-claude-entrance 0.3s cubic-bezier(0.23,1,0.32,1)';
 
       const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       icon.setAttribute('width', '20');
@@ -714,6 +715,12 @@ export class ImprovCore {
       });
 
       this.overlay.getContainer().parentNode?.appendChild(this._claudeBtn);
+      if (!document.getElementById('improv-claude-btn-style')) {
+        const s = document.createElement('style');
+        s.id = 'improv-claude-btn-style';
+        s.textContent = '@keyframes improv-claude-entrance{from{opacity:0;transform:scale(0.5)}to{opacity:1;transform:scale(1)}}@keyframes improv-claude-pulse{0%{box-shadow:0 2px 12px rgba(0,0,0,0.3)}50%{box-shadow:0 2px 20px rgba(0,0,0,0.5)}100%{box-shadow:0 2px 12px rgba(0,0,0,0.3)}}';
+        document.head.appendChild(s);
+      }
     }
 
     if (this._claudeBtn && this._claudeBadge) {
@@ -725,6 +732,9 @@ export class ImprovCore {
       this._claudeBadge.style.background = mc;
       this._claudeBadge.style.color = contrast;
       this._claudeBadge.style.display = unreviewed > 0 ? '' : 'none';
+      this._claudeBtn.style.animation = 'none';
+      this._claudeBtn.offsetHeight;
+      this._claudeBtn.style.animation = 'improv-claude-pulse 0.6s ease';
 
       if (unreviewed === 0 && this._claudeBtn) {
         this._claudeBtn.remove();
