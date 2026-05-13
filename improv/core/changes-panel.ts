@@ -169,6 +169,11 @@ export class ChangesPanel {
 
   show(entries: ChangeEntry[]) {
     this.entries = entries;
+    this.filterEntries();
+    if (this.filteredEntries.length === 0) {
+      this.hide();
+      return;
+    }
     this.visible = true;
     this.container.style.display = 'flex';
     this.container.getBoundingClientRect();
