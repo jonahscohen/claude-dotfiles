@@ -20,6 +20,8 @@ export class ChangesPanel {
   private onReplyCallback: ReplyCallback | null = null;
   private onDoneCallback: ((promptId: string) => void) | null = null;
   private onRevertCallback: ((promptId: string, changes: any[]) => void) | null = null;
+  private onClearReviewedCallback: (() => void) | null = null;
+  private _clearReviewedBtn: HTMLButtonElement | null = null;
   private getMarkerColor: () => string;
   private boundKeydown: (e: KeyboardEvent) => void;
 
@@ -43,11 +45,27 @@ export class ChangesPanel {
       'padding:14px 16px 10px;border-bottom:1px solid rgba(255,255,255,0.1);' +
       'display:flex;align-items:center;justify-content:space-between;flex-shrink:0';
 
+    const titleWrap = document.createElement('div');
+    titleWrap.style.cssText = 'display:flex;align-items:center;gap:8px';
     const title = document.createElement('span');
     title.id = 'improv-changes-title';
     title.textContent = 'Changes';
     title.style.cssText = 'font-size:13px;font-weight:600;color:rgba(255,255,255,0.85)';
-    header.appendChild(title);
+    titleWrap.appendChild(title);
+    this._clearReviewedBtn = document.createElement('button');
+    this._clearReviewedBtn.textContent = 'Clear done';
+    this._clearReviewedBtn.setAttribute('aria-label', 'Clear all reviewed changes');
+    this._clearReviewedBtn.style.cssText = 'border:none;background:none;color:rgba(255,255,255,0.3);font-size:10px;cursor:pointer;padding:0;font-family:system-ui,sans-serif;display:none;outline:none';
+    this._clearReviewedBtn.addEventListener('mouseenter', () => { this._clearReviewedBtn!.style.color = 'rgba(255,255,255,0.6)'; });
+    this._clearReviewedBtn.addEventListener('mouseleave', () => { this._clearReviewedBtn!.style.color = 'rgba(255,255,255,0.3)'; });
+    this._clearReviewedBtn.addEventListener('click', () => {
+      this.entries = this.entries.filter(e => !e.reviewed);
+      if (this.onClearReviewedCallback) this.onClearReviewedCallback();
+      this.render();
+      this._updateClearBtn();
+    });
+    titleWrap.appendChild(this._clearReviewedBtn);
+    header.appendChild(titleWrap);
     this.container.setAttribute('aria-labelledby', 'improv-changes-title');
 
     const closeBtn = document.createElement('button');
@@ -157,6 +175,7 @@ export class ChangesPanel {
   setOnReply(cb: ReplyCallback) { this.onReplyCallback = cb; }
   setOnDone(cb: (promptId: string) => void) { this.onDoneCallback = cb; }
   setOnRevert(cb: (promptId: string, changes: any[]) => void) { this.onRevertCallback = cb; }
+  setOnClearReviewed(cb: () => void) { this.onClearReviewedCallback = cb; }
 
   private markDone(promptId: string) {
     const entry = this.entries.find(e => e.promptId === promptId);
@@ -317,6 +336,13 @@ export class ChangesPanel {
 
       this.listEl.appendChild(item);
     });
+    this._updateClearBtn();
+  }
+
+  private _updateClearBtn(): void {
+    if (!this._clearReviewedBtn) return;
+    const hasReviewed = this.entries.some(e => e.reviewed);
+    this._clearReviewedBtn.style.display = hasReviewed ? '' : 'none';
   }
 
   private makeActionBtn(label: string, onClick: () => void): HTMLButtonElement {

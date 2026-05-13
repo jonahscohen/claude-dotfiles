@@ -197,6 +197,12 @@ export class ImprovCore {
       }).catch(() => {});
     });
 
+    this._changesPanel.setOnClearReviewed(() => {
+      this._changeHistory = this._changeHistory.filter(e => !e.reviewed);
+      try { localStorage.setItem('improv-change-history', JSON.stringify(this._changeHistory)); } catch {}
+      this._updateClaudeBadge();
+    });
+
     this._changesPanel.setOnRevert((_promptId: string, changes: any[]) => {
       if (this.previewEngine) {
         for (const ch of changes) {
