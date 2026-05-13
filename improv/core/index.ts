@@ -32,7 +32,7 @@ export class ImprovCore {
   private _changesPanel: ChangesPanel | null = null;
   private _claudeBtn: HTMLDivElement | null = null;
   private _claudePulseStyle: HTMLStyleElement | null = null;
-  private _taskHighlights: HTMLElement[] = [];
+  private _taskHighlights: Array<{el: HTMLElement; box: HTMLElement}> = [];
 
   constructor() {
     this.transport = new Transport();
@@ -728,6 +728,32 @@ export class ImprovCore {
 
   isActive(): boolean {
     return this.active;
+  }
+
+  private _highlightRaf: number | null = null;
+
+  private _startHighlightTracking(): void {
+    if (this._highlightRaf !== null) return;
+    const tick = () => {
+      for (const {el, box} of this._taskHighlights) {
+        const r = el.getBoundingClientRect();
+        box.style.top = r.top + 'px';
+        box.style.left = r.left + 'px';
+        box.style.width = r.width + 'px';
+        box.style.height = r.height + 'px';
+      }
+      this._highlightRaf = requestAnimationFrame(tick);
+    };
+    this._highlightRaf = requestAnimationFrame(tick);
+  }
+
+  private _clearTaskHighlights(): void {
+    if (this._highlightRaf !== null) {
+      cancelAnimationFrame(this._highlightRaf);
+      this._highlightRaf = null;
+    }
+    for (const {box} of this._taskHighlights) box.remove();
+    this._taskHighlights = [];
   }
 
   getTransport(): Transport {
