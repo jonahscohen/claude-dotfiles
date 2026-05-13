@@ -80,7 +80,7 @@ export class LassoSelect {
       'display:flex',
       'align-items:center',
       'gap:8px',
-      'font-family:system-ui,sans-serif',
+      'font-family:ImprovSans,system-ui,sans-serif',
       'font-size:12px',
       'font-weight:600',
       'z-index:2147483646',
@@ -114,7 +114,7 @@ export class LassoSelect {
       'font-weight:700',
       'padding:2px 8px',
       'cursor:pointer',
-      'font-family:system-ui,sans-serif',
+      'font-family:ImprovSans,system-ui,sans-serif',
       'transition:background 0.1s',
     ].join(';');
     unfreezeBtn.addEventListener('mouseover', () => { unfreezeBtn.style.background = 'rgba(255,255,255,0.35)'; });
@@ -191,7 +191,7 @@ export class LassoSelect {
         'padding:2px 8px',
         'font-size:11px',
         'font-weight:700',
-        'font-family:system-ui,sans-serif',
+        'font-family:ImprovSans,system-ui,sans-serif',
         'pointer-events:none',
         'z-index:2147483647',
         'white-space:nowrap',

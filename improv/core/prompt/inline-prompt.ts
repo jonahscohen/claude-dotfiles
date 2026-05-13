@@ -29,7 +29,7 @@ export class InlinePrompt {
     this.input = document.createElement("input");
     this.input.type = "text";
     this.input.placeholder = "Describe the change...";
-    this.input.style.cssText = "width:300px;min-width:300px;background:#1a1a1a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:10px 18px;transition:box-shadow 300ms ease,border-color 300ms ease;font-size:13px;font-family:system-ui,sans-serif;outline:none;box-shadow:0 4px 16px rgba(0,0,0,0.4);animation:improv-input-glow 3s ease-in-out infinite";
+    this.input.style.cssText = "width:300px;min-width:300px;background:#1a1a1a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:10px 18px;transition:box-shadow 300ms ease,border-color 300ms ease;font-size:13px;font-family:ImprovSans,system-ui,sans-serif;outline:none;box-shadow:0 4px 16px rgba(0,0,0,0.4);animation:improv-input-glow 3s ease-in-out infinite";
 
     this.input.addEventListener("focus", () => {
       this.input.style.borderColor = this._markerColor || "#3b82f6";
@@ -91,7 +91,7 @@ export class InlinePrompt {
     this.container.appendChild(this.input);
 
     this._btnTip = document.createElement("div");
-    this._btnTip.style.cssText = "position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%) translateY(4px);background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:4px 12px;font-size:11px;font-family:system-ui,sans-serif;font-weight:500;color:rgba(255,255,255,0.85);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 120ms ease,transform 120ms ease;box-shadow:0 2px 8px rgba(0,0,0,0.3);z-index:2147483648";
+    this._btnTip.style.cssText = "position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%) translateY(4px);background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:4px 12px;font-size:11px;font-family:ImprovSans,system-ui,sans-serif;font-weight:500;color:rgba(255,255,255,0.85);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 120ms ease,transform 120ms ease;box-shadow:0 2px 8px rgba(0,0,0,0.3);z-index:2147483648";
 
     this._btnWrap = document.createElement("div");
     this._btnWrap.style.cssText = "display:flex;gap:6px;align-items:center";

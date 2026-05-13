@@ -51,7 +51,7 @@ export class ConnectionManager {
 
   broadcast(message: JsonRpcMessage): void {
     for (const stored of this.connections.values()) {
-      stored.connection.send(message);
+      try { stored.connection.send(message); } catch {}
     }
   }
 

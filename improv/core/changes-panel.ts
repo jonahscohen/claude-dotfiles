@@ -42,7 +42,7 @@ export class ChangesPanel {
       'position:fixed;bottom:68px;left:20px;width:360px;max-height:480px;' +
       'background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:16px;' +
       'box-shadow:0 8px 32px rgba(0,0,0,0.5);display:none;flex-direction:column;' +
-      'z-index:2147483647;pointer-events:all;font-family:"Fira Sans",system-ui,-apple-system,sans-serif;' +
+      'z-index:2147483647;pointer-events:all;font-family:"ImprovSans",system-ui,sans-serif;' +
       'overflow:hidden;opacity:0;transform:translateY(8px);' +
       'transition:opacity 200ms ease,transform 200ms ease';
 
@@ -114,7 +114,7 @@ export class ChangesPanel {
     this._clearReviewedBtn.setAttribute('aria-label', 'Clear all reviewed changes');
     this._clearReviewedBtn.style.cssText =
       'border:none;background:none;color:rgba(255,255,255,0.3);font-size:10px;cursor:pointer;' +
-      'padding:0;font-family:system-ui,sans-serif;outline:none';
+      'padding:0;font-family:ImprovSans,system-ui,sans-serif;outline:none';
     this._clearReviewedBtn.addEventListener('mouseenter', () => { this._clearReviewedBtn!.style.color = 'rgba(255,255,255,0.6)'; });
     this._clearReviewedBtn.addEventListener('mouseleave', () => { this._clearReviewedBtn!.style.color = 'rgba(255,255,255,0.3)'; });
     this._clearReviewedBtn.addEventListener('click', () => {
@@ -261,7 +261,7 @@ export class ChangesPanel {
     input.style.cssText =
       'flex:1;background:#252525;border:1px solid rgba(255,255,255,0.12);border-radius:8px;' +
       'padding:6px 10px;font-size:12px;color:rgba(255,255,255,0.85);outline:none;' +
-      'font-family:system-ui,sans-serif';
+      'font-family:ImprovSans,system-ui,sans-serif';
     const mc = this.getMarkerColor;
     input.addEventListener('focus', () => { input.style.borderColor = mc(); });
     input.addEventListener('blur', () => { input.style.borderColor = 'rgba(255,255,255,0.12)'; });
@@ -305,7 +305,7 @@ export class ChangesPanel {
     backBtn.style.cssText =
       'display:flex;align-items:center;gap:6px;border:none;background:none;' +
       'color:rgba(255,255,255,0.6);font-size:12px;cursor:pointer;padding:12px 16px;' +
-      'font-family:system-ui,sans-serif;outline:none;flex-shrink:0;' +
+      'font-family:ImprovSans,system-ui,sans-serif;outline:none;flex-shrink:0;' +
       'transition:color 120ms ease';
     backBtn.addEventListener('mouseenter', () => { backBtn.style.color = 'rgba(255,255,255,0.85)'; });
     backBtn.addEventListener('mouseleave', () => { backBtn.style.color = 'rgba(255,255,255,0.6)'; });
@@ -351,7 +351,7 @@ export class ChangesPanel {
       'display:inline-flex;align-items:center;justify-content:center;' +
       'width:20px;height:20px;border-radius:50%;background:#D97757;' +
       'font-size:10px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;' +
-      'font-family:system-ui,sans-serif;margin-right:8px;vertical-align:middle';
+      'font-family:ImprovSans,system-ui,sans-serif;margin-right:8px;vertical-align:middle';
     numLabel.textContent = String(index + 1);
     summaryHeader.appendChild(numLabel);
 
@@ -394,7 +394,7 @@ export class ChangesPanel {
 
       const fileHeader = document.createElement('div');
       fileHeader.style.cssText =
-        'font-size:11px;color:rgba(255,255,255,0.5);font-family:ui-monospace,monospace;' +
+        'font-size:11px;color:rgba(255,255,255,0.5);font-family:ImprovMono,ui-monospace,monospace;' +
         'padding:4px 0;margin-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.06)';
       fileHeader.textContent = filename;
       fileSection.appendChild(fileHeader);
@@ -406,14 +406,14 @@ export class ChangesPanel {
 
         const selectorEl = document.createElement('div');
         selectorEl.style.cssText =
-          'font-size:11px;color:rgba(255,255,255,0.4);font-family:ui-monospace,monospace;' +
+          'font-size:11px;color:rgba(255,255,255,0.4);font-family:ImprovMono,ui-monospace,monospace;' +
           'margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
         selectorEl.textContent = c.selector;
         diffRow.appendChild(selectorEl);
 
         const propLine = document.createElement('div');
         propLine.style.cssText =
-          'font-size:12px;font-family:ui-monospace,monospace;display:flex;flex-direction:column;gap:2px';
+          'font-size:12px;font-family:ImprovMono,ui-monospace,monospace;display:flex;flex-direction:column;gap:2px';
 
         const propLabel = document.createElement('span');
         propLabel.style.cssText = 'color:rgba(255,255,255,0.6);font-weight:500';
@@ -510,7 +510,7 @@ export class ChangesPanel {
       const numSpan = document.createElement('span');
       numSpan.style.cssText =
         'font-size:10px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;' +
-        'font-family:system-ui,sans-serif';
+        'font-family:ImprovSans,system-ui,sans-serif';
       numSpan.textContent = String(i + 1);
       numCircle.appendChild(numSpan);
       topRow.appendChild(numCircle);
@@ -536,7 +536,7 @@ export class ChangesPanel {
         statsWrap.style.cssText = 'margin-top:4px';
 
         const statsSpan = document.createElement('span');
-        statsSpan.style.cssText = 'font-size:11px;font-family:ui-monospace,monospace';
+        statsSpan.style.cssText = 'font-size:11px;font-family:ImprovMono,ui-monospace,monospace';
 
         const addSpan = document.createElement('span');
         addSpan.style.cssText = 'color:#22c55e';
@@ -640,7 +640,7 @@ export class ChangesPanel {
     btn.style.cssText =
       'border:none;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);' +
       'border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;' +
-      'font-family:system-ui,sans-serif;transition:background 120ms ease;outline:none';
+      'font-family:ImprovSans,system-ui,sans-serif;transition:background 120ms ease;outline:none';
     btn.addEventListener('mouseenter', () => { btn.style.background = 'rgba(255,255,255,0.1)'; });
     btn.addEventListener('mouseleave', () => { btn.style.background = 'rgba(255,255,255,0.06)'; });
     btn.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });

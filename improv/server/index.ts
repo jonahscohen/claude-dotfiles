@@ -5,6 +5,13 @@ import { registerTools } from './mcp-tools.js';
 
 const DEFAULT_WS_PORT = 9223;
 
+process.on('uncaughtException', (err) => {
+  process.stderr.write(`[improv] uncaughtException (kept alive): ${err?.message ?? err}\n`);
+});
+process.on('unhandledRejection', (reason) => {
+  process.stderr.write(`[improv] unhandledRejection (kept alive): ${reason}\n`);
+});
+
 async function killStaleProcess(port: number): Promise<void> {
   const { execFileSync } = await import('child_process');
   try {

@@ -193,7 +193,7 @@ export class Toolbar {
       pointerEvents: 'all',
       userSelect: 'none',
       zIndex: '2147483647',
-      fontFamily: "'Fira Sans', system-ui, -apple-system, sans-serif",
+      fontFamily: "'ImprovSans', system-ui, sans-serif",
       animation: 'improv-pill-in 0.35s cubic-bezier(0.23, 1, 0.32, 1) forwards',
       overflow: 'hidden',
       transition: 'width 0.3s cubic-bezier(0.23, 1, 0.32, 1)',
@@ -403,7 +403,7 @@ export class Toolbar {
     this.el.appendChild(this._closeBtn);
 
     this._tt = document.createElement('div');
-    this._tt.style.cssText = 'position:fixed;transform:translateX(-50%) translateY(4px);background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:5px 14px;font-size:11px;font-family:system-ui,sans-serif;font-weight:500;color:rgba(255,255,255,0.85);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 120ms ease,transform 120ms ease;box-shadow:0 2px 8px rgba(0,0,0,0.3);z-index:2147483647';
+    this._tt.style.cssText = 'position:fixed;transform:translateX(-50%) translateY(4px);background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:5px 14px;font-size:11px;font-family:ImprovSans,system-ui,sans-serif;font-weight:500;color:rgba(255,255,255,0.85);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 120ms ease,transform 120ms ease;box-shadow:0 2px 8px rgba(0,0,0,0.3);z-index:2147483647';
     this._ttTimer = null;
 
     this.initDrag();
@@ -662,7 +662,7 @@ export class Toolbar {
       flexDirection: 'column',
       gap: '14px',
       zIndex: '2147483647',
-      fontFamily: "'Fira Sans', system-ui, -apple-system, sans-serif",
+      fontFamily: "'ImprovSans', system-ui, sans-serif",
       pointerEvents: 'all',
       animation: 'improv-panel-in 0.25s cubic-bezier(0.23, 1, 0.32, 1) both',
     });
@@ -721,7 +721,7 @@ export class Toolbar {
       borderRadius: '8px',
       padding: '6px 8px',
       fontSize: '12px',
-      fontFamily: "'Fira Sans', system-ui, sans-serif",
+      fontFamily: "'ImprovSans', system-ui, sans-serif",
       outline: 'none',
       cursor: 'pointer',
     });
@@ -892,7 +892,7 @@ export class Toolbar {
       color: 'rgba(255,255,255,0.35)',
       textTransform: 'uppercase',
       letterSpacing: '0.8px',
-      fontFamily: "'Fira Sans', system-ui, sans-serif",
+      fontFamily: "'ImprovSans', system-ui, sans-serif",
     });
     section.appendChild(heading);
     return section;
@@ -904,7 +904,7 @@ export class Toolbar {
       display: 'flex',
       justifyContent: 'space-between',
       fontSize: '11px',
-      fontFamily: "'Fira Sans', system-ui, sans-serif",
+      fontFamily: "'ImprovSans', system-ui, sans-serif",
     });
     const k = document.createElement('span');
     k.textContent = key;

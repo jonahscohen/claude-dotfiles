@@ -150,13 +150,18 @@ export class ImprovCore {
     } catch {
     }
 
-    // Load Fira Sans
+    // Load Improv fonts
     if (!document.getElementById('improv-font')) {
-      const link = document.createElement('link');
-      link.id = 'improv-font';
-      link.rel = 'stylesheet';
-      link.href = 'https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;600;700&display=swap';
-      document.head.appendChild(link);
+      const style = document.createElement('style');
+      style.id = 'improv-font';
+      style.textContent = [
+        "@font-face{font-family:ImprovSans;src:url('http://localhost:9223/fonts/improvsans-400.woff2') format('woff2');font-weight:400;font-display:swap}",
+        "@font-face{font-family:ImprovSans;src:url('http://localhost:9223/fonts/improvsans-700.woff2') format('woff2');font-weight:700;font-display:swap}",
+        "@font-face{font-family:'ImprovSerif';src:url('http://localhost:9223/fonts/improvserif-400.woff2') format('woff2');font-weight:400;font-display:swap}",
+        "@font-face{font-family:'ImprovSerif';src:url('http://localhost:9223/fonts/improvserif-700.woff2') format('woff2');font-weight:700;font-display:swap}",
+        "@font-face{font-family:ImprovMono;src:url('http://localhost:9223/fonts/improvmono-400.woff2') format('woff2');font-weight:400;font-display:swap}",
+      ].join('');
+      document.head.appendChild(style);
     }
     this.activate();
   }
@@ -244,7 +249,7 @@ export class ImprovCore {
           label.style.cssText =
             'position:absolute;top:-22px;left:0;padding:2px 6px;border-radius:3px;' +
             'background:#D97757;color:#fff;font-size:9px;font-weight:600;' +
-            'font-family:ui-monospace,monospace;white-space:nowrap;pointer-events:none;' +
+            'font-family:ImprovMono,ui-monospace,monospace;white-space:nowrap;pointer-events:none;' +
             'max-width:200px;overflow:hidden;text-overflow:ellipsis';
           label.textContent = sel;
           highlight.appendChild(label);
@@ -448,7 +453,7 @@ export class ImprovCore {
       this._toast.remove();
     }
     this._toast = document.createElement('div');
-    this._toast.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:24px;padding:10px 20px;z-index:2147483647;pointer-events:none;display:flex;align-items:center;gap:10px;font-family:system-ui,sans-serif;box-shadow:0 8px 32px rgba(0,0,0,0.4);animation:improv-toast-slide-in 0.3s cubic-bezier(0.23,1,0.32,1) forwards;overflow:hidden';
+    this._toast.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:24px;padding:10px 20px;z-index:2147483647;pointer-events:none;display:flex;align-items:center;gap:10px;font-family:ImprovSans,system-ui,sans-serif;box-shadow:0 8px 32px rgba(0,0,0,0.4);animation:improv-toast-slide-in 0.3s cubic-bezier(0.23,1,0.32,1) forwards;overflow:hidden';
     const _mColor = this.toolbar ? this.toolbar.getMarkerColor() : '#3b82f6';
     const _bar = document.createElement('div');
     _bar.style.cssText = 'position:absolute;bottom:0;left:0;height:2px;background:' + _mColor + ';border-radius:0 0 24px 24px;animation:improv-toast-progress 1.5s ease forwards';
@@ -547,7 +552,7 @@ export class ImprovCore {
       this._toast = null;
     }
     this._toast = document.createElement('div');
-    this._toast.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:24px;padding:10px 20px;z-index:2147483647;pointer-events:none;display:flex;align-items:center;gap:10px;font-family:system-ui,sans-serif;box-shadow:0 8px 32px rgba(0,0,0,0.4);animation:improv-toast-slide-in 0.3s cubic-bezier(0.23,1,0.32,1) forwards;max-width:480px';
+    this._toast.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:24px;padding:10px 20px;z-index:2147483647;pointer-events:none;display:flex;align-items:center;gap:10px;font-family:ImprovSans,system-ui,sans-serif;box-shadow:0 8px 32px rgba(0,0,0,0.4);animation:improv-toast-slide-in 0.3s cubic-bezier(0.23,1,0.32,1) forwards;max-width:480px';
 
     const _mColor = this.toolbar ? this.toolbar.getMarkerColor() : '#3b82f6';
 
@@ -711,7 +716,7 @@ export class ImprovCore {
           pill.style.cssText =
             'position:absolute;top:-24px;left:0;padding:2px 8px;border-radius:4px;' +
             'background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);' +
-            'font-size:10px;font-family:ui-monospace,monospace;color:rgba(255,255,255,0.7);' +
+            'font-size:10px;font-family:ImprovMono,ui-monospace,monospace;color:rgba(255,255,255,0.7);' +
             'white-space:nowrap;pointer-events:none';
           pill.textContent = selectorChanges.map(c => c.property + ': ' + c.newValue).join('; ');
           highlight.appendChild(pill);

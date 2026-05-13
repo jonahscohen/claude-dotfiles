@@ -59,59 +59,90 @@ export class WsServer {
   }
 
   private handleHttpRequest(req: IncomingMessage, res: ServerResponse): void {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    try {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET');
 
-    if (req.method === 'GET' && req.url === '/improv-core.js') {
+      // Serve fonts
+      if (req.method === 'GET' && req.url?.startsWith('/fonts/')) {
+        const fontName = req.url.replace('/fonts/', '');
+        const fontPath = join(this.distDir, '..', 'fonts', fontName);
+        if (existsSync(fontPath)) {
+          const data = readFileSync(fontPath);
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Content-Type', 'font/woff2');
+          res.setHeader('Cache-Control', 'public, max-age=31536000');
+          res.end(data);
+          return;
+        }
+      }
+      if (req.method === 'GET' && req.url === '/improv-core.js') {
       const filePath = join(this.distDir, 'improv-core.js');
-      if (existsSync(filePath)) {
-        const content = readFileSync(filePath, 'utf-8');
-        res.writeHead(200, { 'Content-Type': 'application/javascript' });
-        res.end(content);
-      } else {
-        res.writeHead(404);
-        res.end('improv-core.js not found');
+        if (existsSync(filePath)) {
+          const content = readFileSync(filePath, 'utf-8');
+          res.writeHead(200, { 'Content-Type': 'application/javascript' });
+          res.end(content);
+        } else {
+          res.writeHead(404);
+          res.end('improv-core.js not found');
+        }
+        return;
       }
-      return;
-    }
 
-    if (req.method === 'GET' && req.url?.startsWith('/improv-') && req.url?.endsWith('.js')) {
-      const fileName = req.url.slice(1);
-      const filePath = join(this.distDir, fileName);
-      if (existsSync(filePath)) {
-        const content = readFileSync(filePath, 'utf-8');
-        res.writeHead(200, { 'Content-Type': 'application/javascript' });
-        res.end(content);
-      } else {
-        res.writeHead(404);
-        res.end(`${fileName} not found`);
+      if (req.method === 'GET' && req.url?.startsWith('/improv-') && req.url?.endsWith('.js')) {
+        const fileName = req.url.slice(1);
+        const filePath = join(this.distDir, fileName);
+        if (existsSync(filePath)) {
+          const content = readFileSync(filePath, 'utf-8');
+          res.writeHead(200, { 'Content-Type': 'application/javascript' });
+          res.end(content);
+        } else {
+          res.writeHead(404);
+          res.end(`${fileName} not found`);
+        }
+        return;
       }
-      return;
-    }
 
-    if (req.method === 'GET' && req.url === '/status') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        server: 'improv',
-        port: this.port,
-        connections: this.manager.size(),
-      }));
-      return;
-    }
+      if (req.method === 'GET' && req.url === '/status') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          server: 'improv',
+          port: this.port,
+          connections: this.manager.size(),
+        }));
+        return;
+      }
 
-    res.writeHead(404);
-    res.end('Not found');
+      res.writeHead(404);
+      res.end('Not found');
+    } catch (err) {
+      process.stderr.write(`[improv] HTTP request error (non-fatal): ${err instanceof Error ? err.message : err}\n`);
+      try { res.writeHead(500); res.end('Internal error'); } catch {}
+    }
   }
 
   private attachConnectionHandler(): void {
     if (!this.wss) return;
 
+    this.wss.on('error', (err: Error) => {
+      process.stderr.write(`[improv] WSS error (non-fatal): ${err?.message ?? err}\n`);
+    });
+    if (this.httpServer) {
+      this.httpServer.on('error', (err: Error) => {
+        process.stderr.write(`[improv] HTTP server error (non-fatal): ${err?.message ?? err}\n`);
+      });
+    }
+
     this.wss.on('connection', (ws: WebSocket) => {
       let handshakeDone = false;
 
+      ws.on('error', (err: Error) => {
+        process.stderr.write(`[improv] WebSocket client error (non-fatal): ${err?.message ?? err}\n`);
+      });
+
       const timer = setTimeout(() => {
         if (!handshakeDone) {
-          ws.close(4001, 'Handshake timeout');
+          try { ws.close(4001, 'Handshake timeout'); } catch {}
         }
       }, 5000);
 
@@ -122,12 +153,12 @@ export class WsServer {
         try {
           msg = JSON.parse(raw.toString()) as JsonRpcRequest;
         } catch {
-          ws.close(4002, 'Invalid JSON');
+          try { ws.close(4002, 'Invalid JSON'); } catch {}
           return;
         }
 
         if (msg.method !== 'handshake') {
-          ws.close(4002, 'Expected handshake');
+          try { ws.close(4002, 'Expected handshake'); } catch {}
           return;
         }
 
@@ -143,7 +174,7 @@ export class WsServer {
           id: msg.id,
           result: { connectionId },
         };
-        ws.send(JSON.stringify(response));
+        try { ws.send(JSON.stringify(response)); } catch {}
 
         ws.on('message', (data: Buffer | string) => {
           this.handleMessage(ws, connectionId, data.toString());
@@ -177,9 +208,7 @@ export class WsServer {
         id: msg.id,
         error: { code: -32601, message: 'Method not found' },
       };
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(errorResponse));
-      }
+      try { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(errorResponse)); } catch {}
       return;
     }
 
@@ -190,9 +219,7 @@ export class WsServer {
         id: msg.id,
         result,
       };
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(response));
-      }
+      try { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(response)); } catch {}
     } catch (err) {
       const errorResponse: JsonRpcResponse = {
         jsonrpc: '2.0',
@@ -202,9 +229,7 @@ export class WsServer {
           message: err instanceof Error ? err.message : 'Internal error',
         },
       };
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(errorResponse));
-      }
+      try { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(errorResponse)); } catch {}
     }
   }
 

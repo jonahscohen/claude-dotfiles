@@ -40,7 +40,7 @@ relates_to: [session_2026-05-13_improv-changes-panel.md]
 - Removed Show Changes / Hide Changes / Preview buttons
 - Keybinds: panel shortcuts (J/K/D/R) skip when Cmd/Ctrl/Alt held so CMD+R etc work
 - Custom scrollbar: thin 6px, rgba(255,255,255,0.15) thumb, transparent track
-- Fira Sans: official typeface across entire improv UI, loaded via Google Fonts link in document head
+- Custom typefaces: ImprovSans (Anthropic Sans), ImprovSerif (Anthropic Serif), ImprovMono (Anthropic Mono) served from localhost:9223/fonts/, @font-face injected in document head, applied across all UI text
 - Postmortem: completed by agent, written to docs/superpowers/specs/2026-05-13-improv-postmortem.md
 - Design skill note saved to feedback_ai_icons_lobehub.md
 - Claude button restyled: 44x44, #1a1a1a bg, border + shadow matching toolbar "I" button, hover=#D9775715 (subtle orange warmth on dark, matches toolbar hover intensity), active=solid #D97757 + white icon

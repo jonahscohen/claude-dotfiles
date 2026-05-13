@@ -217,7 +217,7 @@ export class PromptMode {
     enableEventIntercept();
 
     this._hLabel = document.createElement("div");
-    this._hLabel.style.cssText = "position:fixed;pointer-events:none;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);font-size:11px;font-family:system-ui,sans-serif;font-weight:500;padding:5px 14px;border-radius:20px;z-index:2147483647;opacity:0;transition:opacity 80ms ease;box-shadow:0 2px 8px rgba(0,0,0,0.3);white-space:nowrap;display:flex;align-items:center;gap:6px";
+    this._hLabel.style.cssText = "position:fixed;pointer-events:none;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);font-size:11px;font-family:ImprovSans,system-ui,sans-serif;font-weight:500;padding:5px 14px;border-radius:20px;z-index:2147483647;opacity:0;transition:opacity 80ms ease;box-shadow:0 2px 8px rgba(0,0,0,0.3);white-space:nowrap;display:flex;align-items:center;gap:6px";
     this.overlay.getContainer().appendChild(this._hLabel);
 
     this._selColor = this._getColor ? this._getColor() : "#3b82f6";
@@ -359,7 +359,7 @@ export class PromptMode {
       }.bind(this));
 
       this._queueCount = document.createElement("span");
-      this._queueCount.style.cssText = "font-size:15px;font-weight:700;font-family:system-ui,sans-serif;font-variant-numeric:tabular-nums;pointer-events:none;line-height:1;color:" + (this._selColor || "#3b82f6");
+      this._queueCount.style.cssText = "font-size:15px;font-weight:700;font-family:ImprovSans,system-ui,sans-serif;font-variant-numeric:tabular-nums;pointer-events:none;line-height:1;color:" + (this._selColor || "#3b82f6");
       this._queueCount.textContent = "0";
       this._queueBtn.appendChild(this._queueCount);
       this._actionPill.appendChild(this._queueBtn);
@@ -473,7 +473,7 @@ export class PromptMode {
     this._actionPill.appendChild(this._clearAllBtn);
 
     this._apTip = document.createElement("div");
-    this._apTip.style.cssText = "position:fixed;transform:translateX(-50%) translateY(4px);background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:5px 14px;font-size:11px;font-family:system-ui,sans-serif;font-weight:500;color:rgba(255,255,255,0.85);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 120ms ease,transform 120ms ease;box-shadow:0 2px 8px rgba(0,0,0,0.3);z-index:2147483647";
+    this._apTip.style.cssText = "position:fixed;transform:translateX(-50%) translateY(4px);background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:5px 14px;font-size:11px;font-family:ImprovSans,system-ui,sans-serif;font-weight:500;color:rgba(255,255,255,0.85);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 120ms ease,transform 120ms ease;box-shadow:0 2px 8px rgba(0,0,0,0.3);z-index:2147483647";
 
     this.overlay.getContainer().appendChild(this._actionPill);
     this.overlay.getContainer().appendChild(this._apTip);
@@ -746,7 +746,7 @@ export class PromptMode {
         self._selOverlays.push(o);
 
         var lb = document.createElement("div") as HTMLDivElement;
-        lb.style.cssText = self._showLabels !== false ? "position:fixed;left:" + (r.right + 4) + "px;top:" + r.top + "px;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);font-size:11px;font-family:system-ui,sans-serif;font-weight:500;padding:4px 8px 4px 12px;border-radius:20px;pointer-events:all;z-index:2147483644;display:flex;align-items:center;gap:5px;box-shadow:0 2px 6px rgba(0,0,0,0.3);white-space:nowrap;cursor:default" : "position:fixed;left:" + (r.right + 4) + "px;top:" + r.top + "px;width:24px;height:24px;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:50%;pointer-events:all;z-index:2147483644;display:flex;align-items:center;justify-content:center;cursor:default;box-shadow:0 2px 6px rgba(0,0,0,0.3)";
+        lb.style.cssText = self._showLabels !== false ? "position:fixed;left:" + (r.right + 4) + "px;top:" + r.top + "px;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);font-size:11px;font-family:ImprovSans,system-ui,sans-serif;font-weight:500;padding:4px 8px 4px 12px;border-radius:20px;pointer-events:all;z-index:2147483644;display:flex;align-items:center;gap:5px;box-shadow:0 2px 6px rgba(0,0,0,0.3);white-space:nowrap;cursor:default" : "position:fixed;left:" + (r.right + 4) + "px;top:" + r.top + "px;width:24px;height:24px;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:50%;pointer-events:all;z-index:2147483644;display:flex;align-items:center;justify-content:center;cursor:default;box-shadow:0 2px 6px rgba(0,0,0,0.3)";
 
         if (self._showLabels !== false) {
           var tag = el.tagName.toLowerCase(),
@@ -965,7 +965,7 @@ export class PromptMode {
       return;
     }
     var p = document.createElement("div");
-    p.style.cssText = "position:fixed;bottom:72px;left:20px;width:340px;max-height:400px;overflow-y:auto;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.5);padding:12px;display:flex;flex-direction:column;gap:8px;z-index:2147483647;pointer-events:all;font-family:system-ui,sans-serif";
+    p.style.cssText = "position:fixed;bottom:72px;left:20px;width:340px;max-height:400px;overflow-y:auto;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.5);padding:12px;display:flex;flex-direction:column;gap:8px;z-index:2147483647;pointer-events:all;font-family:ImprovSans,system-ui,sans-serif";
 
     var hdr = document.createElement("div");
     hdr.style.cssText = "font-size:13px;font-weight:600;color:rgba(255,255,255,0.85);padding:4px 4px 8px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:4px;display:flex;align-items:center;justify-content:space-between";
@@ -1033,7 +1033,7 @@ export class PromptMode {
         row.appendChild(txt);
 
         var editBtn = document.createElement("button");
-        editBtn.style.cssText = "border:none;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.65);border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;font-family:system-ui,sans-serif;white-space:nowrap";
+        editBtn.style.cssText = "border:none;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.65);border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;font-family:ImprovSans,system-ui,sans-serif;white-space:nowrap";
         editBtn.textContent = "Edit";
         editBtn.addEventListener("click", function (this: PromptMode) {
           this._editQueueItem(idx);
@@ -1041,7 +1041,7 @@ export class PromptMode {
         row.appendChild(editBtn);
 
         var rmBtn = document.createElement("button");
-        rmBtn.style.cssText = "border:none;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;font-family:system-ui,sans-serif;white-space:nowrap";
+        rmBtn.style.cssText = "border:none;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;font-family:ImprovSans,system-ui,sans-serif;white-space:nowrap";
         rmBtn.textContent = "Remove";
         rmBtn.addEventListener("click", function (this: PromptMode) {
           this._confirmRemoveItem(idx);
@@ -1068,7 +1068,7 @@ export class PromptMode {
     d.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2147483648;display:flex;align-items:center;justify-content:center;pointer-events:all";
 
     var box = document.createElement("div");
-    box.style.cssText = "background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:20px;max-width:300px;font-family:system-ui,sans-serif;box-shadow:0 8px 32px rgba(0,0,0,0.5)";
+    box.style.cssText = "background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:20px;max-width:300px;font-family:ImprovSans,system-ui,sans-serif;box-shadow:0 8px 32px rgba(0,0,0,0.5)";
 
     var msg = document.createElement("div");
     msg.style.cssText = "font-size:13px;color:rgba(255,255,255,0.85);margin-bottom:16px";
@@ -1079,7 +1079,7 @@ export class PromptMode {
     btns.style.cssText = "display:flex;gap:8px;justify-content:flex-end";
 
     var cancel = document.createElement("button");
-    cancel.style.cssText = "border:1px solid rgba(255,255,255,0.15);background:none;color:rgba(255,255,255,0.65);border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:system-ui,sans-serif";
+    cancel.style.cssText = "border:1px solid rgba(255,255,255,0.15);background:none;color:rgba(255,255,255,0.65);border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:ImprovSans,system-ui,sans-serif";
     cancel.textContent = "Cancel";
     cancel.addEventListener("click", function () {
       d.remove();
@@ -1087,7 +1087,7 @@ export class PromptMode {
     btns.appendChild(cancel);
 
     var confirmBtn = document.createElement("button");
-    confirmBtn.style.cssText = "border:none;background:#ef4444;color:#fff;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:system-ui,sans-serif;font-weight:600";
+    confirmBtn.style.cssText = "border:none;background:#ef4444;color:#fff;border-radius:8px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:ImprovSans,system-ui,sans-serif;font-weight:600";
     confirmBtn.textContent = "Remove";
     confirmBtn.addEventListener("click", function (this: PromptMode) {
       d.remove();

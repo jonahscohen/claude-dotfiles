@@ -81,7 +81,7 @@ export class AnnotationMarker {
       'justify-content:center',
       'font-size:11px',
       'font-weight:700',
-      'font-family:system-ui,sans-serif',
+      'font-family:ImprovSans,system-ui,sans-serif',
       'pointer-events:all',
       'cursor:pointer',
       'z-index:2147483645',
@@ -141,7 +141,7 @@ export class AnnotationMarker {
       'z-index:2147483647',
       'pointer-events:all',
       'box-shadow:0 8px 32px rgba(0,0,0,0.6)',
-      'font-family:system-ui,sans-serif',
+      'font-family:ImprovSans,system-ui,sans-serif',
     ].join(';');
 
     // Header
@@ -194,7 +194,7 @@ export class AnnotationMarker {
       'border-radius:8px',
       'padding:8px 10px',
       'font-size:13px',
-      'font-family:system-ui,sans-serif',
+      'font-family:ImprovSans,system-ui,sans-serif',
       'resize:none',
       'outline:none',
       'box-sizing:border-box',
@@ -223,7 +223,7 @@ export class AnnotationMarker {
       'font-size:13px',
       'font-weight:600',
       'cursor:pointer',
-      'font-family:system-ui,sans-serif',
+      'font-family:ImprovSans,system-ui,sans-serif',
       'transition:background 0.1s',
       'width:100%',
     ].join(';');
@@ -253,7 +253,7 @@ export class AnnotationMarker {
       'color:#64748b',
       'font-size:12px',
       'cursor:pointer',
-      'font-family:system-ui,sans-serif',
+      'font-family:ImprovSans,system-ui,sans-serif',
       'padding:2px',
       'text-align:center',
     ].join(';');
@@ -341,7 +341,7 @@ export class AnnotationMarker {
           'font-size:11px',
           'font-weight:600',
           'cursor:pointer',
-          'font-family:system-ui,sans-serif',
+          'font-family:ImprovSans,system-ui,sans-serif',
           'transition:opacity 0.1s',
           'user-select:none',
         ].join(';');
