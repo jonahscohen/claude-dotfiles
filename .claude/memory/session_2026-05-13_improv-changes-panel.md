@@ -24,6 +24,11 @@ Built Phase 2 of the improv-claude loop: Claude button and changes panel.
 
 **Visually verified:** Screenshot shows panel with 2 entries (completed + needsInfo), Claude button with badge, correct styling matching dark glass aesthetic.
 
+**Additional iteration (ralph loop):**
+- Auto-reload on `status: completed` (1.5s delay for toast visibility)
+- MarkerColor live update on Claude button via `_updateClaudeBadge` call in `_syncPromptModeColor`
+- Verified: auto-reload triggers, history persists across reload, Claude button reappears with correct badge count
+
 **Files touched:**
 - improv/core/changes-panel.ts (new)
-- improv/core/index.ts (wired panel, Claude button, keyboard shortcuts, badge updates)
+- improv/core/index.ts (wired panel, Claude button, keyboard shortcuts, badge updates, auto-reload, markerColor sync)

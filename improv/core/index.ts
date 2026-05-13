@@ -69,6 +69,7 @@ export class ImprovCore {
       const summary = response.summary as string;
       if (status === 'completed') {
         this._showResponseToast(summary, 'completed');
+        setTimeout(() => location.reload(), 1500);
       } else if (status === 'needsInfo') {
         this._showResponseToast(response.question as string || summary, 'needsInfo');
       } else {
@@ -309,6 +310,7 @@ export class ImprovCore {
       (this.promptMode as any)._clearAllBtn.style.background = c + '33';
       (this.promptMode as any)._clearAllBtn.style.color = c;
     }
+    this._updateClaudeBadge();
   }
 
   private _showScreenGlow(color?: string): void {
