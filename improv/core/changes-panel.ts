@@ -13,15 +13,21 @@ type ReplyCallback = (promptId: string, text: string) => void;
 export class ChangesPanel {
   private container: HTMLDivElement;
   private listEl: HTMLDivElement;
+  private bottomBar: HTMLDivElement;
   private shadowRoot: ShadowRoot;
   private visible = false;
   private focusedIndex = -1;
   private entries: ChangeEntry[] = [];
+  private filteredEntries: ChangeEntry[] = [];
   private onReplyCallback: ReplyCallback | null = null;
   private onDoneCallback: ((promptId: string) => void) | null = null;
   private onRevertCallback: ((promptId: string, changes: any[]) => void) | null = null;
+  private onPreviewToggleCallback: ((promptId: string, changes: any[], showOld: boolean) => void) | null = null;
   private onClearReviewedCallback: (() => void) | null = null;
   private _clearReviewedBtn: HTMLButtonElement | null = null;
+  private revertedPrompts = new Set<string>();
+  private expandedPrompts = new Set<string>();
+  private previewingPrompts = new Set<string>();
   private getMarkerColor: () => string;
   private boundKeydown: (e: KeyboardEvent) => void;
 
@@ -52,19 +58,6 @@ export class ChangesPanel {
     title.textContent = 'Changes';
     title.style.cssText = 'font-size:13px;font-weight:600;color:rgba(255,255,255,0.85)';
     titleWrap.appendChild(title);
-    this._clearReviewedBtn = document.createElement('button');
-    this._clearReviewedBtn.textContent = 'Clear done';
-    this._clearReviewedBtn.setAttribute('aria-label', 'Clear all reviewed changes');
-    this._clearReviewedBtn.style.cssText = 'border:none;background:none;color:rgba(255,255,255,0.3);font-size:10px;cursor:pointer;padding:0;font-family:system-ui,sans-serif;display:none;outline:none';
-    this._clearReviewedBtn.addEventListener('mouseenter', () => { this._clearReviewedBtn!.style.color = 'rgba(255,255,255,0.6)'; });
-    this._clearReviewedBtn.addEventListener('mouseleave', () => { this._clearReviewedBtn!.style.color = 'rgba(255,255,255,0.3)'; });
-    this._clearReviewedBtn.addEventListener('click', () => {
-      this.entries = this.entries.filter(e => !e.reviewed);
-      if (this.onClearReviewedCallback) this.onClearReviewedCallback();
-      this.render();
-      this._updateClearBtn();
-    });
-    titleWrap.appendChild(this._clearReviewedBtn);
     header.appendChild(titleWrap);
     this.container.setAttribute('aria-labelledby', 'improv-changes-title');
 
@@ -100,6 +93,27 @@ export class ChangesPanel {
     this.listEl.style.cssText = 'overflow-y:auto;flex:1;padding:8px';
     this.container.appendChild(this.listEl);
 
+    // Bottom bar for the clear button (below the list)
+    this.bottomBar = document.createElement('div');
+    this.bottomBar.style.cssText =
+      'padding:10px 16px;border-top:1px solid rgba(255,255,255,0.1);flex-shrink:0;display:none';
+    this._clearReviewedBtn = document.createElement('button');
+    this._clearReviewedBtn.textContent = 'Clear Completed Tasks';
+    this._clearReviewedBtn.setAttribute('aria-label', 'Clear all reviewed changes');
+    this._clearReviewedBtn.style.cssText =
+      'border:none;background:none;color:rgba(255,255,255,0.3);font-size:10px;cursor:pointer;' +
+      'padding:0;font-family:system-ui,sans-serif;outline:none';
+    this._clearReviewedBtn.addEventListener('mouseenter', () => { this._clearReviewedBtn!.style.color = 'rgba(255,255,255,0.6)'; });
+    this._clearReviewedBtn.addEventListener('mouseleave', () => { this._clearReviewedBtn!.style.color = 'rgba(255,255,255,0.3)'; });
+    this._clearReviewedBtn.addEventListener('click', () => {
+      this.entries = this.entries.filter(e => !e.reviewed);
+      if (this.onClearReviewedCallback) this.onClearReviewedCallback();
+      this.render();
+      this._updateClearBtn();
+    });
+    this.bottomBar.appendChild(this._clearReviewedBtn);
+    this.container.appendChild(this.bottomBar);
+
     this.boundKeydown = this.handleKeydown.bind(this);
     shadowRoot.appendChild(this.container);
   }
@@ -123,25 +137,34 @@ export class ChangesPanel {
       this.moveFocus(-1);
     } else if (e.key === 'd' || e.key === 'D') {
       e.preventDefault();
-      if (this.focusedIndex >= 0 && this.focusedIndex < this.entries.length) {
-        this.markDone(this.entries[this.focusedIndex].promptId);
+      if (this.focusedIndex >= 0 && this.focusedIndex < this.filteredEntries.length) {
+        this.markDone(this.filteredEntries[this.focusedIndex].promptId);
       }
     } else if (e.key === 'r' || e.key === 'R') {
       e.preventDefault();
-      if (this.focusedIndex >= 0 && this.focusedIndex < this.entries.length) {
+      if (this.focusedIndex >= 0 && this.focusedIndex < this.filteredEntries.length) {
         this.startReply(this.focusedIndex);
       }
     }
   }
 
   private moveFocus(dir: number) {
-    if (this.entries.length === 0) return;
-    this.focusedIndex = Math.max(0, Math.min(this.entries.length - 1, this.focusedIndex + dir));
+    if (this.filteredEntries.length === 0) return;
+    this.focusedIndex = Math.max(0, Math.min(this.filteredEntries.length - 1, this.focusedIndex + dir));
     this.render();
     const items = this.listEl.querySelectorAll('[role="listitem"]');
     if (items[this.focusedIndex]) {
       (items[this.focusedIndex] as HTMLElement).scrollIntoView({ block: 'nearest' });
     }
+  }
+
+  /** Filter entries to only actionable ones */
+  private filterEntries(): void {
+    this.filteredEntries = this.entries.filter(entry => {
+      if (entry.status === 'completed' && entry.changes.length > 0) return true;
+      if (entry.status === 'needsInfo') return true;
+      return false;
+    });
   }
 
   show(entries: ChangeEntry[]) {
@@ -175,6 +198,7 @@ export class ChangesPanel {
   setOnReply(cb: ReplyCallback) { this.onReplyCallback = cb; }
   setOnDone(cb: (promptId: string) => void) { this.onDoneCallback = cb; }
   setOnRevert(cb: (promptId: string, changes: any[]) => void) { this.onRevertCallback = cb; }
+  setOnPreviewToggle(cb: (promptId: string, changes: any[], showOld: boolean) => void) { this.onPreviewToggleCallback = cb; }
   setOnClearReviewed(cb: () => void) { this.onClearReviewedCallback = cb; }
 
   private markDone(promptId: string) {
@@ -187,7 +211,7 @@ export class ChangesPanel {
   }
 
   private startReply(index: number) {
-    const entry = this.entries[index];
+    const entry = this.filteredEntries[index];
     if (!entry) return;
     const items = this.listEl.querySelectorAll('[role="listitem"]');
     const item = items[index] as HTMLElement;
@@ -235,24 +259,49 @@ export class ChangesPanel {
   }
 
   private render() {
+    // Bug fix #3: save scroll position before rebuilding
+    const savedScrollTop = this.listEl.scrollTop;
+
     while (this.listEl.firstChild) this.listEl.removeChild(this.listEl.firstChild);
+
+    // Bug fix #1: filter entries to only actionable ones
+    this.filterEntries();
+
     const mc = this.getMarkerColor();
 
-    if (this.entries.length === 0) {
+    if (this.filteredEntries.length === 0) {
       const empty = document.createElement('div');
       empty.style.cssText = 'padding:24px 16px;text-align:center;color:rgba(255,255,255,0.35);font-size:12px';
       empty.textContent = 'No changes yet';
       this.listEl.appendChild(empty);
+      this._updateClearBtn();
+      // Bug fix #3: restore scroll position
+      this.listEl.scrollTop = savedScrollTop;
       return;
     }
 
-    this.entries.forEach((entry, i) => {
+    this.filteredEntries.forEach((entry, i) => {
+      const isReverted = this.revertedPrompts.has(entry.promptId);
+      const isExpanded = this.expandedPrompts.has(entry.promptId);
+      const isPreviewing = this.previewingPrompts.has(entry.promptId);
+
       const item = document.createElement('div');
       item.setAttribute('role', 'listitem');
       item.setAttribute('tabindex', '0');
+
+      // Bug fix #4: visual indicator for reverted entries
+      let bgColor: string;
+      if (isReverted) {
+        bgColor = 'rgba(239,68,68,0.08)';
+      } else if (i === this.focusedIndex) {
+        bgColor = 'rgba(255,255,255,0.06)';
+      } else {
+        bgColor = 'rgba(255,255,255,0.02)';
+      }
+
       item.style.cssText =
         'padding:10px 12px;border-radius:10px;margin-bottom:6px;' +
-        'background:' + (i === this.focusedIndex ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)') + ';' +
+        'background:' + bgColor + ';' +
         'transition:background 80ms ease;' +
         'opacity:' + (entry.reviewed ? '0.4' : '1');
 
@@ -281,7 +330,7 @@ export class ChangesPanel {
         summaryEl.appendChild(files);
       }
 
-      if (entry.changes.length > 0) {
+      if (entry.changes.length > 0 && !isExpanded) {
         const changesWrap = document.createElement('div');
         changesWrap.style.cssText = 'margin-top:6px;display:flex;flex-wrap:wrap;gap:4px';
         for (const c of entry.changes.slice(0, 4)) {
@@ -290,7 +339,7 @@ export class ChangesPanel {
             'font-size:10px;padding:2px 6px;border-radius:4px;' +
             'background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.5);' +
             'font-family:ui-monospace,monospace;white-space:nowrap';
-          pill.textContent = c.property + ': ' + c.oldValue + ' \u2192 ' + c.newValue;
+          pill.textContent = c.property + ': ' + c.oldValue + ' -> ' + c.newValue;
           changesWrap.appendChild(pill);
         }
         if (entry.changes.length > 4) {
@@ -314,20 +363,146 @@ export class ChangesPanel {
       topRow.appendChild(summaryEl);
       item.appendChild(topRow);
 
+      // Bug fix #6: expanded changes detail view
+      if (isExpanded && entry.changes.length > 0) {
+        const detailWrap = document.createElement('div');
+        detailWrap.style.cssText =
+          'margin-top:8px;padding-left:16px;border-left:2px solid rgba(255,255,255,0.08)';
+
+        for (const c of entry.changes) {
+          const row = document.createElement('div');
+          row.style.cssText =
+            'display:flex;flex-direction:column;gap:2px;padding:4px 0;' +
+            'border-bottom:1px solid rgba(255,255,255,0.04);font-size:10px';
+
+          const selectorEl = document.createElement('div');
+          selectorEl.style.cssText =
+            'color:rgba(255,255,255,0.4);font-family:ui-monospace,monospace;' +
+            'white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+          selectorEl.textContent = c.selector;
+          row.appendChild(selectorEl);
+
+          const valuesRow = document.createElement('div');
+          valuesRow.style.cssText = 'display:flex;gap:6px;align-items:center';
+
+          const propEl = document.createElement('span');
+          propEl.style.cssText =
+            'color:rgba(255,255,255,0.6);font-family:ui-monospace,monospace;font-weight:500';
+          propEl.textContent = c.property;
+          valuesRow.appendChild(propEl);
+
+          const oldEl = document.createElement('span');
+          oldEl.style.cssText =
+            'color:#ef4444;text-decoration:line-through;font-family:ui-monospace,monospace';
+          oldEl.textContent = c.oldValue;
+          valuesRow.appendChild(oldEl);
+
+          const arrowEl = document.createElement('span');
+          arrowEl.style.cssText = 'color:rgba(255,255,255,0.25)';
+          arrowEl.textContent = '->';
+          valuesRow.appendChild(arrowEl);
+
+          const newEl = document.createElement('span');
+          newEl.style.cssText =
+            'color:#22c55e;font-family:ui-monospace,monospace';
+          newEl.textContent = c.newValue;
+          valuesRow.appendChild(newEl);
+
+          row.appendChild(valuesRow);
+          detailWrap.appendChild(row);
+        }
+
+        // Preview toggle button
+        const previewBtn = document.createElement('button');
+        previewBtn.textContent = isPreviewing ? 'Showing Before' : 'Preview';
+        previewBtn.style.cssText =
+          'border:none;border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer;' +
+          'font-family:system-ui,sans-serif;margin-top:6px;outline:none;' +
+          'transition:background 120ms ease;' +
+          (isPreviewing
+            ? 'background:rgba(239,68,68,0.15);color:#ef4444;'
+            : 'background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);');
+        previewBtn.addEventListener('mouseenter', () => {
+          previewBtn.style.background = isPreviewing
+            ? 'rgba(239,68,68,0.25)'
+            : 'rgba(255,255,255,0.1)';
+        });
+        previewBtn.addEventListener('mouseleave', () => {
+          previewBtn.style.background = isPreviewing
+            ? 'rgba(239,68,68,0.15)'
+            : 'rgba(255,255,255,0.06)';
+        });
+        previewBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (isPreviewing) {
+            this.previewingPrompts.delete(entry.promptId);
+            // Restore new values
+            if (this.onPreviewToggleCallback) {
+              this.onPreviewToggleCallback(entry.promptId, entry.changes, false);
+            }
+          } else {
+            this.previewingPrompts.add(entry.promptId);
+            // Apply old values to show "before"
+            if (this.onPreviewToggleCallback) {
+              this.onPreviewToggleCallback(entry.promptId, entry.changes, true);
+            }
+          }
+          this.render();
+        });
+        detailWrap.appendChild(previewBtn);
+
+        item.appendChild(detailWrap);
+      }
+
       if (!entry.reviewed) {
         const actions = document.createElement('div');
         actions.style.cssText = 'display:flex;gap:6px;margin-top:8px;padding-left:16px';
 
-        const doneBtn = this.makeActionBtn('Done', () => this.markDone(entry.promptId));
+        // Bug fix #5: rename "Done" to "Mark Done"
+        const doneBtn = this.makeActionBtn('Mark Done', () => this.markDone(entry.promptId));
         doneBtn.setAttribute('aria-label', 'Mark change as reviewed');
         actions.appendChild(doneBtn);
 
         if (entry.changes && entry.changes.length > 0) {
-          const revertBtn = this.makeActionBtn('Revert', () => {
-            if (this.onRevertCallback) this.onRevertCallback(entry.promptId, entry.changes);
-          });
-          revertBtn.setAttribute('aria-label', 'Revert this change preview');
-          actions.appendChild(revertBtn);
+          // Bug fix #4: reverted state for revert button
+          if (isReverted) {
+            const revertedBtn = this.makeActionBtn('Reverted', () => {});
+            revertedBtn.disabled = true;
+            revertedBtn.style.opacity = '0.4';
+            revertedBtn.style.cursor = 'default';
+            revertedBtn.setAttribute('aria-label', 'Change has been reverted');
+            actions.appendChild(revertedBtn);
+          } else {
+            const revertBtn = this.makeActionBtn('Revert', () => {
+              if (this.onRevertCallback) this.onRevertCallback(entry.promptId, entry.changes);
+              this.revertedPrompts.add(entry.promptId);
+              this.render();
+            });
+            revertBtn.setAttribute('aria-label', 'Revert this change preview');
+            actions.appendChild(revertBtn);
+          }
+
+          // Bug fix #6: Show Changes / Hide Changes toggle
+          const showChangesBtn = this.makeActionBtn(
+            isExpanded ? 'Hide Changes' : 'Show Changes',
+            () => {
+              if (isExpanded) {
+                this.expandedPrompts.delete(entry.promptId);
+                // If previewing, restore new values when collapsing
+                if (this.previewingPrompts.has(entry.promptId)) {
+                  this.previewingPrompts.delete(entry.promptId);
+                  if (this.onPreviewToggleCallback) {
+                    this.onPreviewToggleCallback(entry.promptId, entry.changes, false);
+                  }
+                }
+              } else {
+                this.expandedPrompts.add(entry.promptId);
+              }
+              this.render();
+            }
+          );
+          showChangesBtn.setAttribute('aria-label', isExpanded ? 'Hide change details' : 'Show change details');
+          actions.appendChild(showChangesBtn);
         }
 
         const replyBtn = this.makeActionBtn('Reply', () => this.startReply(i));
@@ -345,12 +520,15 @@ export class ChangesPanel {
       this.listEl.appendChild(item);
     });
     this._updateClearBtn();
+
+    // Bug fix #3: restore scroll position after rebuilding
+    this.listEl.scrollTop = savedScrollTop;
   }
 
   private _updateClearBtn(): void {
-    if (!this._clearReviewedBtn) return;
+    if (!this._clearReviewedBtn || !this.bottomBar) return;
     const hasReviewed = this.entries.some(e => e.reviewed);
-    this._clearReviewedBtn.style.display = hasReviewed ? '' : 'none';
+    this.bottomBar.style.display = hasReviewed ? '' : 'none';
   }
 
   private makeActionBtn(label: string, onClick: () => void): HTMLButtonElement {

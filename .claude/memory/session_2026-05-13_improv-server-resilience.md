@@ -20,6 +20,8 @@ The user hit this trying to demo "improv watch" to their team. The error message
 - `start()` already retries ports 9223-9232 if the first is still occupied (belt + suspenders)
 - Copied all server source to installed location and rebuilt
 
+**MCP reconnection failure (-32000):** This error means the client can't connect to the server. Common causes: stale process on port, previous instance not shut down. Fix: kill all improv processes (`kill $(lsof -ti :9223)`), then `/mcp reset improv` or restart Claude Code.
+
 **Deployment checklist for server changes:**
 1. Edit `improv/server/*.ts` in the repo
 2. `cp improv/server/*.ts ~/.claude/improv/server/`

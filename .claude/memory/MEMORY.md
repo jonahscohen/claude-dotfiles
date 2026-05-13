@@ -64,3 +64,4 @@
 - [Improv server resilience (2026-05-13)](session_2026-05-13_improv-server-resilience.md) - killStaleProcess fixes EADDRINUSE crash; server deployment checklist
 - [Improv port fix (2026-05-13)](session_2026-05-13_improv-port-fix.md) - Changed WebSocket port from 9223 to 3901 across all files to match browser extension
 - [Shared prompt buffer decision](decision_improv_shared_prompt_buffer.md) - File-based prompts.json replaces in-memory buffer so all MCP instances share the queue
+- [Improv Claude button restyle (2026-05-13)](session_2026-05-13_improv-claude-button-restyle.md) - Anthropic logo, pulse animation, #D97757 accent, badge removed

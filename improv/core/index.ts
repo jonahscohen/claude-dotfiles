@@ -31,7 +31,7 @@ export class ImprovCore {
   _changeHistory: Array<Record<string, unknown>> = [];
   private _changesPanel: ChangesPanel | null = null;
   private _claudeBtn: HTMLDivElement | null = null;
-  private _claudeBadge: HTMLSpanElement | null = null;
+  private _claudePulseStyle: HTMLStyleElement | null = null;
 
   constructor() {
     this.transport = new Transport();
@@ -201,6 +201,15 @@ export class ImprovCore {
       this._changeHistory = this._changeHistory.filter(e => !e.reviewed);
       try { localStorage.setItem('improv-change-history', JSON.stringify(this._changeHistory)); } catch {}
       this._updateClaudeBadge();
+    });
+
+    this._changesPanel.setOnPreviewToggle((_promptId: string, changes: any[], showOld: boolean) => {
+      if (this.previewEngine) {
+        this.previewEngine.attach();
+        for (const ch of changes) {
+          this.previewEngine.applyChange(ch.selector, ch.property, showOld ? ch.oldValue : ch.newValue);
+        }
+      }
     });
 
     this._changesPanel.setOnRevert((_promptId: string, changes: any[]) => {
@@ -698,26 +707,13 @@ export class ImprovCore {
       icon.setAttribute('width', '20');
       icon.setAttribute('height', '20');
       icon.setAttribute('viewBox', '0 0 24 24');
-      icon.setAttribute('fill', 'none');
-      icon.setAttribute('stroke', 'currentColor');
-      icon.setAttribute('stroke-width', '2');
-      icon.setAttribute('stroke-linecap', 'round');
-      icon.setAttribute('stroke-linejoin', 'round');
-      const sparkle = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      sparkle.setAttribute('d', 'M12 3v1m0 16v1m-7.07-2.93l.71-.71m12.73-12.73l.71-.71M3 12h1m16 0h1m-2.93 7.07l-.71-.71M5.64 5.64l-.71-.71M12 8a4 4 0 100 8 4 4 0 000-8z');
-      icon.appendChild(sparkle);
+      icon.setAttribute('fill', '#D97757');
+      icon.setAttribute('fill-rule', 'nonzero');
+      const claudePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      claudePath.setAttribute('d', 'M4.709 15.955l4.72-2.647.08-.23-.08-.128H9.2l-.79-.048-2.698-.073-2.339-.097-2.266-.122-.571-.121L0 11.784l.055-.352.48-.321.686.06 1.52.103 2.278.158 1.652.097 2.449.255h.389l.055-.157-.134-.098-.103-.097-2.358-1.596-2.552-1.688-1.336-.972-.724-.491-.364-.462-.158-1.008.656-.722.881.06.225.061.893.686 1.908 1.476 2.491 1.833.365.304.145-.103.019-.073-.164-.274-1.355-2.446-1.446-2.49-.644-1.032-.17-.619a2.97 2.97 0 01-.104-.729L6.283.134 6.696 0l.996.134.42.364.62 1.414 1.002 2.229 1.555 3.03.456.898.243.832.091.255h.158V9.01l.128-1.706.237-2.095.23-2.695.08-.76.376-.91.747-.492.584.28.48.685-.067.444-.286 1.851-.559 2.903-.364 1.942h.212l.243-.242.985-1.306 1.652-2.064.73-.82.85-.904.547-.431h1.033l.76 1.129-.34 1.166-1.064 1.347-.881 1.142-1.264 1.7-.79 1.36.073.11.188-.02 2.856-.606 1.543-.28 1.841-.315.833.388.091.395-.328.807-1.969.486-2.309.462-3.439.813-.042.03.049.061 1.549.146.662.036h1.622l3.02.225.79.522.474.638-.079.485-1.215.62-1.64-.389-3.829-.91-1.312-.329h-.182v.11l1.093 1.068 2.006 1.81 2.509 2.33.127.578-.322.455-.34-.049-2.205-1.657-.851-.747-1.926-1.62h-.128v.17l.444.649 2.345 3.521.122 1.08-.17.353-.608.213-.668-.122-1.374-1.925-1.415-2.167-1.143-1.943-.14.08-.674 7.254-.316.37-.729.28-.607-.461-.322-.747.322-1.476.389-1.924.315-1.53.286-1.9.17-.632-.012-.042-.14.018-1.434 1.967-2.18 2.945-1.726 1.845-.414.164-.717-.37.067-.662.401-.589 2.388-3.036 1.44-1.882.93-1.086-.006-.158h-.055L4.132 18.56l-1.13.146-.487-.456.061-.746.231-.243 1.908-1.312-.006.006z');
+      icon.appendChild(claudePath);
       this._claudeBtn.appendChild(icon);
 
-      this._claudeBadge = document.createElement('span');
-      this._claudeBadge.setAttribute('aria-live', 'polite');
-      this._claudeBadge.style.cssText =
-        'position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;line-height:18px;' +
-        'text-align:center;border-radius:9px;padding:0 4px;font-size:10px;font-weight:700;' +
-        'font-family:system-ui,sans-serif;font-variant-numeric:tabular-nums;pointer-events:none';
-      this._claudeBtn.appendChild(this._claudeBadge);
-
-      const mc = this.toolbar?.getMarkerColor() || '#3b82f6';
-      this._claudeBtn.style.color = mc;
       this._claudeBtn.addEventListener('mouseenter', () => {
         this._claudeBtn!.style.background = 'rgba(255,255,255,0.08)';
       });
@@ -732,28 +728,21 @@ export class ImprovCore {
       if (!document.getElementById('improv-claude-btn-style')) {
         const s = document.createElement('style');
         s.id = 'improv-claude-btn-style';
-        s.textContent = '@keyframes improv-claude-entrance{from{opacity:0;transform:scale(0.5)}to{opacity:1;transform:scale(1)}}@keyframes improv-claude-pulse{0%{box-shadow:0 2px 12px rgba(0,0,0,0.3)}50%{box-shadow:0 2px 20px rgba(0,0,0,0.5)}100%{box-shadow:0 2px 12px rgba(0,0,0,0.3)}}';
+        s.textContent = '@keyframes improv-claude-entrance{from{opacity:0;transform:scale(0.5)}to{opacity:1;transform:scale(1)}}@keyframes improv-claude-btn-pulse{0%{transform:scale(1);box-shadow:0 2px 12px rgba(0,0,0,0.3)}50%{transform:scale(1.08);box-shadow:0 2px 20px rgba(217,119,87,0.45)}100%{transform:scale(1);box-shadow:0 2px 12px rgba(0,0,0,0.3)}}';
         document.head.appendChild(s);
       }
     }
 
-    if (this._claudeBtn && this._claudeBadge) {
-      const mc = this.toolbar?.getMarkerColor() || '#3b82f6';
-      const contrast = ['#f97316', '#eab308', '#22c55e'].indexOf(mc) !== -1 ? '#1a1a1a' : '#fff';
-      this._claudeBtn.style.color = mc;
+    if (this._claudeBtn) {
       this._claudeBtn.setAttribute('aria-label', 'Review Changes (' + unreviewed + ')');
-      this._claudeBadge.textContent = String(unreviewed);
-      this._claudeBadge.style.background = mc;
-      this._claudeBadge.style.color = contrast;
-      this._claudeBadge.style.display = unreviewed > 0 ? '' : 'none';
-      this._claudeBtn.style.animation = 'none';
-      this._claudeBtn.offsetHeight;
-      this._claudeBtn.style.animation = 'improv-claude-pulse 0.6s ease';
 
-      if (unreviewed === 0 && this._claudeBtn) {
+      if (unreviewed > 0) {
+        this._claudeBtn.style.animation = 'improv-claude-btn-pulse 2s ease-in-out infinite';
+      } else {
+        this._claudeBtn.style.animation = 'none';
         this._claudeBtn.remove();
         this._claudeBtn = null;
-        this._claudeBadge = null;
+        this._claudePulseStyle = null;
       }
     }
   }
