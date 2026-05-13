@@ -697,15 +697,17 @@ export class ImprovCore {
       this._claudeBtn.setAttribute('aria-label', 'Review Changes (' + unreviewed + ')');
       this._claudeBtn.setAttribute('tabindex', '0');
       this._claudeBtn.style.cssText =
-        'position:fixed;bottom:20px;left:20px;width:40px;height:40px;border-radius:50%;' +
-        'background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);cursor:pointer;' +
+        'position:fixed;bottom:20px;left:20px;width:32px;height:32px;border-radius:50%;' +
+        'background:transparent;border:none;cursor:pointer;' +
         'display:flex;align-items:center;justify-content:center;z-index:2147483647;' +
-        'box-shadow:0 2px 12px rgba(0,0,0,0.3);pointer-events:all;transition:background 120ms ease;' +
+        'pointer-events:all;padding:0;outline:none;' +
+        'transition:background 120ms ease,color 120ms ease;' +
+        'color:#D97757;' +
         'animation:improv-claude-entrance 0.3s cubic-bezier(0.23,1,0.32,1)';
 
       const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      icon.setAttribute('width', '20');
-      icon.setAttribute('height', '20');
+      icon.setAttribute('width', '18');
+      icon.setAttribute('height', '18');
       icon.setAttribute('viewBox', '0 0 24 24');
       icon.setAttribute('fill', '#D97757');
       icon.setAttribute('fill-rule', 'nonzero');
@@ -715,13 +717,23 @@ export class ImprovCore {
       this._claudeBtn.appendChild(icon);
 
       this._claudeBtn.addEventListener('mouseenter', () => {
-        this._claudeBtn!.style.background = 'rgba(255,255,255,0.08)';
+        if (!this._claudeBtn!.dataset.active) this._claudeBtn!.style.background = 'rgba(217,119,87,0.2)';
       });
       this._claudeBtn.addEventListener('mouseleave', () => {
-        this._claudeBtn!.style.background = '#1a1a1a';
+        if (!this._claudeBtn!.dataset.active) this._claudeBtn!.style.background = 'transparent';
       });
       this._claudeBtn.addEventListener('click', () => {
         this._changesPanel?.toggle(this._changeHistory as any);
+        const isOpen = this._changesPanel?.isVisible();
+        if (isOpen) {
+          this._claudeBtn!.style.background = '#D97757';
+          this._claudeBtn!.querySelector('svg')!.setAttribute('fill', '#fff');
+          this._claudeBtn!.dataset.active = '1';
+        } else {
+          this._claudeBtn!.style.background = 'transparent';
+          this._claudeBtn!.querySelector('svg')!.setAttribute('fill', '#D97757');
+          delete this._claudeBtn!.dataset.active;
+        }
       });
 
       this.overlay.getContainer().parentNode?.appendChild(this._claudeBtn);
