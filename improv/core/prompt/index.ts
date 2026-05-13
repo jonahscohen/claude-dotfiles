@@ -635,10 +635,10 @@ export class PromptMode {
       if (this._hLabel) this._hLabel.style.opacity = "0";
     }
   }
-
-  buildSelectedElement(e: Element): SelectedElement {
-    let t = generateSelector(e),
-      n = getComputedStylesSubset(e),
+  buildSelectedElement(e: Element | HTMLElement): SelectedElement {
+    let t = generateSelector(e as HTMLElement),
+      n = getComputedStylesSubset(e as HTMLElement),
+      o = this.adapters.enrichElement(e as HTMLElement);
       o = this.adapters.enrichElement(e);
     return {
       domNode: e,
@@ -656,8 +656,8 @@ export class PromptMode {
     let t = this.multiSelect.getAll();
     if (t.length === 0) return;
     let o = t.map(r => {
-      let s = getNearbyText(r.domNode),
-        a = getAccessibilityInfo(r.domNode),
+      let s = getNearbyText(r.domNode as HTMLElement),
+        a = getAccessibilityInfo(r.domNode as HTMLElement),
         l = buildElementInfo(r.domNode, r.selector, r.adapterData, r.computedStyles, s, a);
       return formatElementInfo(l);
     }).join("\n\n---\n\n");
@@ -684,8 +684,8 @@ export class PromptMode {
     let t: ElementInfo[] = [],
       n: string[] = [];
     for (let r of e) {
-      let s = getNearbyText(r.domNode),
-        a = getAccessibilityInfo(r.domNode),
+      let s = getNearbyText(r.domNode as HTMLElement),
+        a = getAccessibilityInfo(r.domNode as HTMLElement),
         l = buildElementInfo(r.domNode, r.selector, r.adapterData, r.computedStyles, s, a);
       n.push(formatElementInfo(l));
       t.push(l);

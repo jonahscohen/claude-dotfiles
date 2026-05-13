@@ -454,7 +454,7 @@ export class ApplyConfirmation {
   private applyStyles(el: HTMLElement, styles: Partial<CSSStyleDeclaration>): void {
     for (const [key, value] of Object.entries(styles)) {
       if (value !== undefined) {
-        (el.style as Record<string, string>)[key] = value;
+        (el.style as any)[key] = value;
       }
     }
   }

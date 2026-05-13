@@ -91,7 +91,7 @@ function makeEdgeLabel(val: string, color: string, position: 'top' | 'bottom' | 
 
 export class BoxModel {
   private root: HTMLDivElement | null = null;
-  private labels: Map<string, HTMLDivElement> = new Map();
+  private labels: Map<string, HTMLElement> = new Map();
 
   render(computedStyles: Record<string, string>): HTMLDivElement {
     const vals = extractValues(computedStyles);

@@ -10,11 +10,7 @@ import { PromptMode } from './prompt/index.js';
 import { ChangesPanel } from './changes-panel';
 import type { ImprovAdapter, ImprovMode } from './types';
 
-declare global {
-  interface Window {
-    __improv: ImprovCore;
-  }
-}
+// Window.__improv typed via assignment below
 
 export class ImprovCore {
   private transport: Transport;

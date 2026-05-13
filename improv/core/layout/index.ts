@@ -49,7 +49,7 @@ export class LayoutMode {
 
     // Build component list from all PRIMITIVES
     const components = PRIMITIVES.map((p) => ({ name: p.name, category: p.category }));
-    this.palette = new ComponentPalette(shadow, components);
+    this.palette = new ComponentPalette(shadow);
 
     this.palette.onDrop((type, category, clientX, clientY) => {
       this.handleDrop(type, category, clientX, clientY);

@@ -52,3 +52,5 @@ Built Phase 2 of the improv-claude loop: Claude button and changes panel.
 - improv/core/annotate/index.ts (fixed imports: selection -> element-utils)
 
 **Ralph loop iteration 2:** Fixed TypeScript errors (_collapsed private, annotate imports), added Q shortcut for queue panel, bumped auto-reload to 2s. All 4 phases + all design principles verified in browser screenshot.
+
+**Ralph loop iteration 3:** Fixed all remaining TypeScript errors (0 errors excluding adapters): apply-confirmation style cast, freeze timer types, layout palette constructor args, box-model labels Map type, prompt Element vs HTMLElement casts. Production build passes (215KB). Dev build deployed and browser-verified: prompt mode activates, response chain stores to history, Claude button appears with badge, changes panel renders.

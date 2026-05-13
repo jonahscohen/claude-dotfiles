@@ -16,7 +16,7 @@ let timeoutQueue: QueuedTimeout[] = [];
 let rafQueue: FrameRequestCallback[] = [];
 
 // Dummy interval IDs to clear on unfreeze
-let dummyIntervalIds: ReturnType<typeof window.setInterval>[] = [];
+let dummyIntervalIds: any[] = [];
 
 // Layer 2: CSS style element
 let freezeStyleEl: HTMLStyleElement | null = null;
@@ -52,7 +52,7 @@ export function freeze(): void {
     fn: TimerHandler,
     _delay?: number,
     ..._args: unknown[]
-  ): ReturnType<typeof setInterval> {
+  ): any {
     // Use a very long delay so the interval effectively never fires
     const id = origSetInterval!(fn, 2147483647);
     dummyIntervalIds.push(id);
