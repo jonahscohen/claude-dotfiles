@@ -182,11 +182,16 @@ export class ImprovCore {
       () => this.toolbar?.getMarkerColor() || '#3b82f6'
     );
     this._changesPanel.setOnDone((promptId: string) => {
-      const entry = this._changeHistory.find(e => e.promptId === promptId);
-      if (entry) {
-        entry.reviewed = true;
-        try { localStorage.setItem('improv-change-history', JSON.stringify(this._changeHistory)); } catch {}
-        this._updateClaudeBadge();
+      for (const entry of this._changeHistory) {
+        if (entry.promptId === promptId) {
+          entry.reviewed = true;
+        }
+      }
+      try { localStorage.setItem('improv-change-history', JSON.stringify(this._changeHistory)); } catch {}
+      this._updateClaudeBadge();
+      // Re-sync panel with current history
+      if (this._changesPanel?.isVisible()) {
+        this._changesPanel.show(this._changeHistory as any);
       }
     });
     this._changesPanel.setOnReply((promptId: string, text: string) => {

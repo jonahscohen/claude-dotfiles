@@ -202,12 +202,10 @@ export class ChangesPanel {
   setOnClearReviewed(cb: () => void) { this.onClearReviewedCallback = cb; }
 
   private markDone(promptId: string) {
-    const entry = this.entries.find(e => e.promptId === promptId);
-    if (entry) {
-      entry.reviewed = true;
-      if (this.onDoneCallback) this.onDoneCallback(promptId);
-      this.render();
-    }
+    if (this.onDoneCallback) this.onDoneCallback(promptId);
+    // Re-sync entries from source and re-render
+    this.filterEntries();
+    this.render();
   }
 
   private startReply(index: number) {
