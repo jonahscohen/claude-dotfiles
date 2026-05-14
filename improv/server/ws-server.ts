@@ -1,6 +1,6 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { createServer, type Server as HttpServer, type IncomingMessage, type ServerResponse } from 'http';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { ConnectionManager } from './connection-manager.js';
@@ -61,8 +61,28 @@ export class WsServer {
   private handleHttpRequest(req: IncomingMessage, res: ServerResponse): void {
     try {
       res.setHeader('Access-Control-Allow-Origin', '*');
-      res.setHeader('Access-Control-Allow-Methods', 'GET');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST');
 
+      // Serve/save responses
+      if (req.method === 'GET' && req.url === '/responses') {
+        const respFile = join(this.distDir, '..', 'responses.json');
+        try {
+          const data = existsSync(respFile) ? readFileSync(respFile, 'utf-8') : '[]';
+          res.setHeader('Content-Type', 'application/json');
+          res.end(data);
+        } catch { res.end('[]'); }
+        return;
+      }
+      if (req.method === 'POST' && req.url === '/responses') {
+        let body = '';
+        req.on('data', (chunk: Buffer) => { body += chunk.toString(); });
+        req.on('end', () => {
+          const respFile = join(this.distDir, '..', 'responses.json');
+          try { writeFileSync(respFile, body); } catch {}
+          res.end('ok');
+        });
+        return;
+      }
       // Serve fonts
       if (req.method === 'GET' && req.url?.startsWith('/fonts/')) {
         const fontName = req.url.replace('/fonts/', '');
@@ -100,6 +120,57 @@ export class WsServer {
           res.writeHead(404);
           res.end(`${fileName} not found`);
         }
+        return;
+      }
+
+      if (req.method === 'POST' && req.url === '/respond') {
+        let body = '';
+        req.on('data', (chunk: Buffer) => { body += chunk; });
+        req.on('end', () => {
+          try {
+            const data = JSON.parse(body);
+            this.broadcastToClients('improv_response', {
+              promptId: data.promptId,
+              summary: data.summary,
+              filesChanged: data.filesChanged || [],
+              changes: data.changes || [],
+              status: data.status || 'completed',
+              question: data.question,
+              timestamp: Date.now(),
+            });
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ ok: true }));
+          } catch {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Invalid JSON' }));
+          }
+        });
+        return;
+      }
+
+      if (req.method === 'GET' && req.url === '/prompts') {
+        const promptFile = join(this.distDir, '..', 'prompts.json');
+        try {
+          if (existsSync(promptFile)) {
+            const content = readFileSync(promptFile, 'utf-8');
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(content);
+          } else {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end('[]');
+          }
+        } catch {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end('[]');
+        }
+        return;
+      }
+
+      if (req.method === 'POST' && req.url === '/prompts/clear') {
+        const promptFile = join(this.distDir, '..', 'prompts.json');
+        try { writeFileSync(promptFile, '[]'); } catch {}
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
         return;
       }
 

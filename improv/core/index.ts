@@ -59,7 +59,7 @@ export class ImprovCore {
       response.reviewed = false;
       this._changeHistory.push(response);
       try {
-        localStorage.setItem('improv-change-history', JSON.stringify(this._changeHistory));
+        fetch('http://localhost:9223/responses',{method:'POST',body:JSON.stringify(this._changeHistory)}).catch(()=>{});
       } catch {}
       this._updateClaudeBadge();
       const status = response.status as string;
@@ -76,10 +76,11 @@ export class ImprovCore {
       }
     });
 
-    try {
-      const stored = localStorage.getItem('improv-change-history');
-      if (stored) this._changeHistory = JSON.parse(stored);
-    } catch {}
+    // Load change history from server
+    fetch('http://localhost:9223/responses').then(r => r.json()).then((data: any[]) => {
+      this._changeHistory = data;
+      this._updateClaudeBadge();
+    }).catch(() => {});
 
     document.addEventListener('keydown', (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === '.') {
@@ -198,7 +199,7 @@ export class ImprovCore {
     this._changesPanel.setOnDone((promptId: string) => {
       const entry = this._changeHistory.find(e => e.promptId === promptId && !e.reviewed);
       if (entry) entry.reviewed = true;
-      try { localStorage.setItem('improv-change-history', JSON.stringify(this._changeHistory)); } catch {}
+      try { fetch('http://localhost:9223/responses',{method:'POST',body:JSON.stringify(this._changeHistory)}).catch(()=>{}); } catch {}
       this._updateClaudeBadge();
       // Re-sync panel with current history
       if (this._changesPanel?.isVisible()) {
@@ -208,7 +209,7 @@ export class ImprovCore {
     this._changesPanel.setOnUndoDone((promptId: string) => {
       const entry = this._changeHistory.find(e => e.promptId === promptId && e.reviewed);
       if (entry) entry.reviewed = false;
-      try { localStorage.setItem('improv-change-history', JSON.stringify(this._changeHistory)); } catch {}
+      try { fetch('http://localhost:9223/responses',{method:'POST',body:JSON.stringify(this._changeHistory)}).catch(()=>{}); } catch {}
       this._updateClaudeBadge();
       if (this._changesPanel?.isVisible()) {
         this._changesPanel.show(this._changeHistory as any);
@@ -224,7 +225,7 @@ export class ImprovCore {
 
     this._changesPanel.setOnClearReviewed(() => {
       this._changeHistory = this._changeHistory.filter(e => !e.reviewed);
-      try { localStorage.setItem('improv-change-history', JSON.stringify(this._changeHistory)); } catch {}
+      try { fetch('http://localhost:9223/responses',{method:'POST',body:JSON.stringify(this._changeHistory)}).catch(()=>{}); } catch {}
       this._updateClaudeBadge();
       if (this._changeHistory.length === 0 && this._claudeBtn) {
         this._claudeBtn.remove();
