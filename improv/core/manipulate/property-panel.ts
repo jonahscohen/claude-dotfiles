@@ -850,7 +850,7 @@ export class PropertyPanel {
         width: '4px',
         height: '4px',
         borderRadius: '50%',
-        background: '#3b82f6',
+        background: '#D97757',
       });
       previewInner.appendChild(previewDot);
       previewBox.appendChild(previewInner);

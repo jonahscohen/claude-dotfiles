@@ -166,7 +166,7 @@ export class PromptMode {
   onKeyDown: ((e: KeyboardEvent) => void) | null = null;
   _hLabel: HTMLDivElement | null = null;
   _lasso: any = null;
-  _selColor: string = "#3b82f6";
+  _selColor: string = "#D97757";
   _selOverlays: HTMLElement[] = [];
   _getColor: (() => string) | null = null;
   mousedownX: number = 0;
@@ -175,6 +175,8 @@ export class PromptMode {
   _claudeBtn: HTMLDivElement | null = null;
   _claudeDivider: HTMLDivElement | null = null;
   _queuePanel: HTMLDivElement | null = null;
+  _queueListEl: HTMLDivElement | null = null;
+  _queueHdrText: HTMLSpanElement | null = null;
   _queueBtn: HTMLDivElement | null = null;
   _queueBadge: any = null;
   _editingIdx: number = -1;
@@ -187,11 +189,16 @@ export class PromptMode {
   _core?: any;
   _showHints?: boolean;
   _showLabels?: boolean;
+  _watchActive: boolean = false;
+  _sendAllBtn?: HTMLButtonElement;
+  _editOverlays: HTMLElement[] = [];
+  _editTracked: Array<{el: HTMLElement; box: HTMLElement; label: HTMLElement}> = [];
+  _editRaf: number | null = null;
   _actionPill?: HTMLDivElement;
   _queueCount?: HTMLSpanElement;
   _pillDivider?: HTMLDivElement;
-  _sendAllBtn?: HTMLDivElement;
-  _clearAllBtn?: HTMLDivElement;
+  _queueLabel?: HTMLSpanElement;
+  _queueCollapsed: boolean = false;
   _apTip?: HTMLDivElement;
   promptSentCallbacks: ((prompt: string, count: number) => void)[] = [];
 
@@ -215,6 +222,12 @@ export class PromptMode {
   activate() {
     if (this.active) return;
     this.active = true;
+    // Close any active edit - prompt mode takes over
+    if (this._editingIdx >= 0) {
+      this._clearEditHighlights();
+      if (this.prompt) this.prompt.exitEditMode();
+      this._editingIdx = -1;
+    }
 
     enableEventIntercept();
 
@@ -222,7 +235,7 @@ export class PromptMode {
     this._hLabel.style.cssText = "position:fixed;pointer-events:none;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);font-size:11px;font-family:ImprovSans,system-ui,sans-serif;font-weight:500;padding:5px 14px;border-radius:20px;z-index:2147483647;opacity:0;transition:opacity 80ms ease;box-shadow:0 2px 8px rgba(0,0,0,0.3);white-space:nowrap;display:flex;align-items:center;gap:6px";
     this.overlay.getContainer().appendChild(this._hLabel);
 
-    this._selColor = this._getColor ? this._getColor() : "#3b82f6";
+    this._selColor = "#D97757";
 
     this._lasso = new Lasso(this.overlay.getContainer());
     this._lasso.setColor(this._selColor);
@@ -258,6 +271,7 @@ export class PromptMode {
 
     this.prompt = new InlinePrompt(this.overlay.getShadowRoot());
     this.prompt.setMarkerColor(this._selColor);
+    if (!this._watchActive) this.prompt.setSendBlocked(true);
 
     this.prompt.onPromptQueue(function (this: PromptMode, text: string) {
       var els = this.multiSelect.getAll().map(function (s: SelectedElement) {
@@ -267,11 +281,23 @@ export class PromptMode {
           tagName: s.tagName
         };
       });
-      this._changeQueue.push({
+      var newItem = {
         prompt: text,
         elements: els
-      });
+      };
+      this._changeQueue.push(newItem);
+      this._persistQueue();
       this._updateQueueBadge();
+
+      // If panel references are missing or stale, try to restore them
+      if ((!this._queuePanel || !this._queueListEl) && this._changeQueue.length > 0) {
+        this._restoreQueuePanelReferences();
+      }
+
+      // Live insert + rise-in if the queue panel is already open.
+      if (this._queuePanel && this._queueListEl && this._core) {
+        this._core._appendQueueRowAnimated(this._changeQueue.length - 1, newItem, this._queueListEl, this._queueHdrText, this._changeQueue.length);
+      }
     }.bind(this));
 
     this.prompt.onAfterQueue(function (this: PromptMode) {
@@ -279,6 +305,9 @@ export class PromptMode {
       this._showSelOverlays();
       this.overlay.hideHighlight();
     }.bind(this));
+
+    // Restore queue panel references if panel exists in DOM but refs were cleared
+    this._restoreQueuePanelReferences();
 
     document.addEventListener("mousedown", this.boundMousedown, { capture: true });
     document.addEventListener("mousemove", this.boundMousemove, { capture: true });
@@ -330,203 +359,73 @@ export class PromptMode {
     }.bind(this);
     window.addEventListener("resize", this._boundResize);
 
-    if (this._actionPill) {
-      this._actionPill.remove();
-    }
+    // Use core's persistent queuePill - never create our own
+    this._actionPill = this._core?._queuePill || null;
 
-    this._actionPill = document.createElement("div");
-    this._actionPill.style.cssText = "position:fixed;bottom:20px;left:20px;display:none;align-items:center;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:22px;padding:6px;gap:2px;box-shadow:0 2px 12px rgba(0,0,0,0.4);pointer-events:all;z-index:2147483647;opacity:0;transform:scale(0);transition:transform 250ms cubic-bezier(0.23,1,0.32,1),opacity 200ms ease";
+    // Check if queue elements already exist on the pill (survives PromptMode recreation)
+    const existingQueueBtn = this._actionPill?.querySelector('[data-queue-btn]') as HTMLDivElement | null;
+    if (existingQueueBtn) {
+      this._queueBtn = existingQueueBtn;
+      this._queueCount = existingQueueBtn.querySelector('span') as HTMLSpanElement;
+      this._queueLabel = this._actionPill?.querySelector('[data-queue-label]') as HTMLSpanElement;
+      this._pillDivider = this._actionPill?.querySelector('[data-queue-divider]') as HTMLDivElement;
+      if (this._changeQueue.length > 0 && this._queueLabel && this._queueLabel.style.width === '0px') {
+        this._queueCollapsed = true;
+      }
+      // Re-wire pill click/hover with THIS instance's refs (old PromptMode instance is stale)
+      this._wirePillHandlers();
+    }
 
     if (!this._queueBtn) {
       this._queueBtn = document.createElement("div");
-      this._queueBtn.style.cssText = "width:32px;height:32px;border-radius:50%;background:transparent;border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.65);transition:background 120ms ease;flex-shrink:0;padding:0;position:relative";
-
-      this._queueBtn.addEventListener("mouseenter", function (this: PromptMode) {
-        if (this._queueBtn!.dataset.active) return;
-        this._queueBtn!.style.background = (this._selColor || "#3b82f6") + "33";
-        this._queueBtn!.style.color = this._selColor || "#3b82f6";
-        this._showApTip("Queue", this._queueBtn!);
-      }.bind(this));
-
-      this._queueBtn.addEventListener("mouseleave", function (this: PromptMode) {
-        if (!this._queueBtn!.dataset.active) {
-          this._queueBtn!.style.background = "transparent";
-          this._queueBtn!.style.color = "rgba(255,255,255,0.65)";
-        }
-        this._hideApTip();
-      }.bind(this));
-
-      this._queueBtn.addEventListener("click", function (this: PromptMode) {
-        this._toggleQueuePanel();
-      }.bind(this));
+      this._queueBtn.dataset.queueBtn = '';
+      this._queueBtn.style.cssText = "width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.08);border:none;display:none;align-items:center;justify-content:center;cursor:pointer;color:#D97757;transition:background 150ms ease,transform 0.1s;flex-shrink:0;padding:0;position:relative";
 
       this._queueCount = document.createElement("span");
-      this._queueCount.style.cssText = "font-size:15px;font-weight:700;font-family:ImprovSans,system-ui,sans-serif;font-variant-numeric:tabular-nums;pointer-events:none;line-height:1;color:" + (this._selColor || "#3b82f6");
+      this._queueCount.style.cssText = "font-size:13px;font-weight:700;font-family:ImprovSans,system-ui,sans-serif;font-variant-numeric:tabular-nums;pointer-events:none;line-height:1;color:#D97757";
       this._queueCount.textContent = "0";
       this._queueBtn.appendChild(this._queueCount);
-      // Claude button - to the left of queue
-      this._claudeBtn = document.createElement("div");
-      this._claudeBtn.style.cssText = "width:32px;height:32px;border-radius:50%;background:transparent;border:none;display:none;align-items:center;justify-content:center;cursor:pointer;color:#D97757;transition:background 120ms ease,color 120ms ease;flex-shrink:0;padding:0;outline:none";
-      var _cSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      _cSvg.setAttribute("width", "16");
-      _cSvg.setAttribute("height", "16");
-      _cSvg.setAttribute("viewBox", "0 0 24 24");
-      _cSvg.setAttribute("fill", "#D97757");
-      _cSvg.setAttribute("fill-rule", "nonzero");
-      var _cPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      _cPath.setAttribute("d", "M4.709 15.955l4.72-2.647.08-.23-.08-.128H9.2l-.79-.048-2.698-.073-2.339-.097-2.266-.122-.571-.121L0 11.784l.055-.352.48-.321.686.06 1.52.103 2.278.158 1.652.097 2.449.255h.389l.055-.157-.134-.098-.103-.097-2.358-1.596-2.552-1.688-1.336-.972-.724-.491-.364-.462-.158-1.008.656-.722.881.06.225.061.893.686 1.908 1.476 2.491 1.833.365.304.145-.103.019-.073-.164-.274-1.355-2.446-1.446-2.49-.644-1.032-.17-.619a2.97 2.97 0 01-.104-.729L6.283.134 6.696 0l.996.134.42.364.62 1.414 1.002 2.229 1.555 3.03.456.898.243.832.091.255h.158V9.01l.128-1.706.237-2.095.23-2.695.08-.76.376-.91.747-.492.584.28.48.685-.067.444-.286 1.851-.559 2.903-.364 1.942h.212l.243-.242.985-1.306 1.652-2.064.73-.82.85-.904.547-.431h1.033l.76 1.129-.34 1.166-1.064 1.347-.881 1.142-1.264 1.7-.79 1.36.073.11.188-.02 2.856-.606 1.543-.28 1.841-.315.833.388.091.395-.328.807-1.969.486-2.309.462-3.439.813-.042.03.049.061 1.549.146.662.036h1.622l3.02.225.79.522.474.638-.079.485-1.215.62-1.64-.389-3.829-.91-1.312-.329h-.182v.11l1.093 1.068 2.006 1.81 2.509 2.33.127.578-.322.455-.34-.049-2.205-1.657-.851-.747-1.926-1.62h-.128v.17l.444.649 2.345 3.521.122 1.08-.17.353-.608.213-.668-.122-1.374-1.925-1.415-2.167-1.143-1.943-.14.08-.674 7.254-.316.37-.729.28-.607-.461-.322-.747.322-1.476.389-1.924.315-1.53.286-1.9.17-.632-.012-.042-.14.018-1.434 1.967-2.18 2.945-1.726 1.845-.414.164-.717-.37.067-.662.401-.589 2.388-3.036 1.44-1.882.93-1.086-.006-.158h-.055L4.132 18.56l-1.13.146-.487-.456.061-.746.231-.243 1.908-1.312-.006.006z");
-      _cSvg.appendChild(_cPath);
-      this._claudeBtn.appendChild(_cSvg);
-      this._claudeBtn.addEventListener("mouseenter", function(this: PromptMode) {
-        if (!this._claudeBtn!.dataset.active) this._claudeBtn!.style.background = "#D9775720";
-      }.bind(this));
-      this._claudeBtn.addEventListener("mouseleave", function(this: PromptMode) {
-        if (!this._claudeBtn!.dataset.active) this._claudeBtn!.style.background = "transparent";
-      }.bind(this));
-      this._claudeBtn.addEventListener("click", function(this: PromptMode) {
-        if (this._core && this._core._changesPanel) {
-          this._core._changesPanel.toggle(this._core._changeHistory);
-          var isOpen = this._core._changesPanel.isVisible();
-          if (isOpen) {
-            this._claudeBtn!.style.background = "#D97757";
-            this._claudeBtn!.querySelector("svg")!.setAttribute("fill", "#fff");
-            this._claudeBtn!.dataset.active = "1";
-          } else {
-            this._claudeBtn!.style.background = "transparent";
-            this._claudeBtn!.querySelector("svg")!.setAttribute("fill", "#D97757");
-            delete this._claudeBtn!.dataset.active;
-          }
-        }
-      }.bind(this));
-      this._actionPill.appendChild(this._claudeBtn);
+      this._actionPill!.appendChild(this._queueBtn);
 
-      this._claudeDivider = document.createElement("div");
-      this._claudeDivider.style.cssText = "width:1px;height:16px;background:rgba(255,255,255,0.12);flex-shrink:0;margin:0 3px;display:none";
-      this._actionPill.appendChild(this._claudeDivider);
+      this._queueLabel = document.createElement("span");
+      this._queueLabel.dataset.queueLabel = '';
+      this._queueLabel.style.cssText = "font-size:14px;font-weight:500;color:rgba(255,255,255,0.85);white-space:nowrap;overflow:hidden;transition:width 0.35s cubic-bezier(0.4,0,0.2,1),opacity 0.25s ease;font-family:ImprovSans,system-ui,sans-serif;display:none;cursor:pointer";
+      this._queueLabel.textContent = "Queued Task";
+      this._actionPill!.appendChild(this._queueLabel);
 
-      this._actionPill.appendChild(this._queueBtn);
+      this._actionPill!.style.cursor = "pointer";
+      this._wirePillHandlers();
 
       this._pillDivider = document.createElement("div");
+      this._pillDivider.dataset.queueDivider = '';
       this._pillDivider.style.cssText = "width:1px;height:16px;background:rgba(255,255,255,0.12);flex-shrink:0;margin:0 3px;display:none";
       this._actionPill.appendChild(this._pillDivider);
     } else {
       if (!this._queueBtn.parentNode) this.overlay.getContainer().appendChild(this._queueBtn);
     }
 
-    this._sendAllBtn = document.createElement("div");
-    this._sendAllBtn.style.cssText = "width:32px;height:32px;border-radius:50%;background:transparent;border:none;display:none;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.65);transition:background 120ms ease;flex-shrink:0;padding:0";
-
-    var _saSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    _saSvg.setAttribute("width", "20");
-    _saSvg.setAttribute("height", "20");
-    _saSvg.setAttribute("viewBox", "0 0 24 24");
-    _saSvg.setAttribute("fill", "none");
-    _saSvg.setAttribute("stroke", "currentColor");
-    _saSvg.setAttribute("stroke-width", "2");
-    _saSvg.setAttribute("stroke-linecap", "round");
-    _saSvg.setAttribute("stroke-linejoin", "round");
-
-    var _sap = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    _sap.setAttribute("d", "M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z");
-    _saSvg.appendChild(_sap);
-
-    var _sal = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    _sal.setAttribute("x1", "21.854");
-    _sal.setAttribute("y1", "2.147");
-    _sal.setAttribute("x2", "10.914");
-    _sal.setAttribute("y2", "13.086");
-    _saSvg.appendChild(_sal);
-    this._sendAllBtn.appendChild(_saSvg);
-
-    this._sendAllBtn.addEventListener("mouseenter", function (this: PromptMode) {
-      this._sendAllBtn!.style.background = (this._selColor || "#3b82f6") + "33";
-      this._sendAllBtn!.style.color = this._selColor || "#3b82f6";
-      _saSvg.style.animation = "improv-icon-hover-nudge 0.7s cubic-bezier(0.23,1,0.32,1)";
-      this._showApTip("Send All", this._sendAllBtn!);
-    }.bind(this));
-
-    this._sendAllBtn.addEventListener("mouseleave", function (this: PromptMode) {
-      this._sendAllBtn!.style.background = "transparent";
-      this._sendAllBtn!.style.color = "rgba(255,255,255,0.65)";
-      _saSvg.style.animation = "";
-      this._hideApTip();
-    }.bind(this));
-
-    this._sendAllBtn.addEventListener("click", function (this: PromptMode) {
-      if (this._changeQueue.length > 0) {
-        var _cnt = this._changeQueue.length;
-        for (var qi = 0; qi < this._changeQueue.length; qi++) {
-          this.submitFromQueue(this._changeQueue[qi].prompt, this._changeQueue[qi].elements);
-        }
-        this._changeQueue.length = 0;
-        this._updateQueueBadge();
-        if (this._core) this._core._showToast("Queued changes", _cnt);
-      }
-    }.bind(this));
-
-    this._actionPill.appendChild(this._sendAllBtn);
-
-    this._clearAllBtn = document.createElement("div");
-    this._clearAllBtn.style.cssText = "width:32px;height:32px;border-radius:50%;background:transparent;border:none;display:none;align-items:center;justify-content:center;cursor:pointer;color:rgba(255,255,255,0.65);transition:background 120ms ease;flex-shrink:0;padding:0";
-
-    var _caSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    _caSvg.setAttribute("width", "22");
-    _caSvg.setAttribute("height", "22");
-    _caSvg.setAttribute("viewBox", "0 0 24 24");
-    _caSvg.setAttribute("fill", "none");
-    _caSvg.setAttribute("stroke", "currentColor");
-    _caSvg.setAttribute("stroke-width", "2");
-    _caSvg.setAttribute("stroke-linecap", "round");
-    _caSvg.setAttribute("stroke-linejoin", "round");
-
-    var _cap = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    _cap.setAttribute("d", "M21 21H8a2 2 0 0 1-1.42-.587l-3.994-3.999a2 2 0 0 1 0-2.828l10-10a2 2 0 0 1 2.829 0l5.999 6a2 2 0 0 1 0 2.828L12.834 21");
-    _caSvg.appendChild(_cap);
-
-    var _cal = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    _cal.setAttribute("x1", "5.082");
-    _cal.setAttribute("y1", "11.09");
-    _cal.setAttribute("x2", "13.91");
-    _cal.setAttribute("y2", "19.918");
-    _caSvg.appendChild(_cal);
-    this._clearAllBtn.appendChild(_caSvg);
-
-    this._clearAllBtn.addEventListener("mouseenter", function (this: PromptMode) {
-      this._clearAllBtn!.style.background = (this._selColor || "#3b82f6") + "33";
-      this._clearAllBtn!.style.color = this._selColor || "#3b82f6";
-      _caSvg.style.animation = "improv-icon-hover-shake 0.4s cubic-bezier(0.23,1,0.32,1)";
-      this._showApTip("Clear All", this._clearAllBtn!);
-    }.bind(this));
-
-    this._clearAllBtn.addEventListener("mouseleave", function (this: PromptMode) {
-      this._clearAllBtn!.style.background = "transparent";
-      this._clearAllBtn!.style.color = "rgba(255,255,255,0.65)";
-      _caSvg.style.animation = "";
-      this._hideApTip();
-    }.bind(this));
-
-    this._clearAllBtn.addEventListener("click", function (this: PromptMode) {
-      if (this._changeQueue.length > 0) {
-        this._changeQueue.length = 0;
-        this._updateQueueBadge();
-      }
-    }.bind(this));
-
-    this._actionPill.appendChild(this._clearAllBtn);
-
     this._apTip = document.createElement("div");
     this._apTip.style.cssText = "position:fixed;transform:translateX(-50%) translateY(4px);background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:5px 14px;font-size:11px;font-family:ImprovSans,system-ui,sans-serif;font-weight:500;color:rgba(255,255,255,0.85);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity 120ms ease,transform 120ms ease;box-shadow:0 2px 8px rgba(0,0,0,0.3);z-index:2147483647";
 
-    this.overlay.getContainer().appendChild(this._actionPill);
+    // pill already mounted by core
     this.overlay.getContainer().appendChild(this._apTip);
 
     this.onKeyDown = function (this: PromptMode, e: KeyboardEvent) {
       (e.metaKey || e.ctrlKey) && e.key === "c" && this.copyContext();
     }.bind(this);
     document.addEventListener("keydown", this.onKeyDown, true);
+
+    // Load persisted queue on first activation
+    if (this._changeQueue.length === 0) {
+      this._loadPersistedQueue();
+    }
   }
 
   deactivate() {
+    this._clearEditHighlights();
+    this._editingIdx = -1;
+    // Always destroy prompt (edit mode creates one independently of active state)
+    if (this.prompt) { this.prompt.destroy(); this.prompt = null; }
     if (!this.active) return;
     this.active = false;
     disableEventIntercept();
@@ -538,8 +437,6 @@ export class PromptMode {
     this._selOverlays && (this._selOverlays.forEach(function (o: HTMLElement) {
       o.remove();
     }), this._selOverlays = []);
-    this.prompt?.destroy();
-    this.prompt = null;
     this.multiSelect.clear();
     document.removeEventListener("mousedown", this.boundMousedown, { capture: true });
     document.removeEventListener("mousemove", this.boundMousemove, { capture: true });
@@ -548,9 +445,19 @@ export class PromptMode {
     document.removeEventListener("mousemove", this.boundHover);
     this._boundScroll && (window.removeEventListener("scroll", this._boundScroll, true), this._boundScroll = null);
     this._boundResize && (window.removeEventListener("resize", this._boundResize), this._boundResize = null);
-    this._queuePanel && (this._queuePanel.remove(), this._queuePanel = null);
     this.onKeyDown && (document.removeEventListener("keydown", this.onKeyDown, true), this.onKeyDown = null);
     this.isDragging = false;
+    // Only remove buttons if queue is empty; keep them if user has pending items
+    if (this._changeQueue.length === 0) {
+      if (this._queueBtn?.parentNode) this._queueBtn.remove();
+      if (this._pillDivider?.parentNode) this._pillDivider.remove();
+      if (this._queueLabel?.parentNode) this._queueLabel.remove();
+      this._queueBtn = null;
+      this._queueLabel = undefined;
+      this._pillDivider = undefined;
+      this._queueCount = undefined;
+    }
+    this._actionPill = null;
   }
 
   _onMousedown(e: MouseEvent) {
@@ -704,21 +611,42 @@ export class PromptMode {
       return formatElementInfo(l);
     }).join("\n\n---\n\n");
     this.notifyPromptSent(e, t.length);
-    this._core && this._core._showToast(e, t.length);
-    this.transport.request("push_prompt", {
+    const promptData = {
       context: o,
       prompt: e,
       elementCount: t.length
-    }).catch((e: unknown) => { console.warn('[Improv] Submit failed:', e); });
+    };
+    if (this._core) {
+      this._core._lastPromptData = promptData;
+      this._core._claudeState = 'sending';
+      this._core._pendingResponses = 1;
+      this._core._showClaudeBar('Sending to Claude', 'writing', true);
+    }
+    var _core = this._core;
+    this.transport.request("push_prompt", promptData).catch(function (e: unknown) {
+      console.warn('[Improv] Submit failed:', e);
+      if (_core) _core._claudeToRetry();
+    });
   }
 
   submitFromQueue(promptText: string, elements: { domNode: Element; selector: string; tagName: string }[]) {
     if (elements.length === 0) {
-      this.transport.request("push_prompt", {
+      const promptData = {
         context: 'No elements selected',
         prompt: promptText,
         elementCount: 0
-      }).catch((e: unknown) => { console.warn('[Improv] Submit failed:', e); });
+      };
+      if (this._core) {
+        this._core._lastPromptData = promptData;
+        this._core._claudeState = 'sending';
+        this._core._pendingResponses = 1;
+        this._core._showClaudeBar('Sending to Claude', 'writing', true);
+      }
+      var _core0 = this._core;
+      this.transport.request("push_prompt", promptData).catch(function (e: unknown) {
+        console.warn('[Improv] Submit failed:', e);
+        if (_core0) _core0._claudeToRetry();
+      });
       return;
     }
     let o = elements.map(r => {
@@ -728,12 +656,22 @@ export class PromptMode {
       return formatElementInfo(l);
     }).join("\n\n---\n\n");
     this.notifyPromptSent(promptText, elements.length);
-    this._core && this._core._showToast(promptText, elements.length);
-    this.transport.request("push_prompt", {
+    const promptData = {
       context: o,
       prompt: promptText,
       elementCount: elements.length
-    }).catch((e: unknown) => { console.warn('[Improv] Submit failed:', e); });
+    };
+    if (this._core) {
+      this._core._lastPromptData = promptData;
+      this._core._claudeState = 'sending';
+      this._core._pendingResponses = 1;
+      this._core._showClaudeBar('Sending to Claude', 'writing', true);
+    }
+    var _core1 = this._core;
+    this.transport.request("push_prompt", promptData).catch(function (e: unknown) {
+      console.warn('[Improv] Submit failed:', e);
+      if (_core1) _core1._claudeToRetry();
+    });
   }
 
   onPromptSent(cb: (prompt: string, count: number) => void) {
@@ -774,7 +712,7 @@ export class PromptMode {
       this._selRaf = null;
     }
     this._selTracked = [];
-    var c = this._selColor || "#3b82f6";
+    var c = "#D97757";
     var all = this.multiSelect.getAll();
     var self = this;
     for (var i = 0; i < all.length; i++) {
@@ -943,39 +881,180 @@ export class PromptMode {
     }
   }
 
-  _updateQueueBadge() {
-    if (this._queueCount) {
-      var c = this._changeQueue.length;
-      this._queueCount.textContent = String(c);
-      if (this._actionPill) {
-        if (c > 0) {
-          this._actionPill.style.display = "flex";
-          this._actionPill.getBoundingClientRect();
-          this._actionPill.style.opacity = "1";
-          this._actionPill.style.transform = "scale(1)";
-          this._actionPill.style.animation = "none";
-          this._actionPill.offsetHeight;
-          this._actionPill.style.animation = "improv-send-pulse 0.5s cubic-bezier(0.23,1,0.32,1)";
-        } else {
-          this._actionPill.style.opacity = "0";
-          this._actionPill.style.transform = "scale(0)";
+  _wirePillHandlers() {
+    if (!this._actionPill) return;
+    this._actionPill.onmouseenter = function (this: PromptMode) {
+      if (this._queueBtn && !this._queueBtn.dataset.active && this._changeQueue.length > 0) {
+        this._queueBtn.style.background = "rgba(217,119,87,0.12)";
+      }
+    }.bind(this);
+    this._actionPill.onmouseleave = function (this: PromptMode) {
+      if (this._queueBtn && !this._queueBtn.dataset.active) {
+        this._queueBtn.style.background = "rgba(255,255,255,0.08)";
+      }
+    }.bind(this);
+    var pillRef = this._actionPill;
+    // Close changes panel when queue panel opens
+    this._actionPill.onclick = function (this: PromptMode) {
+      if (this._changeQueue.length === 0) return;
+      if (!this._queueCollapsed && this._queueLabel) {
+        this._queueCollapsed = true;
+        var labelW = this._queueLabel.offsetWidth;
+        this._queueLabel.style.width = labelW + "px";
+        this._queueLabel.offsetHeight;
+        this._queueLabel.style.width = "0";
+        this._queueLabel.style.opacity = "0";
+        // Use captured ref since this._actionPill may be nulled on deactivate
+        var pill = this._actionPill || pillRef;
+        if (pill) {
+          pill.style.gap = "0";
+          pill.style.padding = "6px";
         }
       }
-      if (this._updateActionButtons) this._updateActionButtons();
+      this._toggleQueuePanel();
+    }.bind(this);
+  }
+
+  _persistQueue() {
+    // Always persist - the server is the source of truth
+    var serializable = this._changeQueue.map(function (item: any) {
+      return {
+        prompt: item.prompt,
+        elements: (item.elements || []).map(function (el: any) {
+          return { selector: el.selector, tagName: el.tagName };
+        })
+      };
+    });
+    try {
+      fetch('http://localhost:9223/queue', {
+        method: 'POST',
+        body: JSON.stringify(serializable)
+      }).catch(function () {});
+    } catch (e) {}
+  }
+
+  _loadPersistedQueue() {
+    fetch('http://localhost:9223/queue')
+      .then(function (r) { return r.json(); })
+      .then(function (this: PromptMode, data: any[]) {
+        if (!data || data.length === 0) return;
+        for (var i = 0; i < data.length; i++) {
+          var item = data[i];
+          var elements = (item.elements || []).map(function (el: any) {
+            var domNode: Element | null = null;
+            try { domNode = document.querySelector(el.selector); } catch (e) {}
+            return { domNode: domNode || document.body, selector: el.selector, tagName: el.tagName || 'div' };
+          });
+          this._changeQueue.push({ prompt: item.prompt, elements: elements });
+        }
+        this._updateQueueBadge();
+      }.bind(this))
+      .catch(function () {});
+  }
+
+  _updateQueueBadge() {
+    var c = this._changeQueue.length;
+    if (c > 0 && !this._queueBtn && this._actionPill) {
+      var btn = document.createElement("div");
+      btn.dataset.queueBtn = "";
+      btn.style.cssText = "width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.08);border:none;display:flex;align-items:center;justify-content:center;color:#D97757;transition:background 150ms ease,transform 0.1s;flex-shrink:0;padding:0;position:relative";
+      var count = document.createElement("span");
+      count.style.cssText = "font-size:13px;font-weight:700;font-family:ImprovSans,system-ui,sans-serif;font-variant-numeric:tabular-nums;pointer-events:none;line-height:1;color:#D97757";
+      count.textContent = String(c);
+      btn.appendChild(count);
+      this._actionPill.appendChild(btn);
+      var label = document.createElement("span");
+      label.dataset.queueLabel = "";
+      label.style.cssText = "font-size:14px;font-weight:500;color:rgba(255,255,255,0.85);white-space:nowrap;overflow:hidden;transition:width 0.35s cubic-bezier(0.4,0,0.2,1),opacity 0.25s ease;font-family:ImprovSans,system-ui,sans-serif;cursor:pointer";
+      label.textContent = c === 1 ? "Queued Task" : "Queued Tasks";
+      this._actionPill.appendChild(label);
+      this._queueBtn = btn as any;
+      this._queueCount = count;
+      this._queueLabel = label;
+      this._queueCollapsed = false;
+      this._actionPill.style.display = "flex";
+      this._actionPill.style.gap = "10px";
+      this._actionPill.style.padding = "6px 18px 6px 6px";
+      this._actionPill.style.opacity = "0";
+      this._actionPill.style.transform = "translateX(-20px)";
+      var _pill = this._actionPill;
+      setTimeout(function () {
+        _pill.style.opacity = "1";
+        _pill.style.transform = "translateX(0)";
+      }, 50);
+      return;
     }
+    if (this._queueCount) {
+      this._queueCount.textContent = String(c);
+      if (c > 0) {
+        this._queueCount.animate([
+          { transform: 'scale(1)' }, { transform: 'scale(1.125)' }, { transform: 'scale(1)' }
+        ], { duration: 250, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' });
+      }
+    }
+    if (this._queueBtn) {
+      var wasHidden = this._queueBtn.style.display === "none";
+      this._queueBtn.style.display = c > 0 ? "flex" : "none";
+      // Slide-fade the whole pill when first item is queued
+      if (c > 0 && wasHidden && this._actionPill) {
+        this._actionPill.style.opacity = "0";
+        this._actionPill.style.transform = "translateX(-20px)";
+        this._actionPill.style.transition = "opacity 0.35s ease, transform 0.35s cubic-bezier(0.4,0,0.2,1)";
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            if (this._actionPill) {
+              this._actionPill.style.opacity = "1";
+              this._actionPill.style.transform = "translateX(0)";
+            }
+          }.bind(this));
+        }.bind(this));
+      }
+    }
+    // Show/hide label and set pill padding
+    if (this._queueLabel) {
+      if (c > 0 && !this._queueCollapsed) {
+        this._queueLabel.textContent = c === 1 ? "Queued Task" : "Queued Tasks";
+        this._queueLabel.style.display = "";
+        this._queueLabel.style.width = "";
+        this._queueLabel.style.opacity = "1";
+        if (this._actionPill) {
+          this._actionPill.style.gap = "10px";
+          this._actionPill.style.padding = "6px 18px 6px 6px";
+        }
+      } else if (c === 0) {
+        this._queueLabel.style.display = "none";
+        this._queueLabel.style.width = "";
+        this._queueLabel.style.opacity = "";
+        this._queueCollapsed = false;
+        if (this._actionPill) {
+          this._actionPill.style.gap = "";
+          this._actionPill.style.padding = "";
+        }
+      }
+    }
+    if (this._core) this._core._updateClaudeBadge();
     if (this._queuePanel) {
-      if (this._changeQueue.length === 0) {
-        this._queuePanel.style.transition = "opacity 0.2s ease";
+      if (c === 0) {
+        this._queuePanel.style.transition = "opacity 0.2s ease, transform 0.2s cubic-bezier(0.4,0,0.2,1)";
         this._queuePanel.style.opacity = "0";
+        this._queuePanel.style.transform = "translateY(12px)";
         var _p = this._queuePanel;
         setTimeout(function () {
           _p.remove();
         }, 200);
-        this._queuePanel = null;
-      } else {
-        this._queuePanel.remove();
-        this._queuePanel = null;
-        this._toggleQueuePanel();
+        this._queuePanel = null; this._queueListEl = null; this._queueHdrText = null;
+        // Reset active state
+        if (this._queueBtn) {
+          this._queueBtn.style.background = "rgba(255,255,255,0.08)";
+          this._queueBtn.style.color = "rgba(255,255,255,0.65)";
+          if (this._queueCount) this._queueCount.style.color = "#D97757";
+          delete this._queueBtn.dataset.active;
+        }
+      } else if (this._queueHdrText) {
+        // Panel is open and queue has items. Update only the header count.
+        // Row mutations are handled by the call site (e.g. _appendQueueRowAnimated
+        // on add, or the destroy-rebuild flow inside _confirmRemoveItem on delete).
+        this._queueHdrText.textContent = "Queued " + (c === 1 ? "Task" : "Tasks") + " (" + c + ")";
       }
     }
   }
@@ -996,25 +1075,87 @@ export class PromptMode {
     this._apTip.style.transform = "translateX(-50%) translateY(4px)";
   }
 
+  _restoreQueuePanelReferences() {
+    // If references are already set and valid, nothing to restore
+    if (this._queuePanel && this._queueListEl && this._queuePanel.parentNode) return;
+
+    // Search for existing queue panel using data attribute
+    const container = this.overlay.getContainer();
+    const existingPanel = container.querySelector('[data-improv-queue-panel]') as HTMLDivElement;
+
+    if (existingPanel) {
+      this._queuePanel = existingPanel;
+
+      // Find list element (second div child with max-height style) and header span
+      const children = existingPanel.querySelectorAll('div');
+      let listWrap: HTMLDivElement | null = null;
+
+      for (let i = 0; i < children.length; i++) {
+        if (children[i].style.maxHeight === '240px' || children[i].style.maxHeight === '240px') {
+          listWrap = children[i] as HTMLDivElement;
+          break;
+        }
+      }
+
+      // Fallback: just get the second div if we can't find by style
+      if (!listWrap && children.length > 1) {
+        listWrap = children[1] as HTMLDivElement;
+      }
+
+      if (listWrap) {
+        this._queueListEl = listWrap;
+
+        // Check if list is stale (missing items). If so, rebuild it.
+        const itemCount = listWrap.querySelectorAll('[data-queue-row]').length;
+        if (itemCount !== this._changeQueue.length && this._core) {
+          // Clear and rebuild list with all current items
+          while (listWrap.firstChild) listWrap.removeChild(listWrap.firstChild);
+          for (var i = 0; i < this._changeQueue.length; i++) {
+            listWrap.appendChild(this._core._buildQueueRow(i, this._changeQueue[i], i === this._changeQueue.length - 1));
+          }
+        }
+      }
+
+      // Find and restore header text element
+      const headerSpans = existingPanel.querySelectorAll('span');
+      if (headerSpans.length > 0) {
+        this._queueHdrText = headerSpans[0] as HTMLSpanElement;
+      }
+    }
+  }
+
   _toggleQueuePanel() {
+    // Close changes panel if open
+    if (this._core && (this._core as any)._changesPanel?.isVisible()) {
+      (this._core as any)._changesPanel.hide();
+    }
+
     if (this._queuePanel) {
-      this._queuePanel.remove();
-      this._queuePanel = null;
-      this._queueBtn!.style.background = "transparent";
-      this._queueBtn!.style.color = "rgba(255,255,255,0.65)";
-      if (this._queueCount) this._queueCount.style.color = this._selColor || "#3b82f6";
-      delete this._queueBtn!.dataset.active;
+      var _p = this._queuePanel;
+      _p.style.transition = "opacity 0.2s ease, transform 0.2s cubic-bezier(0.4,0,0.2,1)";
+      _p.style.opacity = "0";
+      _p.style.transform = "translateY(12px)";
+      setTimeout(function () { _p.remove(); }, 220);
+      this._queuePanel = null; this._queueListEl = null; this._queueHdrText = null;
+      if (this._queueBtn) {
+        this._queueBtn.style.background = "rgba(255,255,255,0.08)";
+        this._queueBtn.style.color = "#D97757";
+        if (this._queueCount) this._queueCount.style.color = "#D97757";
+        delete this._queueBtn.dataset.active;
+      }
       return;
     }
     var p = document.createElement("div");
-    p.style.cssText = "position:fixed;bottom:72px;left:20px;width:340px;max-height:400px;overflow-y:auto;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.5);padding:12px;display:flex;flex-direction:column;gap:8px;z-index:2147483647;pointer-events:all;font-family:ImprovSans,system-ui,sans-serif";
+    p.dataset.improvQueuePanel = "true";
+    p.style.cssText = "position:fixed;bottom:72px;left:20px;width:340px;max-height:400px;overflow:hidden;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.5);padding:0;display:flex;flex-direction:column;z-index:2147483647;pointer-events:all;font-family:ImprovSans,system-ui,sans-serif;opacity:0;transform:translateY(12px);transition:opacity 0.25s ease,transform 0.25s cubic-bezier(0.4,0,0.2,1)";
 
     var hdr = document.createElement("div");
-    hdr.style.cssText = "font-size:13px;font-weight:600;color:rgba(255,255,255,0.85);padding:4px 4px 8px;border-bottom:1px solid rgba(255,255,255,0.1);margin-bottom:4px;display:flex;align-items:center;justify-content:space-between";
+    hdr.style.cssText = "font-size:12px;font-weight:500;color:rgba(255,255,255,0.4);letter-spacing:0.03em;text-transform:uppercase;padding:14px 16px 10px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between";
 
     var hdrText = document.createElement("span");
-    hdrText.textContent = "Queued Changes (" + this._changeQueue.length + ")";
+    hdrText.textContent = "Queued " + (this._changeQueue.length === 1 ? "Task" : "Tasks") + " (" + this._changeQueue.length + ")";
     hdr.appendChild(hdrText);
+    this._queueHdrText = hdrText;
 
     var hdrClose = document.createElement("button");
     hdrClose.style.cssText = "border:none;background:transparent;color:rgba(255,255,255,0.5);cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;transition:background 120ms ease,color 120ms ease";
@@ -1053,56 +1194,204 @@ export class PromptMode {
     hdr.appendChild(hdrClose);
     p.appendChild(hdr);
 
+    var listWrap = document.createElement("div");
+    listWrap.style.cssText = "padding:10px 15px;max-height:240px;overflow-y:auto";
+
     for (var i = 0; i < this._changeQueue.length; i++) {
-      (function (this: PromptMode, idx: number) {
-        var item = this._changeQueue[idx];
-        var row = document.createElement("div");
-        row.style.cssText = "display:flex;align-items:flex-start;gap:8px;padding:8px;border-radius:10px;background:rgba(255,255,255,0.03)";
-
-        var txt = document.createElement("div");
-        txt.style.cssText = "flex:1;min-width:0";
-
-        var pr = document.createElement("div");
-        pr.style.cssText = "font-size:12px;color:rgba(255,255,255,0.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis";
-        pr.textContent = item.prompt;
-        txt.appendChild(pr);
-
-        var els = document.createElement("div");
-        els.style.cssText = "font-size:10px;color:rgba(255,255,255,0.4);margin-top:2px";
-        els.textContent = item.elements.length + " element" + (item.elements.length === 1 ? "" : "s");
-        txt.appendChild(els);
-
-        row.appendChild(txt);
-
-        var editBtn = document.createElement("button");
-        editBtn.style.cssText = "border:none;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.65);border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;font-family:ImprovSans,system-ui,sans-serif;white-space:nowrap";
-        editBtn.textContent = "Edit";
-        editBtn.addEventListener("click", function (this: PromptMode) {
-          this._editQueueItem(idx);
-        }.bind(this));
-        row.appendChild(editBtn);
-
-        var rmBtn = document.createElement("button");
-        rmBtn.style.cssText = "border:none;background:rgba(239,68,68,0.15);color:#ef4444;border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;font-family:ImprovSans,system-ui,sans-serif;white-space:nowrap";
-        rmBtn.textContent = "Remove";
-        rmBtn.addEventListener("click", function (this: PromptMode) {
-          this._confirmRemoveItem(idx);
-        }.bind(this));
-        row.appendChild(rmBtn);
-
-        p.appendChild(row);
-      }.bind(this))(i);
+      if (this._core) {
+        listWrap.appendChild(this._core._buildQueueRow(i, this._changeQueue[i], i === this._changeQueue.length - 1));
+      }
     }
 
+    p.appendChild(listWrap);
+    this._queueListEl = listWrap;
+
+    // Connection alert banner (shown when Claude is not connected)
+    var alertBanner = document.createElement("div");
+    alertBanner.dataset.watchAlert = '';
+    alertBanner.style.cssText = "margin:0 16px 12px;padding:12px 14px;background:rgba(217,119,87,0.08);border:1px solid rgba(217,119,87,0.2);border-radius:10px;box-shadow:0px -10px 25px 10px #1a1a1a;transition:opacity 0.2s ease,transform 0.2s ease,margin 0.2s ease";
+    if (this._watchActive) {
+      alertBanner.style.opacity = "0";
+      alertBanner.style.height = "0";
+      alertBanner.style.margin = "0";
+      alertBanner.style.padding = "0";
+      alertBanner.style.overflow = "hidden";
+    }
+    var alertIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    alertIcon.setAttribute("width", "14");
+    alertIcon.setAttribute("height", "14");
+    alertIcon.setAttribute("viewBox", "0 0 24 24");
+    alertIcon.setAttribute("fill", "none");
+    alertIcon.setAttribute("stroke", "#D97757");
+    alertIcon.setAttribute("stroke-width", "2");
+    alertIcon.setAttribute("stroke-linecap", "round");
+    alertIcon.setAttribute("stroke-linejoin", "round");
+    alertIcon.style.cssText = "flex-shrink:0;margin-right:6px;vertical-align:middle;display:inline-block";
+    var alertIconCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    alertIconCircle.setAttribute("cx", "12");
+    alertIconCircle.setAttribute("cy", "12");
+    alertIconCircle.setAttribute("r", "10");
+    alertIcon.appendChild(alertIconCircle);
+    var alertIconLine = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    alertIconLine.setAttribute("d", "M12 16h.01");
+    alertIcon.appendChild(alertIconLine);
+    var alertIconLine2 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    alertIconLine2.setAttribute("d", "M12 8v4");
+    alertIcon.appendChild(alertIconLine2);
+
+    var alertTitle = document.createElement("div");
+    alertTitle.style.cssText = "font-size:13px;font-weight:700;font-family:ImprovSans,system-ui,sans-serif;color:rgba(255,255,255,0.85);margin-bottom:8px;display:flex;align-items:center";
+    alertTitle.appendChild(alertIcon);
+    alertTitle.appendChild(document.createTextNode("Claude is not connected"));
+    alertBanner.appendChild(alertTitle);
+    var alertBody = document.createElement("div");
+    alertBody.style.cssText = "font-size:11px;font-family:ImprovSans,system-ui,sans-serif;color:rgba(255,255,255,0.6);line-height:1.4";
+    alertBody.appendChild(document.createTextNode('Tell Claude '));
+    var alertCode = document.createElement("span");
+    alertCode.style.cssText = "font-family:ImprovMono,ui-monospace,monospace;font-size:11px;background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:4px;color:rgba(255,255,255,0.8)";
+    alertCode.textContent = "watch improv";
+    alertBody.appendChild(alertCode);
+    alertBody.appendChild(document.createTextNode(' to start receiving tasks.'));
+    alertBanner.appendChild(alertBody);
+    p.appendChild(alertBanner);
+
+    // Send All / Clear All buttons inside panel
+    var panelActions = document.createElement("div");
+    panelActions.style.cssText = "padding:12px 16px;border-top:1px solid rgba(255,255,255,0.06);display:flex;gap:8px";
+
+    var clearAllBtn = document.createElement("button");
+    clearAllBtn.style.cssText = "flex:1;height:36px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.65);font-family:ImprovSans,system-ui,sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:background 0.15s,color 0.15s,border-color 0.15s";
+    clearAllBtn.textContent = "Clear All";
+    clearAllBtn.addEventListener("mouseenter", function () {
+      clearAllBtn.style.background = "rgba(255,255,255,0.08)";
+      clearAllBtn.style.color = "rgba(255,255,255,0.85)";
+      clearAllBtn.style.borderColor = "rgba(255,255,255,0.18)";
+    });
+    clearAllBtn.addEventListener("mouseleave", function () {
+      clearAllBtn.style.background = "rgba(255,255,255,0.04)";
+      clearAllBtn.style.color = "rgba(255,255,255,0.65)";
+      clearAllBtn.style.borderColor = "rgba(255,255,255,0.12)";
+    });
+    clearAllBtn.addEventListener("click", function (this: PromptMode) {
+      this._changeQueue.length = 0;
+      this._persistQueue();
+      // Slide-fade panel out
+      if (this._queuePanel) {
+        this._queuePanel.style.transition = "opacity 0.2s ease, transform 0.2s cubic-bezier(0.4,0,0.2,1)";
+        this._queuePanel.style.opacity = "0";
+        this._queuePanel.style.transform = "translateY(12px)";
+        var _p = this._queuePanel;
+        setTimeout(function () { _p.remove(); }, 220);
+        this._queuePanel = null; this._queueListEl = null; this._queueHdrText = null;
+        if (this._queueBtn) {
+          this._queueBtn.style.background = "rgba(255,255,255,0.08)";
+          this._queueBtn.style.color = "#D97757";
+          if (this._queueCount) this._queueCount.style.color = "#D97757";
+          delete this._queueBtn.dataset.active;
+        }
+      }
+      // Fade pill out and clean up queue UI elements
+      if (this._actionPill) {
+        this._actionPill.style.opacity = "0";
+        this._actionPill.style.transform = "scale(0.9)";
+        var pill = this._actionPill;
+        var qBtn = this._queueBtn;
+        var qLabel = this._queueLabel;
+        setTimeout(function () {
+          pill.style.display = "none";
+          // Remove queue UI elements so empty pill doesn't persist
+          if (qBtn && qBtn.parentNode) qBtn.remove();
+          if (qLabel && qLabel.parentNode) qLabel.remove();
+        }, 260);
+        this._queueBtn = null;
+        this._queueLabel = undefined;
+        this._queueCount = undefined;
+        this._queueCollapsed = false;
+      }
+      setTimeout(function (this: PromptMode) { this._updateQueueBadge(); }.bind(this), 280);
+    }.bind(this));
+    panelActions.appendChild(clearAllBtn);
+
+    var sendAllBtn = document.createElement("button");
+    sendAllBtn.style.cssText = "flex:1;height:36px;border-radius:8px;border:1px solid rgba(217,119,87,0.25);background:rgba(217,119,87,0.1);color:#D97757;font-family:ImprovSans,system-ui,sans-serif;font-size:12px;font-weight:500;cursor:pointer;transition:background 0.15s,color 0.15s,border-color 0.15s";
+    sendAllBtn.textContent = "Send All";
+    if (!this._watchActive) sendAllBtn.style.display = "none";
+    this._sendAllBtn = sendAllBtn;
+    sendAllBtn.addEventListener("mouseenter", function () {
+      sendAllBtn.style.background = "rgba(217,119,87,0.18)";
+      sendAllBtn.style.color = "#e8906e";
+      sendAllBtn.style.borderColor = "rgba(217,119,87,0.35)";
+    });
+    sendAllBtn.addEventListener("mouseleave", function () {
+      sendAllBtn.style.background = "rgba(217,119,87,0.1)";
+      sendAllBtn.style.color = "#D97757";
+      sendAllBtn.style.borderColor = "rgba(217,119,87,0.25)";
+    });
+    sendAllBtn.addEventListener("click", function (this: PromptMode) {
+      if (this._changeQueue.length > 0) {
+        var _cnt = this._changeQueue.length;
+        // Set pending count BEFORE the loop so responses wait for all tasks
+        if (this._core) this._core._pendingResponses = this._changeQueue.length;
+        for (var qi = 0; qi < this._changeQueue.length; qi++) {
+          this.submitFromQueue(this._changeQueue[qi].prompt, this._changeQueue[qi].elements);
+        }
+        this._changeQueue.length = 0;
+        this._persistQueue();
+        // Slide-fade panel out
+        if (this._queuePanel) {
+          this._queuePanel.style.transition = "opacity 0.2s ease, transform 0.2s cubic-bezier(0.4,0,0.2,1)";
+          this._queuePanel.style.opacity = "0";
+          this._queuePanel.style.transform = "translateY(12px)";
+          var _p = this._queuePanel;
+          setTimeout(function () { _p.remove(); }, 220);
+          this._queuePanel = null; this._queueListEl = null; this._queueHdrText = null;
+          if (this._queueBtn) {
+            this._queueBtn.style.background = "rgba(255,255,255,0.08)";
+            this._queueBtn.style.color = "#D97757";
+            if (this._queueCount) this._queueCount.style.color = "#D97757";
+            delete this._queueBtn.dataset.active;
+          }
+        }
+        // Fade pill out and clean up queue UI elements
+        if (this._actionPill) {
+          this._actionPill.style.opacity = "0";
+          this._actionPill.style.transform = "scale(0.9)";
+          var pill = this._actionPill;
+          var qBtn = this._queueBtn;
+          var qLabel = this._queueLabel;
+          setTimeout(function () {
+            pill.style.display = "none";
+            if (qBtn && qBtn.parentNode) qBtn.remove();
+            if (qLabel && qLabel.parentNode) qLabel.remove();
+          }, 260);
+          this._queueBtn = null;
+          this._queueLabel = undefined;
+          this._queueCount = undefined;
+          this._queueCollapsed = false;
+        }
+        setTimeout(function (this: PromptMode) { this._updateQueueBadge(); }.bind(this), 280);
+      }
+    }.bind(this));
+    panelActions.appendChild(sendAllBtn);
+
+    p.appendChild(panelActions);
+
     this._queuePanel = p;
-    var _mc = this._selColor || "#3b82f6";
-    this._queueBtn!.style.background = _mc;
-    var _qic = ["#f97316", "#eab308", "#22c55e"].indexOf(_mc) !== -1 ? "#1a1a1a" : "#fff";
-    this._queueBtn!.style.color = _qic;
-    if (this._queueCount) this._queueCount.style.color = _qic;
+    this._queueBtn!.style.background = "#D97757";
+    this._queueBtn!.style.color = "#fff";
+    if (this._queueCount) this._queueCount.style.color = "#fff";
     this._queueBtn!.dataset.active = "1";
     this.overlay.getContainer().appendChild(p);
+
+    // Slide-fade in
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        p.style.opacity = "1";
+        p.style.transform = "translateY(0)";
+      });
+    });
   }
+
 
   _confirmRemoveItem(idx: number) {
     var item = this._changeQueue[idx];
@@ -1134,6 +1423,7 @@ export class PromptMode {
     confirmBtn.addEventListener("click", function (this: PromptMode) {
       d.remove();
       this._changeQueue.splice(idx, 1);
+      this._persistQueue();
       this._updateQueueBadge();
       if (this._queuePanel) {
         if (this._changeQueue.length === 0) {
@@ -1143,10 +1433,10 @@ export class PromptMode {
           setTimeout(function () {
             _p.remove();
           }, 200);
-          this._queuePanel = null;
+          this._queuePanel = null; this._queueListEl = null; this._queueHdrText = null;
         } else {
           this._queuePanel.remove();
-          this._queuePanel = null;
+          this._queuePanel = null; this._queueListEl = null; this._queueHdrText = null;
           this._toggleQueuePanel();
         }
       }
@@ -1159,53 +1449,185 @@ export class PromptMode {
 
   _editQueueItem(idx: number) {
     var item = this._changeQueue[idx];
+    if (!item) return;
+    // Deactivate prompt mode if active (edit mode is independent)
+    if (this.active) this.deactivate();
     if (this._queuePanel) {
       this._queuePanel.remove();
-      this._queuePanel = null;
+      this._queuePanel = null; this._queueListEl = null; this._queueHdrText = null;
     }
-    this.multiSelect.clear();
-    this._showSelOverlays();
+
+    // Create InlinePrompt directly if needed (no full prompt mode activation)
+    if (!this.prompt) {
+      this.prompt = new InlinePrompt(this.overlay.getShadowRoot());
+      this.prompt.setMarkerColor(this._selColor);
+      if (!this._watchActive) this.prompt.setSendBlocked(true);
+    }
+
+    // Scroll the first target element to vertical center of viewport
+    var scrollTarget: HTMLElement | null = null;
+    for (var si = 0; si < item.elements.length; si++) {
+      var sn = item.elements[si].domNode as HTMLElement;
+      if (sn && document.contains(sn)) { scrollTarget = sn; break; }
+    }
+    if (scrollTarget) {
+      var sr = scrollTarget.getBoundingClientRect();
+      var targetCenter = sr.top + sr.height / 2;
+      var viewCenter = window.innerHeight / 2;
+      window.scrollBy({ top: targetCenter - viewCenter, behavior: 'instant' as ScrollBehavior });
+    }
+
+    // Highlight target elements using the standard selection overlay style
+    this._clearEditHighlights();
+    var posEl: HTMLElement | null = null;
+    var c = "#D97757";
+    var container = this.overlay.getContainer();
     for (var i = 0; i < item.elements.length; i++) {
-      var el = item.elements[i].domNode;
-      if (el && document.contains(el)) {
-        this.multiSelect.add(this.buildSelectedElement(el));
-      }
+      var domNode = item.elements[i].domNode as HTMLElement;
+      if (!domNode || !document.contains(domNode)) continue;
+      if (!posEl) posEl = domNode;
+      var rect = domNode.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) continue;
+
+      var box = document.createElement('div');
+      box.style.cssText = 'position:fixed;left:' + rect.left + 'px;top:' + rect.top + 'px;width:' + rect.width + 'px;height:' + rect.height + 'px;background:' + c + '26;border:2px solid ' + c + '66;border-radius:5px;pointer-events:none;z-index:2147483643';
+      container.appendChild(box);
+      this._editOverlays.push(box);
+
+      var tag = domNode.tagName.toLowerCase();
+      var role = domNode.getAttribute ? domNode.getAttribute('role') || '' : '';
+      var cs = getComputedStyle(domNode);
+      var disp = cs.display || '';
+
+      var lb = document.createElement('div');
+      lb.style.cssText = 'position:fixed;left:' + (rect.right + 4) + 'px;top:' + rect.top + 'px;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);font-size:11px;font-family:ImprovSans,system-ui,sans-serif;font-weight:500;padding:4px 10px 4px 10px;border-radius:20px;pointer-events:none;z-index:2147483644;display:flex;align-items:center;gap:5px;box-shadow:0 2px 6px rgba(0,0,0,0.3);white-space:nowrap;cursor:default';
+
+      var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('width', '12'); svg.setAttribute('height', '12');
+      svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('fill', 'none');
+      svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '2');
+      svg.setAttribute('stroke-linecap', 'round'); svg.setAttribute('stroke-linejoin', 'round');
+      var iconPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      iconPath.setAttribute('d', getElementIcon(tag, role, disp));
+      svg.appendChild(iconPath);
+      lb.appendChild(svg);
+
+      var cn = domNode.className && typeof domNode.className === 'string' ? domNode.className.split(/\s+/)[0] : '';
+      var lbl = tag;
+      if (cn && cn.length < 25) lbl = tag;
+      else if (domNode.id) lbl = tag + ' #' + domNode.id;
+      else if (role) lbl = tag + ' (' + role + ')';
+      var sp = document.createElement('span');
+      sp.textContent = lbl;
+      lb.appendChild(sp);
+
+      container.appendChild(lb);
+      this._editOverlays.push(lb);
+      this._editTracked.push({ el: domNode, box: box, label: lb });
     }
-    this._showSelOverlays();
+
+    // Start rAF tracking for scroll (highlights + input, transition already killed)
+    if (this._editTracked.length > 0) {
+      var self = this;
+      var promptContainer = this.prompt ? this.prompt.container : null;
+      var trackEdit = function () {
+        var anyVisible = false;
+        var firstR: DOMRect | null = null;
+        for (var j = 0; j < self._editTracked.length; j++) {
+          var tr = self._editTracked[j];
+          var r = tr.el.getBoundingClientRect();
+          var inView = r.bottom > 0 && r.top < window.innerHeight;
+          tr.box.style.display = inView ? '' : 'none';
+          tr.label.style.display = inView ? 'flex' : 'none';
+          if (!inView) continue;
+          anyVisible = true;
+          if (!firstR) firstR = r;
+          tr.box.style.left = r.left + 'px';
+          tr.box.style.top = r.top + 'px';
+          tr.box.style.width = r.width + 'px';
+          tr.box.style.height = r.height + 'px';
+          var lbX = r.right + 4;
+          var lbW = tr.label.offsetWidth || 100;
+          if (lbX + lbW > window.innerWidth - 4) lbX = r.left - lbW - 4;
+          if (lbX < 4) lbX = 4;
+          tr.label.style.left = lbX + 'px';
+          tr.label.style.top = r.top + 'px';
+        }
+        if (promptContainer) {
+          if (anyVisible && firstR) {
+            promptContainer.style.display = 'flex';
+            promptContainer.style.left = (firstR.left + firstR.width / 2 - 150) + 'px';
+            promptContainer.style.top = (firstR.bottom + 12) + 'px';
+          } else {
+            promptContainer.style.display = 'none';
+          }
+        }
+        self._editRaf = requestAnimationFrame(trackEdit);
+      };
+      this._editRaf = requestAnimationFrame(trackEdit);
+    }
+
     this._editingIdx = idx;
-    var last = item.elements[0] ? item.elements[0].domNode : null;
-    if (last) {
-      var rect = last.getBoundingClientRect();
-      this.prompt!.show(rect.left + rect.width / 2 - 150, rect.bottom + 12);
+    if (posEl) {
+      var pr = posEl.getBoundingClientRect();
+      this.prompt.show(pr.left + pr.width / 2 - 150, pr.bottom + 12);
+    } else {
+      this.prompt.show(window.innerWidth / 2 - 150, window.innerHeight / 2);
     }
-    setTimeout(function (this: PromptMode) {
-      this.prompt!.input.value = item.prompt;
-      this.prompt!.input.dispatchEvent(new Event("input"));
-    }.bind(this), 50);
-    this.prompt!.enterEditMode(idx, this);
+    this.prompt.container.style.transition = 'none';
+    var _prompt = this.prompt;
+    setTimeout(function () {
+      _prompt.input.value = item.prompt;
+      _prompt.input.dispatchEvent(new Event("input"));
+    }, 50);
+    this.prompt.enterEditMode(idx, this);
+  }
+
+  _clearEditHighlights() {
+    if (this._editRaf) { cancelAnimationFrame(this._editRaf); this._editRaf = null; }
+    this._editOverlays.forEach(function (o) { o.remove(); });
+    this._editOverlays = [];
+    this._editTracked = [];
   }
 
   _updateActionButtons() {
     var has = this._changeQueue.length > 0;
-    if (this._sendAllBtn) {
-      if (has) {
-        this._sendAllBtn.style.display = "flex";
-        if (this._pillDivider) this._pillDivider.style.display = "block";
-      } else {
-        this._sendAllBtn.style.display = "none";
-        if (this._pillDivider) this._pillDivider.style.display = "none";
-      }
-    }
-    if (this._clearAllBtn) {
-      if (has) {
-        this._clearAllBtn.style.display = "flex";
-      } else {
-        this._clearAllBtn.style.display = "none";
+    if (this._queueLabel) {
+      if (has && !this._queueCollapsed) {
+        this._queueLabel.style.display = "";
+      } else if (!has) {
+        this._queueLabel.style.display = "none";
+        this._queueCollapsed = false;
       }
     }
   }
 
   setColorGetter(fn: () => string) {
     this._getColor = fn;
+  }
+
+  setWatchActive(active: boolean) {
+    this._watchActive = active;
+    if (this.prompt) this.prompt.setSendBlocked(!active);
+    if (this._sendAllBtn) {
+      this._sendAllBtn.style.display = active ? '' : 'none';
+    }
+    // Toggle alert banner in queue panel if open
+    if (this._queuePanel) {
+      var alert = this._queuePanel.querySelector('[data-watch-alert]') as HTMLElement;
+      if (alert) {
+        if (active) {
+          alert.style.opacity = "0";
+          alert.style.transform = "translateY(8px)";
+          setTimeout(function () { alert.style.height = "0"; alert.style.margin = "0"; alert.style.padding = "0"; alert.style.overflow = "hidden"; }, 200);
+        } else {
+          alert.style.height = "";
+          alert.style.margin = "";
+          alert.style.padding = "12px 14px";
+          alert.style.overflow = "";
+          requestAnimationFrame(function () { alert.style.opacity = "1"; alert.style.transform = "translateY(0)"; });
+        }
+      }
+    }
   }
 }

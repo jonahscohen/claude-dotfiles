@@ -26,40 +26,43 @@ export class Transport {
   }
 
   private tryConnect(port: number, maxPort: number): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const attempt = (p: number) => {
-        if (p > maxPort) {
-          reject(new Error(`Could not connect on ports ${this.port}-${maxPort}`));
-          return;
-        }
+    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const attempts: Promise<void>[] = [];
 
-        const ws = new WebSocket(`ws://localhost:${p}`);
+    for (let p = port; p <= maxPort; p++) {
+      attempts.push(
+        new Promise<void>((resolve, reject) => {
+          const ws = new WebSocket(`${protocol}://localhost:${p}`);
+          let resolved = false;
 
-        ws.onopen = () => {
-          this.ws = ws;
-          this.handshake().then(resolve).catch(reject);
-        };
+          ws.onopen = () => {
+            if (resolved) return;
+            resolved = true;
+            this.ws = ws;
+            this.handshake().then(resolve).catch(reject);
+          };
 
-        ws.onmessage = (event: MessageEvent) => {
-          this.handleMessage(event.data as string);
-        };
+          ws.onmessage = (event: MessageEvent) => {
+            this.handleMessage(event.data as string);
+          };
 
-        ws.onclose = () => {
-          if (this.ws === ws) {
-            this.ws = null;
-            this.emit('disconnected', null);
-            this.scheduleReconnect();
-          }
-        };
+          ws.onclose = () => {
+            if (this.ws === ws) {
+              this.ws = null;
+              this.emit('disconnected', null);
+              this.scheduleReconnect();
+            }
+          };
 
-        ws.onerror = () => {
-          if (ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
-            attempt(p + 1);
-          }
-        };
-      };
+          ws.onerror = () => {
+            if (!resolved) reject(new Error(`Port ${p} failed`));
+          };
+        })
+      );
+    }
 
-      attempt(port);
+    return Promise.any(attempts).catch(() => {
+      return Promise.reject(new Error(`Could not connect on ports ${port}-${maxPort}`));
     });
   }
 
@@ -140,7 +143,7 @@ export class Transport {
       try {
         await this.connect();
       } catch {
-        // reconnect failed; will retry on next close event
+        this.scheduleReconnect();
       }
     }, 3000);
   }

@@ -7,6 +7,8 @@
     "build": "node build.js",
     "build:server": "npx tsc -p tsconfig.server.json",
     "build:core": "node build.js --core-only",
+    "deploy": "node build.js && bash deploy.sh",
+    "deploy:core": "node build.js --core-only && bash deploy.sh --core-only",
     "test": "npx vitest run",
     "test:watch": "npx vitest"
   },

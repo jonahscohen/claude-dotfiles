@@ -39,7 +39,7 @@ export class LassoSelect {
 
   showSelectionOverlays(elements: HTMLElement[]): void {
     this.clearOverlays();
-    const _c = this._color || '#3b82f6';
+    const _c = this._color || '#D97757';
     for (const el of elements) {
       const r = el.getBoundingClientRect();
       const overlay = document.createElement('div');
@@ -156,7 +156,7 @@ export class LassoSelect {
     const width = Math.abs(dx);
     const height = Math.abs(dy);
 
-    const _c = this._color || '#3b82f6';
+    const _c = this._color || '#D97757';
     if (!this.rect) {
       this.rect = document.createElement('div');
       this.rect.style.cssText = [
@@ -185,7 +185,7 @@ export class LassoSelect {
       this.countBadge = document.createElement('div');
       this.countBadge.style.cssText = [
         'position:fixed',
-        'background:#3b82f6',
+        'background:#D97757',
         'color:#fff',
         'border-radius:10px',
         'padding:2px 8px',

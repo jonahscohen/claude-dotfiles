@@ -6,7 +6,7 @@ set -euo pipefail
 # improv-core.js fresh from disk on every request. Projects get updates
 # automatically on page reload.
 
-IMPROV_URL="http://localhost:9223/improv-core.js"
+IMPROV_URL="https://localhost:9224/improv-core.js"
 PROJECT_ROOT="${1:-.}"
 
 cd "$PROJECT_ROOT"

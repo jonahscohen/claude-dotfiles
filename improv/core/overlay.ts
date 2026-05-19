@@ -67,7 +67,7 @@ export class Overlay {
     if (!this.highlight) {
       this.highlight = document.createElement('div');
       this.highlight.style.cssText =
-        'position:fixed;pointer-events:none;border:2px solid ' + (this._hlColor || '#3b82f6') + ';border-radius:5px;transition:top 60ms ease,left 60ms ease,width 60ms ease,height 60ms ease;';
+        'position:fixed;pointer-events:none;border:2px solid ' + '#D97757' + ';border-radius:5px;transition:top 60ms ease,left 60ms ease,width 60ms ease,height 60ms ease;';
       this.container.appendChild(this.highlight);
     }
 

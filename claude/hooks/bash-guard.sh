@@ -41,6 +41,53 @@ if [ -z "$REASON" ] && echo "$CMD" | grep -qE 'git\s+commit'; then
   fi
 fi
 
+# Screenshot-open mandate: if a prior screenshot was captured to disk and not
+# yet Read, block further screenshot captures and commit-style commands. The
+# only way out is to Read the pending path so the image actually surfaces in
+# the conversation. Mandate enforced by screenshot-open-mandate.sh (captures
+# the path) and screenshot-open-clear.sh (clears on Read).
+if [ -z "$REASON" ] && [ -f "$HOME/.claude/.screenshot-pending" ]; then
+  PENDING_SHOT=$(cat "$HOME/.claude/.screenshot-pending" 2>/dev/null)
+  if [ -n "$PENDING_SHOT" ]; then
+    # Block additional screenshots until the pending one is opened
+    if echo "$CMD" | grep -qE 'cmux\b[^|;&]*\bscreenshot\b'; then
+      REASON="BLOCKED: a previous screenshot at $PENDING_SHOT was captured but never Read. Open it first with the Read tool. Capturing more screenshots without opening the prior one means the user can't see what you claim to have verified."
+    fi
+    # Block commit-style commands until the pending screenshot is opened
+    if [ -z "$REASON" ] && echo "$CMD" | grep -qE 'git\s+commit'; then
+      REASON="BLOCKED: an unread screenshot is pending at $PENDING_SHOT. Open it (Read tool) before committing - validation claims require visible proof, not just disk-side capture."
+    fi
+  fi
+fi
+
+# Validation-via-cmux-eval guard. The chrome MCP javascript_tool has its own
+# PreToolUse hook (validation-guard.sh) that blocks JS shortcutting real user
+# interactions. cmux runs through Bash, so it can sneak past that. Mirror the
+# same trigger-blocking patterns here so cmux eval can't be used to bypass.
+#
+# Activates only when the command actually contains `cmux ... eval`. Setup
+# eval calls (bundle injection: document.createElement('script'), appendChild,
+# delete window.__improv) don't match these patterns and are allowed.
+if [ -z "$REASON" ] && echo "$CMD" | grep -qE 'cmux\b[^|;&]*\beval\b'; then
+  CMUX_TRIGGER_REASON=""
+  if echo "$CMD" | grep -qE '\.click\(\s*\)'; then
+    CMUX_TRIGGER_REASON="cmux eval contains synthetic .click() - bypasses the real click event path."
+  elif echo "$CMD" | grep -qE '\.dispatchEvent\('; then
+    CMUX_TRIGGER_REASON="cmux eval contains dispatchEvent - synthesizes events instead of triggering them via real input."
+  elif echo "$CMD" | grep -qE '\._[a-zA-Z][a-zA-Z0-9_]*\s*\('; then
+    CMUX_TRIGGER_REASON="cmux eval invokes a private (_underscore-prefixed) method - skips the user-facing flow that would normally fire it."
+  elif echo "$CMD" | grep -qE '(window\.)?__improv\.[a-zA-Z_][a-zA-Z0-9_]*\s*\('; then
+    CMUX_TRIGGER_REASON="cmux eval invokes a method on the __improv application namespace - skips the user-facing path."
+  elif echo "$CMD" | grep -qE '\._[a-zA-Z][a-zA-Z0-9_]*\.(push|splice|shift|unshift|pop)\s*\('; then
+    CMUX_TRIGGER_REASON="cmux eval mutates a private application array - the user can't reach this without a real interaction."
+  elif echo "$CMD" | grep -qE 'getComputedStyle|getBoundingClientRect|\.scrollTop|\.scrollHeight|\.offsetHeight|\.textContent|\.innerHTML'; then
+    CMUX_TRIGGER_REASON="cmux eval inspects DOM state via developer APIs (getComputedStyle/getBoundingClientRect/scroll dims/text content) - that's DevTools-grade probing, not what a user sees."
+  fi
+  if [ -n "$CMUX_TRIGGER_REASON" ]; then
+    REASON="BLOCKED: $CMUX_TRIGGER_REASON Use cmux click/type/press/screenshot for real interactions. Use 'snapshot --interactive' for the element tree. Do not validate UI by directly invoking app methods or reading computed state - that proves nothing about what the human sees."
+  fi
+fi
+
 if [ -n "$REASON" ]; then
   python3 -c "import json,sys; print(json.dumps({'hookSpecificOutput':{'hookEventName':'PreToolUse','permissionDecision':'deny','permissionDecisionReason':sys.argv[1]}}))" "$REASON"
 else

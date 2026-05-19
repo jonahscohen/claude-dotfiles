@@ -1,3 +1,12 @@
+- [HTTPS for Safari (2026-05-19)](session_2026-05-19_https-for-safari.md) - improv ws-server now also listens on HTTPS port 9224 with auto-generated self-signed cert; setup-cert.sh trusts it once via sudo; Safari mixed-content block resolved
+- [Cache block on validation (2026-05-18)](session_2026-05-18_cache-block.md) - real-input validation reproduces the bug because the browser is caching an older bundle; the cache-header fix is stuck behind MCP server restart (Node module cache)
+- [Scroll safety net (2026-05-18)](session_2026-05-18_scroll-safety-net.md) - _appendQueueRowAnimated now has a setTimeout safety net so scroll-to-bottom + settle fire even when WAAPI finish doesn't
+- [Screenshot-open mandate (2026-05-18)](session_2026-05-18_screenshot-open-mandate.md) - every captured screenshot must be Read before further work; PostToolUse hook + bash-guard gate enforce
+- [Real-input validation of queued-tasks (2026-05-18)](session_2026-05-18_real-input-validation.md) - validated under the new guard via real clicks/typing; exposed and fixed a scroll-to-bottom bug that JS-trigger validation had hidden
+- [Validation trigger guard (2026-05-18)](session_2026-05-18_validation-trigger-guard.md) - bash-guard + validation-guard now block JS-triggered actions during UI validation; real user inputs only via cmux click/type/press
+- [Improv build pipeline fix (2026-05-18)](session_2026-05-18_improv-build-pipeline-fix.md) - npm run deploy script, dist resynced, retired the never-build memory after audit found zero drift
+- [Queued tasks live rise-in (2026-05-18)](session_2026-05-18_queued-tasks-live-add.md) - TS source for live row animation in open panel; now live via build+sync
+- [Voice mute hook gating (2026-05-18)](session_2026-05-18_voice-mute-hook-gating.md) - CLAUDE.md rewritten to be gated on voice-mandate.sh; hook now injects MUTED notice
 - [Discord channel portability (2026-04-14)](session_2026-04-14_discord-portability.md) - Keychain + dotfiles split for multi-machine Discord bot
 - [Shader tuning (2026-04-21)](session_2026-04-21_shader-tuning.md) - cursor_blaze.glsl rewrite; Ghostty shaders don't fire inside TUI apps
 - [Shader canonical in dotfiles (2026-04-24)](session_2026-04-24_shader-canonical-in-dotfiles.md) - Ghostty loads shaders from repo; edits sync live
@@ -37,7 +46,7 @@
 - [Voice mandate hook (2026-05-03)](session_2026-05-03_voice-mandate-hook.md) - SessionStart hook enforces voice output mechanically; rules-on-paper failed 3x
 - [Improv annotate rewrite (2026-05-03)](session_2026-05-03_improv-annotate-rewrite.md) - production-quality annotate: colored markers, rich popups, lasso overlays, freeze indicator
 - [Improv icons extraction (2026-05-04)](session_2026-05-04_improv-icons-extraction.md) - 58 SVG icon functions extracted verbatim from reference tool v0.7.6 into icons.ts
-- [Improv panel reference tool rewrite (2026-05-04)](session_2026-05-04_improv-panel-reference-tool-rewrite.md) - Full property-panel.ts rewrite: reference tool icons, Fill/Border/Shadow/Filters sections, split color/combo inputs, alignment UI fixes
+- [Improv panel reference tool rewrite (2026-05-04)](session_2026-05-04_improv-panel-reference-rewrite.md) - Full property-panel.ts rewrite: reference tool icons, Fill/Border/Shadow/Filters sections, split color/combo inputs, alignment UI fixes
 - [Memory nudge hook (2026-05-05)](session_2026-05-05_memory-nudge-hook.md) - PostToolUse hook fires after Write/Edit/MultiEdit to non-memory files, nudges dirty-state memory write
 - [Voice toggle hook (2026-05-07)](session_2026-05-07_voice-toggle.md) - chat commands `voice on/off/toggle/status`; mirrors resume-toggle pattern
 - [Voice gate hook (2026-05-08)](session_2026-05-08_voice-gate-hook.md) - PreToolUse hard-deny on speak calls when muted; no more wasted API calls
@@ -70,3 +79,8 @@
 - [Improv detail view wiring (2026-05-13)](session_2026-05-13_improv-detail-view-wiring.md) - Wired setOnItemClick in index.ts, removed setOnPreviewToggle
 - [Improv changes panel fixes (2026-05-13)](session_2026-05-13_improv-changes-panel-fixes.md) - markDone isolation (first unreviewed only) + Undo Done button for reviewed entries
 - [Improv changes panel styling (2026-05-13)](session_2026-05-13_improv-changes-panel-styling.md) - Button hovers to #D97757 accent; task number text to #1a1a1a
+- [Improv changes panel list view fixes (2026-05-14)](session_2026-05-14_changes-panel-list-view.md) - Buttons inside summaryEl, clear button styled, zero-change tasks, filename-only display, artifact filter, dedup diffs
+- [Claudebar architecture](decision_improv_claudebar_architecture.md) - Separate pill, state machine (sending/working/review/retry), Spark sprites, bar tray, persistence
+- [HTTP polling watch loop](decision_improv_http_polling_watch.md) - curl-based polling replaces unreliable MCP watch; never disconnects
+- [Dish Playscapes improv (2026-05-14)](session_2026-05-14_dishplayscapes-improv.md) - Claudebar + Queuebar prototypes to production, Spark sprites, timeout/retry/batching, 10 bug fixes
+- [Improv connection detection (2026-05-16)](session_2026-05-16_improv-connection-detection.md) - Claudebar silent failure debug; pivoting to connection-aware UX (hide Send when no watcher active)

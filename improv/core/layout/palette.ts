@@ -1558,7 +1558,7 @@ export class ComponentPalette {
 
     // Accent color swatches
     const SWATCHES = [
-      { hex: '#3b82f6', r: 59,  g: 130, b: 246 },
+      { hex: '#D97757', r: 59,  g: 130, b: 246 },
       { hex: '#8b5cf6', r: 139, g: 92,  b: 246 },
       { hex: '#22c55e', r: 34,  g: 197, b: 94  },
       { hex: '#f97316', r: 249, g: 115, b: 22  },
@@ -1576,7 +1576,7 @@ export class ComponentPalette {
     const swatchDots: HTMLDivElement[] = [];
     for (const swatch of SWATCHES) {
       const dot = document.createElement('div');
-      const isActive = swatch.hex === '#3b82f6';
+      const isActive = swatch.hex === '#D97757';
       Object.assign(dot.style, {
         width:        '18px',
         height:       '18px',

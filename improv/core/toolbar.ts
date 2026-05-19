@@ -49,13 +49,7 @@ export class Toolbar {
   verbosity: string = 'standard';
   connected: boolean = false;
   port: number = 3901;
-  markerColor: string = (function () {
-    try {
-      return localStorage.getItem('improv-marker-color') || '#3b82f6';
-    } catch (e) {
-      return '#3b82f6';
-    }
-  })();
+  markerColor: string = '#D97757';
   markerColorCallbacks: Array<(color: string) => void> = [];
   showHints: boolean | undefined;
   showSelectionLabels: boolean | undefined;
@@ -88,9 +82,9 @@ export class Toolbar {
         to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
       }
       @keyframes improv-input-glow {
-        0% { box-shadow: 0 0 4px 0px var(--improv-glow-color, #3b82f6); }
-        50% { box-shadow: 0 0 8px 1px var(--improv-glow-color, #3b82f6); }
-        100% { box-shadow: 0 0 4px 0px var(--improv-glow-color, #3b82f6); }
+        0% { box-shadow: 0 0 4px 0px var(--improv-glow-color, #D97757); }
+        50% { box-shadow: 0 0 8px 1px var(--improv-glow-color, #D97757); }
+        100% { box-shadow: 0 0 4px 0px var(--improv-glow-color, #D97757); }
       }
       @keyframes improv-glow-pulse {
         0% { opacity: 0.6; }
@@ -165,11 +159,11 @@ export class Toolbar {
         }
       }
       *:focus-visible {
-        outline: 2px solid var(--improv-marker, #3b82f6);
+        outline: 2px solid var(--improv-marker, #D97757);
         outline-offset: 2px;
       }
       button:focus-visible {
-        outline: 2px solid var(--improv-marker, #3b82f6);
+        outline: 2px solid var(--improv-marker, #D97757);
         outline-offset: 2px;
       }
     `);
@@ -314,8 +308,8 @@ export class Toolbar {
 
     this._closeBtn.addEventListener('mouseenter', () => {
       if (!this._closeBtn.dataset.active) {
-        this._closeBtn.style.background = this.markerColor + '33';
-        this._closeBtn.style.color = this.markerColor || '#3b82f6';
+        this._closeBtn.style.background = '#D97757' + '33';
+        this._closeBtn.style.color = '#D97757' || '#D97757';
       }
       this._closeP1.style.transition = 'none';
       this._closeP1.style.strokeDashoffset = '20';
@@ -487,8 +481,8 @@ export class Toolbar {
 
     btn.addEventListener('mouseenter', () => {
       if (!btn.dataset.active) {
-        btn.style.background = this.markerColor + '33';
-        btn.style.color = this.markerColor || '#3b82f6';
+        btn.style.background = '#D97757' + '33';
+        btn.style.color = '#D97757' || '#D97757';
       }
       if (tooltip === 'Prompt') {
         icon.style.animation = 'improv-msg-wiggle 0.5s cubic-bezier(0.23,1,0.32,1)';
@@ -641,8 +635,8 @@ export class Toolbar {
     }
 
     if (this.settingsBtn) {
-      this.settingsBtn.style.background = this.markerColor || '#3b82f6';
-      this.settingsBtn.style.color = ['#f97316', '#eab308', '#22c55e'].indexOf(this.markerColor) !== -1 ? '#1a1a1a' : '#fff';
+      this.settingsBtn.style.background = '#D97757' || '#D97757';
+      this.settingsBtn.style.color = ['#f97316', '#eab308', '#22c55e'].indexOf('#D97757') !== -1 ? '#1a1a1a' : '#fff';
       this.settingsBtn.dataset.active = '1';
     }
 
@@ -753,63 +747,6 @@ export class Toolbar {
     connInfo.appendChild(statusRow);
     connSection.appendChild(connInfo);
     panel.appendChild(connSection);
-
-    const colorSection = this.buildSettingsRow('Marker Color');
-    const swatchRow = document.createElement('div');
-    applyStyles(swatchRow, {
-      display: 'flex',
-      gap: '6px',
-      alignItems: 'center',
-    });
-
-    const SWATCHES = ['#3b82f6', '#ef4444', '#f97316', '#eab308', '#22c55e', '#8b5cf6'];
-    const swatchEls: HTMLDivElement[] = [];
-    for (const hex of SWATCHES) {
-      const dot = document.createElement('div');
-      const isActive = hex === this.markerColor;
-      applyStyles(dot, {
-        width: '18px',
-        height: '18px',
-        borderRadius: '50%',
-        background: hex,
-        cursor: 'pointer',
-        border: isActive ? '2px solid #fff' : '2px solid transparent',
-        boxShadow: isActive ? `0 0 0 1px ${hex}` : 'none',
-        transition: 'border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease',
-        flexShrink: '0',
-      });
-      dot.addEventListener('mouseenter', () => {
-        if (dot.style.borderColor !== 'rgb(255, 255, 255)') {
-          dot.style.transform = 'scale(1.15)';
-        }
-      });
-      dot.addEventListener('mouseleave', () => {
-        dot.style.transform = '';
-      });
-      dot.addEventListener('mousedown', () => {
-        dot.style.transform = 'scale(0.92)';
-      });
-      dot.addEventListener('mouseup', () => {
-        dot.style.transform = '';
-      });
-      dot.addEventListener('click', () => {
-        for (const d of swatchEls) {
-          d.style.border = '2px solid transparent';
-          d.style.boxShadow = 'none';
-        }
-        dot.style.border = '2px solid #fff';
-        dot.style.boxShadow = `0 0 0 1px ${hex}`;
-        this.markerColor = hex;
-        try {
-          localStorage.setItem('improv-marker-color', hex);
-        } catch (e) {}
-        for (const cb of this.markerColorCallbacks) cb(hex);
-      });
-      swatchEls.push(dot);
-      swatchRow.appendChild(dot);
-    }
-    colorSection.appendChild(swatchRow);
-    panel.appendChild(colorSection);
 
     const _hintRow = this.buildSettingsRow('Hints');
     const _hintToggle = this.buildToggle(this.showHints !== false, (v: boolean) => {
@@ -923,7 +860,7 @@ export class Toolbar {
   initDrag(): void {}
 
   updateModeButtonStyles(): void {
-    const _mc = this.markerColor || '#3b82f6';
+    const _mc = '#D97757' || '#D97757';
     const _ic = ['#f97316', '#eab308', '#22c55e'].indexOf(_mc) !== -1 ? '#1a1a1a' : '#fff';
     this.el.style.setProperty('--improv-marker', _mc);
     this.modeButtons.forEach((btn, mode) => {
@@ -968,12 +905,11 @@ export class Toolbar {
     this.clearAllCallbacks.push(cb);
   }
 
-  onMarkerColorChange(cb: (color: string) => void): void {
-    this.markerColorCallbacks.push(cb);
+  onMarkerColorChange(_cb: (color: string) => void): void {
   }
 
   getMarkerColor(): string {
-    return this.markerColor;
+    return '#D97757';
   }
 
   setConnected(connected: boolean): void {

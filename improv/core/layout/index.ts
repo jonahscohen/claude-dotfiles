@@ -10,7 +10,7 @@ import type { SnapTarget } from './snap';
 import { getPrimitive, PRIMITIVES } from './primitives';
 
 const CATEGORY_COLORS: Record<string, string> = {
-  layout:   '#3b82f6',
+  layout:   '#D97757',
   content:  '#8b5cf6',
   controls: '#22c55e',
   elements: '#f97316',
@@ -149,7 +149,7 @@ export class LayoutMode {
 
     this.placements.push(placement);
 
-    const color = CATEGORY_COLORS[category] ?? '#3b82f6';
+    const color = CATEGORY_COLORS[category] ?? '#D97757';
     const el    = this.skeletonRenderer!.create(placement, color);
 
     this.guideLineRenderer!.show(
@@ -255,7 +255,7 @@ export class LayoutMode {
       bottom:        '40px',
       left:          '240px',
       padding:       '10px 20px',
-      background:    '#3b82f6',
+      background:    '#D97757',
       color:         '#fff',
       border:        'none',
       borderRadius:  '8px',
@@ -275,7 +275,7 @@ export class LayoutMode {
       btn.style.boxShadow   = '0 4px 20px rgba(59,130,246,0.6)';
     });
     btn.addEventListener('mouseleave', () => {
-      btn.style.background  = '#3b82f6';
+      btn.style.background  = '#D97757';
       btn.style.boxShadow   = '0 2px 16px rgba(59,130,246,0.5)';
     });
     btn.addEventListener('mousedown', () => {
@@ -361,7 +361,7 @@ export class LayoutMode {
         gap:         '10px',
       });
 
-      const color = CATEGORY_COLORS[p.category] ?? '#3b82f6';
+      const color = CATEGORY_COLORS[p.category] ?? '#D97757';
 
       const dot = document.createElement('div');
       Object.assign(dot.style, {
@@ -440,7 +440,7 @@ export class LayoutMode {
     Object.assign(confirmBtn.style, {
       flex:          '2',
       padding:       '8px',
-      background:    '#3b82f6',
+      background:    '#D97757',
       border:        'none',
       borderRadius:  '7px',
       color:         '#fff',
@@ -454,7 +454,7 @@ export class LayoutMode {
       confirmBtn.style.background = '#2563eb';
     });
     confirmBtn.addEventListener('mouseleave', () => {
-      confirmBtn.style.background = '#3b82f6';
+      confirmBtn.style.background = '#D97757';
     });
     confirmBtn.addEventListener('click', () => {
       this.pushLayout(panel);

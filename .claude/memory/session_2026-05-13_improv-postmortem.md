@@ -39,6 +39,12 @@ Postmortem written at docs/superpowers/specs/2026-05-13-improv-postmortem.md
 4. Implement true preview-before-commit (improv_preview + improv_commit)
 5. Add mandatory end-to-end workflow test gate to ralph loop
 
+**Items addressed since postmortem (2026-05-14):**
+- "Prompt loss on crash (no retry mechanism)" - FIXED: 60s timeout + Retry Send state with _lastPromptData re-send
+- "No push notification, no auto-trigger" - PARTIALLY FIXED: improv_working server event replaces fake timers; HTTP polling watch loop replaces unreliable MCP watch
+- Fake timers all removed; real server acknowledgment drives state transitions
+- Multi-task batching prevents premature "Review Changes" on batch sends
+
 **Process lesson:** Add a "full workflow test" checkpoint after every 3 ralph loop iterations. The test must chain user actions in sequence (select -> prompt -> send -> review -> done/revert), not verify individual steps in isolation. No polish iterations until all core actions pass the chain test.
 
 **Files produced:**

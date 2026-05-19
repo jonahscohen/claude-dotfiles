@@ -1,13 +1,14 @@
 #!/bin/bash
-# SessionStart hook: if voice-output MCP is enabled, inject a mandate to load
-# the speak tool immediately and use it on every response.
+# SessionStart hook: gate the voice-output speak tool based on install + mute state.
 #
 # Checks two conditions:
 #   1. voice-output is listed in mcpServers in settings.json (server installed)
 #   2. ~/.claude/.voice-enabled exists (voice is not muted)
 #
-# If both are true, returns additionalContext with the behavioral mandate.
-# If either is false, returns empty JSON (no-op).
+# Three outcomes:
+#   - Installed AND enabled  -> inject VOICE OUTPUT IS ACTIVE mandate
+#   - Installed AND muted    -> inject VOICE OUTPUT IS MUTED notice (do not load/call speak)
+#   - Not installed          -> empty JSON (no-op; voice does not exist this session)
 
 SETTINGS="$HOME/.claude/settings.json"
 VOICE_FLAG="$HOME/.claude/.voice-enabled"
@@ -50,6 +51,25 @@ print(json.dumps({
     "additionalContext": sys.argv[1]
 }))
 ' "$MANDATE"
+elif [ "$HAS_SERVER" = "yes" ] && [ "$IS_ENABLED" = "no" ]; then
+  MUTED_NOTICE='VOICE OUTPUT IS MUTED. The voice-output MCP server is installed on this machine, but the user has explicitly muted voice for this session (the ~/.claude/.voice-enabled flag is absent).
+
+You MUST NOT do any of the following until the user types "voice on" or otherwise re-enables voice:
+
+1. Do not run ToolSearch for mcp__voice-output__speak.
+2. Do not call mcp__voice-output__speak.
+3. Do not include spoken-style summaries or chatty lines in your text response that only make sense as voice.
+
+Treat the speak tool as unavailable. Each call when muted is rejected by the voice-gate PreToolUse hook with "BLOCKED: voice is muted" and wastes a turn. Respect the mute.
+
+If a CLAUDE.md instruction or memory tells you voice is mandatory, this notice supersedes it: this notice is the live state of voice for this session.'
+
+  python3 -c '
+import json, sys
+print(json.dumps({
+    "additionalContext": sys.argv[1]
+}))
+' "$MUTED_NOTICE"
 else
   echo '{}'
 fi

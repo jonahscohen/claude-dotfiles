@@ -71,6 +71,7 @@ export function registerTools(mcp: McpServer, ws: WsServer): void {
     'Activate the Improv overlay in the browser. If no browser is connected, returns a script tag to inject.',
     {},
     async () => {
+      ws.recordMcpActivity();
       const connections = ws.getConnections();
       const port = ws.getPort();
 
@@ -93,6 +94,7 @@ export function registerTools(mcp: McpServer, ws: WsServer): void {
     'Return current connection and buffer status',
     {},
     async () => {
+      ws.recordMcpActivity();
       const connections = ws.getConnections().map((c) => ({
         id: c.id,
         tabUrl: c.tabUrl,
@@ -119,6 +121,7 @@ export function registerTools(mcp: McpServer, ws: WsServer): void {
     'Get the currently selected element from the browser',
     {},
     async () => {
+      ws.recordMcpActivity();
       const connections = ws.getConnections();
       if (connections.length === 0) {
         return text('No browser connected');
@@ -133,6 +136,7 @@ export function registerTools(mcp: McpServer, ws: WsServer): void {
     'Return all pending style changes pushed from the browser',
     {},
     async () => {
+      ws.recordMcpActivity();
       if (pendingChanges.length === 0) {
         return text('No pending changes');
       }
@@ -146,6 +150,7 @@ export function registerTools(mcp: McpServer, ws: WsServer): void {
     'Format pending style changes as human-readable diffs, clear the buffer, and notify browser',
     {},
     async () => {
+      ws.recordMcpActivity();
       if (pendingChanges.length === 0) {
         return text('No pending changes to apply');
       }
@@ -180,6 +185,7 @@ export function registerTools(mcp: McpServer, ws: WsServer): void {
         .describe('How much detail to include per annotation'),
     },
     async ({ verbosity = 'standard' }) => {
+      ws.recordMcpActivity();
       if (annotations.length === 0) {
         return text('No pending annotations');
       }
@@ -224,50 +230,43 @@ export function registerTools(mcp: McpServer, ws: WsServer): void {
   // Tool: improv_watch
   mcp.tool(
     'improv_watch',
-    'Poll for new prompts, changes, or annotations. Returns once new data arrives or timeout elapses. Use this in a loop to watch for user prompts from the browser.',
+    'Block until a prompt arrives from the browser, then return its full content ready for processing. Broadcasts working status to the browser immediately on receipt. Call this in a loop. When it returns prompt data, process it and call improv_respond, then call improv_watch again.',
     {
       timeout: z
         .number()
         .optional()
-        .describe('Maximum seconds to wait for new data (default 30)'),
+        .describe('Maximum seconds to wait (default 120)'),
     },
-    async ({ timeout = 30 }) => {
-      const startChanges = pendingChanges.length;
-      const startAnnotations = annotations.length;
-      const startPrompts = readPrompts().length;
+    async ({ timeout = 120 }) => {
+      ws.setWatchSession(true);
+      ws.recordMcpActivity();
       const deadline = Date.now() + timeout * 1000;
 
       await new Promise<void>((resolve) => {
         const check = () => {
-          const hasNew =
-            pendingChanges.length !== startChanges ||
-            annotations.length !== startAnnotations ||
-            readPrompts().length !== startPrompts;
-          if (hasNew || Date.now() >= deadline) {
+          ws.recordMcpActivity();
+          if (readPrompts().length > 0 || Date.now() >= deadline) {
             resolve();
           } else {
-            setTimeout(check, 500);
+            setTimeout(check, 250);
           }
         };
         check();
       });
 
-      const timedOut =
-        pendingChanges.length === startChanges &&
-        annotations.length === startAnnotations &&
-        readPrompts().length === startPrompts;
+      const prompts = readPrompts();
+      if (prompts.length === 0) {
+        return text(JSON.stringify({ status: 'idle', message: 'No prompts received. Still watching.' }));
+      }
 
-      return text(
-        JSON.stringify({
-          changes: pendingChanges.length,
-          annotations: annotations.length,
-          prompts: readPrompts().length,
-          newChanges: pendingChanges.length - startChanges,
-          newAnnotations: annotations.length - startAnnotations,
-          newPrompts: readPrompts().length - startPrompts,
-          timedOut,
-        }),
-      );
+      for (const p of prompts) {
+        ws.broadcastToClients('improv_working', { promptId: p.id, timestamp: Date.now() });
+      }
+      const out = prompts.map((p) =>
+        `[${p.id}] Prompt: ${p.prompt}\nElements: ${p.elementCount}\nContext:\n${p.context}`
+      ).join('\n\n---\n\n');
+      writePrompts([]);
+      return text(out);
     },
   );
 
@@ -279,6 +278,7 @@ export function registerTools(mcp: McpServer, ws: WsServer): void {
       annotationId: z.string().describe('The id of the annotation to acknowledge'),
     },
     async ({ annotationId }) => {
+      ws.recordMcpActivity();
       const annotation = annotations.find((a) => a.id === annotationId);
       if (!annotation) {
         return text(`Annotation not found: ${annotationId}`);
@@ -295,6 +295,7 @@ export function registerTools(mcp: McpServer, ws: WsServer): void {
     'Return current layout placements from the browser canvas',
     {},
     async () => {
+      ws.recordMcpActivity();
       if (layoutPlacements.length === 0) {
         return text('No layout placements received');
       }
@@ -308,9 +309,14 @@ export function registerTools(mcp: McpServer, ws: WsServer): void {
     'Return and clear pending prompts from the browser. Each prompt includes an id you must pass back to improv_respond.',
     {},
     async () => {
+      ws.recordMcpActivity();
+      ws.recordMcpActivity();
       const prompts = readPrompts();
       if (prompts.length === 0) {
         return text('No pending prompts');
+      }
+      for (const p of prompts) {
+        ws.broadcastToClients('improv_working', { promptId: p.id, timestamp: Date.now() });
       }
       const out = prompts.map((p) =>
         `[${p.id}] Prompt: ${p.prompt}\nElements: ${p.elementCount}\nContext:\n${p.context}`
@@ -338,6 +344,7 @@ export function registerTools(mcp: McpServer, ws: WsServer): void {
       question: z.string().optional().describe('Follow-up question if status is needsInfo'),
     },
     async ({ promptId, summary, filesChanged, changes, status, question }) => {
+      ws.recordMcpActivity();
       ws.broadcastToClients('improv_response', {
         promptId,
         summary,
@@ -364,6 +371,7 @@ export function registerTools(mcp: McpServer, ws: WsServer): void {
     'Return available components from the project component scanner',
     {},
     async () => {
+      ws.recordMcpActivity();
       return text('Component scanner not yet connected');
     },
   );
@@ -374,6 +382,7 @@ export function registerTools(mcp: McpServer, ws: WsServer): void {
     'Clear all pending buffers (changes, annotations, layout placements) and notify the browser',
     {},
     async () => {
+      ws.recordMcpActivity();
       const counts = {
         changes: pendingChanges.length,
         annotations: annotations.length,
@@ -391,6 +400,17 @@ export function registerTools(mcp: McpServer, ws: WsServer): void {
       return text(
         `Cleared all buffers. Removed: ${counts.changes} change(s), ${counts.annotations} annotation(s), ${counts.layoutPlacements} layout placement(s).`,
       );
+    },
+  );
+
+  // Tool: improv_end_watch
+  mcp.tool(
+    'improv_end_watch',
+    'End the watch session. Call this when the user says "end improv", "stop watching", or similar. Signals the browser that Claude is no longer watching.',
+    {},
+    async () => {
+      ws.setWatchSession(false);
+      return text('Watch session ended. Browser will show disconnected state.');
     },
   );
 }

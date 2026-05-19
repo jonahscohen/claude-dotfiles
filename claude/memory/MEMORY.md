@@ -14,3 +14,5 @@
 - [Hook verification discipline](feedback_hook_verification_discipline.md) - Pipe-test raw hook commands before wiring into settings.json; use python3 -c json.dumps for fixtures, not echo
 - [Planner pipeline drift](feedback_planner_pipeline_drift.md) - Cap planner-reviewer-remediator iterations at 2; switch language if bash hits its safe envelope
 - [Discipline under pressure](feedback_discipline_under_pressure.md) - Never drop per-task memory writes or visual verification to appear fast; user frustration means more care, not less
+- [Reprioritize on direct questions](feedback_reprioritize_on_questions.md) - When user asks a question, answer it directly; don't redirect to original task
+- [Efficiency matters](feedback_efficiency_matters.md) - Waste is not acceptable; optimize for load time and user experience; sequential waits kill UX

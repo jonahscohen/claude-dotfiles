@@ -21,6 +21,7 @@ export class InlinePrompt {
   _editWrap?: HTMLDivElement;
   _editCheckPath?: SVGPathElement;
   _showHints?: boolean;
+  _sendBlocked: boolean = false;
 
   constructor(shadowRoot: ShadowRoot | HTMLElement) {
     this.container = document.createElement("div");
@@ -32,7 +33,7 @@ export class InlinePrompt {
     this.input.style.cssText = "width:300px;min-width:300px;background:#1a1a1a;color:#e2e8f0;border:1px solid rgba(255,255,255,0.15);border-radius:20px;padding:10px 18px;transition:box-shadow 300ms ease,border-color 300ms ease;font-size:13px;font-family:ImprovSans,system-ui,sans-serif;outline:none;box-shadow:0 4px 16px rgba(0,0,0,0.4);animation:improv-input-glow 3s ease-in-out infinite";
 
     this.input.addEventListener("focus", () => {
-      this.input.style.borderColor = this._markerColor || "#3b82f6";
+      this.input.style.borderColor = "#D97757";
     });
 
     this.input.addEventListener("blur", () => {
@@ -49,16 +50,19 @@ export class InlinePrompt {
       var hasText = this.input.value.trim().length > 0;
       if (hasText && !this._btnActive) {
         this._btnActive = true;
-        var c = this._markerColor || "#3b82f6";
+        var c = "#D97757";
         this.queueBtn.style.transform = "scale(1)";
         this.queueBtn.style.opacity = "1";
-        setTimeout(function (this: InlinePrompt) {
-          this.sendNowBtn.style.animation = "none";
-          this.sendNowBtn.offsetHeight;
-          this.sendNowBtn.style.transform = "scale(1)";
-          this.sendNowBtn.style.opacity = "1";
-          this.sendNowBtn.style.animation = "improv-send-pulse 0.6s ease";
-        }.bind(this), 200);
+        if (!this._sendBlocked) {
+          setTimeout(function (this: InlinePrompt) {
+            if (this._sendBlocked) return;
+            this.sendNowBtn.style.animation = "none";
+            this.sendNowBtn.offsetHeight;
+            this.sendNowBtn.style.transform = "scale(1)";
+            this.sendNowBtn.style.opacity = "1";
+            this.sendNowBtn.style.animation = "improv-send-pulse 0.6s ease";
+          }.bind(this), 200);
+        }
         var _cic = ["#f97316", "#eab308", "#22c55e"].indexOf(c) !== -1 ? "#1a1a1a" : "#fff";
         this.queueBtn.style.background = c;
         this.queueBtn.style.borderColor = c;
@@ -234,9 +238,22 @@ export class InlinePrompt {
   }
 
   _submit() {
+    if (this._sendBlocked) {
+      this._flashBlockedFeedback();
+      return;
+    }
     var n = this.input.value.trim();
     n && this.submitCallback && this.submitCallback(n);
     this.hide();
+  }
+
+  _flashBlockedFeedback() {
+    this.input.style.borderColor = '#D97757';
+    this.input.style.boxShadow = '0 0 0 2px rgba(217,119,87,0.3)';
+    setTimeout(() => {
+      this.input.style.borderColor = 'rgba(255,255,255,0.15)';
+      this.input.style.boxShadow = '0 4px 16px rgba(0,0,0,0.4)';
+    }, 600);
   }
 
   _animateQueue() {
@@ -262,7 +279,7 @@ export class InlinePrompt {
   }
 
   show(x: number, y: number) {
-    this.input.style.setProperty("--improv-glow-color", this._markerColor || "#3b82f6");
+    this.input.style.setProperty("--improv-glow-color", "#D97757");
     this.container.style.transition = "left 200ms cubic-bezier(0.23,1,0.32,1),top 200ms cubic-bezier(0.23,1,0.32,1)";
     this.container.style.left = `${x}px`;
     this.container.style.top = `${y}px`;
@@ -338,7 +355,7 @@ export class InlinePrompt {
       _confirmBtn.appendChild(_cSvg);
 
       _confirmBtn.addEventListener("mouseenter", function (this: InlinePrompt) {
-        var _mc = this._markerColor || this._editPM && this._editPM._selColor || "#3b82f6";
+        var _mc = "#D97757";
         _confirmBtn.style.background = _mc;
         _confirmBtn.style.color = ["#f97316", "#eab308", "#22c55e"].indexOf(_mc) !== -1 ? "#1a1a1a" : "#fff";
         _confirmBtn.style.transform = "scale(1.125)";
@@ -365,6 +382,7 @@ export class InlinePrompt {
         if (txt && this._editPM) {
           this._editPM._changeQueue[this._editIdx!].prompt = txt;
           this._editPM._updateQueueBadge();
+          if (this._editPM._persistQueue) this._editPM._persistQueue();
         }
         this.exitEditMode();
       }.bind(this));
@@ -420,9 +438,7 @@ export class InlinePrompt {
         if (this._editPM) {
           this._editPM._changeQueue.splice(this._editIdx, 1);
           this._editPM._updateQueueBadge();
-          this._editPM.multiSelect.clear();
-          this._editPM._showSelOverlays();
-          this._editPM.overlay.hideHighlight();
+          if (this._editPM._persistQueue) this._editPM._persistQueue();
         }
         this.exitEditMode();
       }.bind(this));
@@ -437,6 +453,7 @@ export class InlinePrompt {
   exitEditMode() {
     this._editMode = false;
     this._editIdx = -1;
+    if (this._editPM && this._editPM._clearEditHighlights) this._editPM._clearEditHighlights();
     this._editPM = null;
     if (this._editWrap) this._editWrap.style.display = "none";
     this._btnWrap.style.display = "flex";
@@ -454,6 +471,18 @@ export class InlinePrompt {
       this.sendNowBtn.style.background = c;
       this.sendNowBtn.style.borderColor = c;
       this.sendNowBtn.style.color = _ic;
+    }
+  }
+
+  setSendBlocked(blocked: boolean) {
+    this._sendBlocked = blocked;
+    if (blocked) {
+      this.sendNowBtn.style.transform = "scale(0)";
+      this.sendNowBtn.style.opacity = "0";
+    } else if (this._btnActive) {
+      this.sendNowBtn.style.transition = "transform 200ms cubic-bezier(0.23,1,0.32,1), opacity 200ms ease";
+      this.sendNowBtn.style.transform = "scale(1)";
+      this.sendNowBtn.style.opacity = "1";
     }
   }
 

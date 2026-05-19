@@ -42,7 +42,7 @@ relates_to: [session_2026-05-13_improv-changes-panel.md]
 - Custom scrollbar: thin 6px, rgba(255,255,255,0.15) thumb, transparent track
 - Custom typefaces: ImprovSans/Serif/Mono served from localhost:9223/fonts/
 - Claude button in queuebar when prompt mode active. When prompt mode off but unreviewed changes exist from localStorage, a queuebar-styled pill appears at bottom-left with just the Claude button. Removed when prompt mode activates (its pill takes over) or when all changes cleared.
-- markDone isolation: only marks first unreviewed entry with matching promptId, not all
+- markDone isolation: passes the exact entry object reference to the callback instead of searching by promptId. Previous approach used find() which matched wrong entries when multiple shared the same promptId.
 - Undo Done button on reviewed entries, wired to set reviewed=false + re-sync
 - Button hover states: #D97757 bg + #1a1a1a text on all panel buttons
 - Task number text color: #1a1a1a (was white)
@@ -50,3 +50,15 @@ relates_to: [session_2026-05-13_improv-changes-panel.md]
 - Postmortem: completed by agent, written to docs/superpowers/specs/2026-05-13-improv-postmortem.md
 - Design skill note saved to feedback_ai_icons_lobehub.md
 - Claude button restyled: 44x44, #1a1a1a bg, border + shadow matching toolbar "I" button, hover=#D9775715 (subtle orange warmth on dark, matches toolbar hover intensity), active=solid #D97757 + white icon
+- Claude button architecture rewrite: eliminated standalone pill entirely. ONE persistent queuebar pill owned by ImprovCore (not prompt mode). Claude button lives inside it to the LEFT. Queuebar shows whenever unreviewed changes exist OR prompt mode is active. No more duplicate elements, no more overlap.
+- Prompt mode _actionPill was STILL creating its own duplicate pill at same position. Fixed: prompt mode now sets _actionPill = core._queuePill (reuses it). On deactivate, removes its buttons from the pill but doesn't destroy it. No more two pills.
+- Five queuebar bugs fixed: (1) divider visible with no queue buttons next to it - now only shows when BOTH Claude btn AND queue count > 0; (2) empty Changes panel opened on click - now guards against 0 unreviewed; (3) pill visible with nothing to show - now hidden when 0 unreviewed AND 0 queued; (4) queue "0" shown on prompt activate - queue btn starts display:none, only shows at count >= 1; (5) pill visibility delegated to core._updateClaudeBadge from prompt mode _updateQueueBadge
+- Changes panel crash: render() threw "Cannot read properties of undefined (reading 'length')" on entry.filesChanged when entry had no filesChanged field. All entry.filesChanged and entry.changes accesses now guarded with || [] fallback. Root cause: test data injected without filesChanged field, and the ChangeEntry interface doesn't enforce defaults.
+- Changes panel redesign (7 items) - ALL IMPLEMENTED: (1) buttons inside summaryEl, no side padding; (2) detail view diffs as red/green highlighted code lines with +/- markers, highlighted values, selector { } context; (3) file names in ImprovSans; (4) Clear Completed Tasks as bordered button with hover; (5) Mark Done/Revert/Reply inside detail view under diffs; (6) zero-change tasks show "No file changes were made." inline, filter includes all completed entries; (7) slide-fade transitions - list slides left on enter detail, detail slides right on back, 200ms cubic-bezier easing
+- Round 2 polish (3 items): (1) reply input pill-shaped with slide-fade, circular arrow submit button, no focus outline; (2) selector names not truncated in detail view; (3) list view shows targeted selectors instead of file names
+- Queue persistence fix: deactivating prompt mode with queued items no longer removes queue/send/clear buttons. _updateClaudeBadge reads from this._changeQueue directly (shared array) instead of through this.promptMode which gets nulled. deactivate() only removes buttons when queue is empty.
+- Claude button active state: orange bg + white (#fff) icon when panel is open. Resets on panel close (via X, Escape, or toggle). Added onHideCallback to ChangesPanel.
+- Reply toggle: clicking Reply again closes the input. Last list item has no bottom margin.
+- Scale-on-press (0.92) added to all queuebar buttons: Claude btn, queue count, send all, clear all. Matches toolbar button behavior.
+- Panel height animation: REVERTED. _fitHeight caused height jumps and broke Claude button toggle. Removed entirely - static max-height:480px, slide transitions handle view switches.
+- "Open With" split button: icon side opens file, chevron opens dropdown. Options: Cursor, VS Code, OpenCode, Finder. Server uses `open -a <AppName>` (explicit branches, no catch-all). Dropdown on document.body. File resolution: find .improv markers then search project roots. `code` CLI is symlinked to Cursor on this machine.

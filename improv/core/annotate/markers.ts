@@ -3,7 +3,7 @@ type Severity = 'blocking' | 'important' | 'suggestion';
 
 const INTENT_COLORS: Record<Intent, string> = {
   fix: '#ef4444',
-  change: '#3b82f6',
+  change: '#D97757',
   question: '#eab308',
   approve: '#22c55e',
 };
@@ -215,7 +215,7 @@ export class AnnotationMarker {
     const submitBtn = document.createElement('button');
     submitBtn.textContent = 'Add Annotation';
     submitBtn.style.cssText = [
-      'background:#3b82f6',
+      'background:#D97757',
       'color:#fff',
       'border:none',
       'border-radius:8px',
@@ -228,7 +228,7 @@ export class AnnotationMarker {
       'width:100%',
     ].join(';');
     submitBtn.addEventListener('mouseover', () => { submitBtn.style.background = '#2563eb'; });
-    submitBtn.addEventListener('mouseout', () => { submitBtn.style.background = '#3b82f6'; });
+    submitBtn.addEventListener('mouseout', () => { submitBtn.style.background = '#D97757'; });
 
     submitBtn.addEventListener('click', () => {
       const comment = textarea.value.trim();
