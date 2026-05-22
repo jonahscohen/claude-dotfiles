@@ -1,21 +1,60 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SidecoachOrchestrator = void 0;
-exports.createOrchestrator = createOrchestrator;
+exports.FlowExecutionEngine = void 0;
+exports.createExecutionEngine = createExecutionEngine;
 const intent_detector_1 = require("./intent-detector");
 const flows_1 = require("./flows");
 const flow_history_1 = require("./flow-history");
+const orchestrator_1 = require("./orchestrator");
+const deterministic_validator_1 = require("./deterministic-validator");
+const regression_detector_1 = require("./regression-detector");
+const design_debt_tracker_1 = require("./design-debt-tracker");
 const flow_handlers_core_1 = require("./flow-handlers-core");
 const flow_handlers_extended_1 = require("./flow-handlers-extended");
-class SidecoachOrchestrator {
+const flow_handlers_new_tiers_1 = require("./flow-handlers-new-tiers");
+const flow_handlers_tier3_tier4_1 = require("./flow-handlers-tier3-tier4");
+const flow_handlers_tier5_specialized_1 = require("./flow-handlers-tier5-specialized");
+const flow_handlers_curate_qa_1 = require("./flow-handlers-curate-qa");
+class FlowExecutionEngine {
     constructor() {
         this.intentDetector = (0, intent_detector_1.createDetector)();
         this.handlers = new Map();
+        const flowHistory = (0, flow_history_1.getFlowHistory)();
+        this.orchestrator = new orchestrator_1.SidecoachOrchestrator(flowHistory);
         this.initializeHandlers();
     }
     initializeHandlers() {
         // Register all flow handlers with their implementations
         const handlerMap = [
+            // Tier 1: Strategy/Research
+            ['flowA_brand_verify', () => new flow_handlers_new_tiers_1.FlowABrandVerifyHandler()],
+            ['flowB_component_research', () => new flow_handlers_new_tiers_1.FlowBComponentResearchHandler()],
+            ['flowC_font_research', () => new flow_handlers_new_tiers_1.FlowCFontResearchHandler()],
+            ['flowD_reference_inspiration', () => new flow_handlers_new_tiers_1.FlowDReferenceSearchHandler()],
+            ['flowE_motion_patterns', () => new flow_handlers_new_tiers_1.FlowEMotionPatternsHandler()],
+            // Tier 2: Execution
+            ['flowF_design_tokens', () => new flow_handlers_new_tiers_1.FlowFDesignTokensHandler()],
+            ['flowG_component_implementation', () => new flow_handlers_new_tiers_1.FlowGComponentImplementationHandler()],
+            ['flowH_motion_integration', () => new flow_handlers_new_tiers_1.FlowHMotionIntegrationHandler()],
+            ['flowI_accessibility', () => new flow_handlers_new_tiers_1.FlowIAccessibilityHandler()],
+            // Tier 3: Polish/QA
+            ['flowJ_tactical_polish', () => new flow_handlers_tier3_tier4_1.FlowJTacticalPolishHandler()],
+            ['flowK_multi_lens_audit', () => new flow_handlers_tier3_tier4_1.FlowKMultiLensAuditHandler()],
+            ['flowL_design_critique', () => new flow_handlers_tier3_tier4_1.FlowLDesignCritiqueHandler()],
+            ['flowM_responsive_validation', () => new flow_handlers_tier3_tier4_1.FlowMResponsiveValidationHandler()],
+            ['flowN_rapid_iteration_refined', () => new flow_handlers_tier3_tier4_1.FlowNRapidIterationHandler()],
+            // Tier 4: Special
+            ['flowO_clone_match_special', () => new flow_handlers_tier3_tier4_1.FlowOCloneMatchHandler()],
+            ['flowP_constraint_design_special', () => new flow_handlers_tier3_tier4_1.FlowPConstraintDesignHandler()],
+            ['flowQ_migration_special', () => new flow_handlers_tier3_tier4_1.FlowQMigrationHandler()],
+            // Tier 5: Specialized refinement (NEW - impeccable v2.1.9 coverage)
+            ['flowR_layout_optimization', () => new flow_handlers_tier5_specialized_1.FlowRLayoutOptimizationHandler()],
+            ['flowS_typography_excellence', () => new flow_handlers_tier5_specialized_1.FlowSTypographyExcellenceHandler()],
+            ['flowT_ambitious_motion', () => new flow_handlers_tier5_specialized_1.FlowTAmbitiousMotionHandler()],
+            // Special: Curate + All-Seven QA (addresses two concrete gaps)
+            ['flowU_curate', () => new flow_handlers_curate_qa_1.FlowUCurateHandler()],
+            ['flowV_all_seven_qa', () => new flow_handlers_curate_qa_1.FlowVAllSevenQAHandler()],
+            // Legacy flows
             ['flow1_clone_match', () => new flow_handlers_extended_1.Flow1CloneHandler()],
             ['flow2_polish_enhance', () => new flow_handlers_core_1.Flow2PolishHandler()],
             ['flow3_audit_page', () => new flow_handlers_extended_1.Flow3AuditHandler()],
@@ -74,17 +113,7 @@ class SidecoachOrchestrator {
                 flowResults: [],
             };
         }
-        // Step 2: Get the handler
-        const handler = this.handlers.get(match.flowId);
-        if (!handler) {
-            return {
-                success: false,
-                message: `No handler found for flow: ${match.flowName}`,
-                detectedFlow: { flowId: match.flowId, flowName: match.flowName, confidence: match.confidence },
-                flowResults: [],
-            };
-        }
-        // Step 3: Prepare execution context
+        // Prepare execution context (shared across all flows in the chain)
         const executionContext = {
             utterance,
             userId: context.userId,
@@ -93,43 +122,163 @@ class SidecoachOrchestrator {
             selectedText: context.selectedText,
             metadata: context.metadata,
         };
-        // Step 4: Execute handler
-        let result;
-        try {
-            result = await handler.execute(executionContext);
-        }
-        catch (error) {
-            result = {
-                flowId: match.flowId,
-                flowName: match.flowName,
-                status: 'error',
-                message: `Error executing flow: ${error instanceof Error ? error.message : 'Unknown error'}`,
-                error: error instanceof Error ? error.message : String(error),
-            };
-        }
-        // Step 5: Record to FlowHistory and add flow marker
+        // Execute flow chain: initial flow + any automatically recommended follow-ups
+        const flowResults = [];
         const flowHistory = (0, flow_history_1.getFlowHistory)();
-        flowHistory.recordFlow({
-            flowId: match.flowId,
-            flowName: match.flowName,
-            status: result.status,
-            message: result.message,
-            guidance: result.guidance,
-            checklist: result.checklist,
-            artifacts: result.artifacts,
-            error: result.error,
-        });
-        // Add explicit flow marker to message so users see which flow executed
-        const flowMarker = `[Flow: ${match.flowName}]`;
-        const messageWithMarker = `${flowMarker}\n\n${result.message}`;
+        const validator = new deterministic_validator_1.DeterministicValidator();
+        const debtTracker = new design_debt_tracker_1.DesignDebtTracker(executionContext.projectPath);
+        let currentFlowId = match.flowId;
+        let firstFlow = true;
+        while (currentFlowId) {
+            // Get the handler for current flow
+            const handler = this.handlers.get(currentFlowId);
+            if (!handler) {
+                if (firstFlow) {
+                    return {
+                        success: false,
+                        message: `No handler found for flow: ${currentFlowId}`,
+                        detectedFlow: { flowId: match.flowId, flowName: match.flowName, confidence: match.confidence },
+                        flowResults,
+                    };
+                }
+                break; // Stop chaining if handler not found for follow-up flow
+            }
+            // Get flow name for error handling
+            const flowDef = (0, flows_1.getFlow)(currentFlowId);
+            const flowName = flowDef?.name || 'Unknown';
+            // Validate real prerequisites (DeterministicValidator: hard gates)
+            const validation = validator.validate(currentFlowId, executionContext, flowHistory);
+            // Auto-log warning violations as design debt (DesignDebtTracker)
+            if (currentFlowId) {
+                const flowIdForDebt = currentFlowId; // Type guard for TS
+                validation.violations.forEach((violation) => {
+                    if (violation.severity === 'warning' && violation.debtCandidate) {
+                        debtTracker.addDebt({
+                            ...violation.debtCandidate,
+                            flowId: flowIdForDebt,
+                        });
+                    }
+                });
+            }
+            if (!validation.valid) {
+                // Prerequisites not met: skip this flow and stop chaining
+                const skipResult = {
+                    flowId: currentFlowId,
+                    flowName,
+                    status: 'skipped',
+                    message: validation.message,
+                };
+                flowResults.push(skipResult);
+                // Record skipped flow with violations
+                flowHistory.recordFlow({
+                    flowId: currentFlowId,
+                    flowName,
+                    status: 'skipped',
+                    message: validation.message,
+                    guidance: validation.violations.map((v) => `[${v.severity}] ${v.message}${v.fix ? ` - ${v.fix}` : ''}`),
+                });
+                break; // Stop chaining when prerequisites not met
+            }
+            // Check if handler can execute (revive canExecute validation)
+            if (!handler.canExecute(executionContext)) {
+                const skipResult = {
+                    flowId: currentFlowId,
+                    flowName,
+                    status: 'skipped',
+                    message: `Flow cannot execute: prerequisites not met for ${currentFlowId}`,
+                };
+                flowResults.push(skipResult);
+                flowHistory.recordFlow({
+                    flowId: currentFlowId,
+                    flowName,
+                    status: 'skipped',
+                    message: skipResult.message,
+                });
+                break;
+            }
+            // Execute handler
+            let result;
+            try {
+                result = await handler.execute(executionContext);
+            }
+            catch (error) {
+                result = {
+                    flowId: currentFlowId,
+                    flowName,
+                    status: 'error',
+                    message: `Error executing flow: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                    error: error instanceof Error ? error.message : String(error),
+                };
+            }
+            // Check for regressions (RegressionDetector: compare against prior runs)
+            const regressionDetector = new regression_detector_1.RegressionDetector();
+            const regression = regressionDetector.compare(currentFlowId, result, flowHistory);
+            if (regression.hasRegression) {
+                const blockingRegressions = regression.regressions.filter((r) => r.severity === 'blocking');
+                const warningRegressions = regression.regressions.filter((r) => r.severity === 'warning');
+                if (blockingRegressions.length > 0) {
+                    // Status regression: block the chain
+                    result.status = 'error';
+                    result.message = `${result.message}\n\n⚠️ REGRESSION DETECTED: ${regression.message}`;
+                    // Break the chain on blocking regression
+                    flowHistory.recordFlow({
+                        flowId: currentFlowId,
+                        flowName: result.flowName,
+                        status: 'error',
+                        message: result.message,
+                        guidance: result.guidance,
+                        checklist: result.checklist,
+                        artifacts: result.artifacts,
+                        error: result.error,
+                    });
+                    flowResults.push(result);
+                    currentFlowId = undefined; // Stop chaining
+                    break;
+                }
+                else if (warningRegressions.length > 0) {
+                    // Guidance/checklist drops: warn but continue
+                    const warningMessages = warningRegressions.map((w) => w.message).join('; ');
+                    result.message = `${result.message}\n\n⚠️ Warning: ${warningMessages}`;
+                }
+            }
+            // Record to FlowHistory
+            flowHistory.recordFlow({
+                flowId: currentFlowId,
+                flowName: result.flowName,
+                status: result.status,
+                message: result.message,
+                guidance: result.guidance,
+                checklist: result.checklist,
+                artifacts: result.artifacts,
+                error: result.error,
+            });
+            flowResults.push(result);
+            // Determine next flow: if current flow succeeded, ask orchestrator for recommendation
+            if (result.status === 'success') {
+                currentFlowId = this.orchestrator.getNextRecommendedFlow(currentFlowId, result);
+            }
+            else if (result.status === 'needs_input' || result.status === 'error') {
+                // Stop chaining on error or incomplete flow
+                currentFlowId = undefined;
+            }
+            else {
+                currentFlowId = undefined;
+            }
+            firstFlow = false;
+        }
+        // Build response with all flow results
+        const combinedMessage = flowResults.map((r) => `[Flow: ${r.flowName}]\n${r.message}`).join('\n\n---\n\n');
+        // Prepend open design debt summary if any (DesignDebtTracker session start)
+        const debtSummary = debtTracker.getSummary();
+        const finalMessage = debtSummary ? `${debtSummary}\n\n---\n\n${combinedMessage}` : combinedMessage;
         return {
-            success: result.status === 'success',
-            message: messageWithMarker,
+            success: flowResults.some((r) => r.status === 'success'),
+            message: finalMessage,
             detectedFlow: { flowId: match.flowId, flowName: match.flowName, confidence: match.confidence },
-            flowResults: [result],
-            guidance: result.guidance,
-            checklist: result.checklist,
-            artifacts: result.artifacts,
+            flowResults,
+            guidance: flowResults.flatMap((r) => r.guidance || []),
+            checklist: flowResults.flatMap((r) => r.checklist || []),
+            artifacts: flowResults.flatMap((r) => r.artifacts || []),
         };
     }
     registerHandler(handler) {
@@ -137,6 +286,35 @@ class SidecoachOrchestrator {
     }
     getAvailableFlows() {
         const flowIds = [
+            // Tier 1: Strategy/Research
+            'flowA_brand_verify',
+            'flowB_component_research',
+            'flowC_font_research',
+            'flowD_reference_inspiration',
+            'flowE_motion_patterns',
+            // Tier 2: Execution
+            'flowF_design_tokens',
+            'flowG_component_implementation',
+            'flowH_motion_integration',
+            'flowI_accessibility',
+            // Tier 3: Polish/QA
+            'flowJ_tactical_polish',
+            'flowK_multi_lens_audit',
+            'flowL_design_critique',
+            'flowM_responsive_validation',
+            'flowN_rapid_iteration_refined',
+            // Tier 4: Special
+            'flowO_clone_match_special',
+            'flowP_constraint_design_special',
+            'flowQ_migration_special',
+            // Tier 5: Specialized Refinement
+            'flowR_layout_optimization',
+            'flowS_typography_excellence',
+            'flowT_ambitious_motion',
+            // Special: Curate & QA
+            'flowU_curate',
+            'flowV_all_seven_qa',
+            // Legacy flows
             'flow1_clone_match',
             'flow2_polish_enhance',
             'flow3_audit_page',
@@ -166,8 +344,8 @@ class SidecoachOrchestrator {
             .filter((f) => f !== null);
     }
 }
-exports.SidecoachOrchestrator = SidecoachOrchestrator;
-function createOrchestrator() {
-    return new SidecoachOrchestrator();
+exports.FlowExecutionEngine = FlowExecutionEngine;
+function createExecutionEngine() {
+    return new FlowExecutionEngine();
 }
 //# sourceMappingURL=sidecoach-orchestrator.js.map

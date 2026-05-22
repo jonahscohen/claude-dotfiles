@@ -28,15 +28,17 @@ export interface FlowHistoryEntry {
     message: string;
     guidance?: string[];
     checklist?: any[];
+    nextSteps?: string[];
     artifacts?: any[];
     error?: string;
 }
 export interface SessionFlowHistory {
     flowSequence: string[];
-    flowOutputs: Record<string, FlowHistoryEntry>;
+    flowOutputs: Record<string, FlowHistoryEntry[]>;
     context: Record<string, any>;
     timestamp: string;
     sessionId: string;
+    projectPath?: string;
 }
 export declare class FlowHistory {
     private static readonly HISTORY_FILE;
@@ -56,7 +58,7 @@ export declare class FlowHistory {
      */
     private getSessionHistory;
     /**
-     * Record a flow execution
+     * Record a flow execution (v2: append to array, cap at 20 runs per flow)
      */
     recordFlow(entry: FlowHistoryEntry): void;
     /**
@@ -64,11 +66,11 @@ export declare class FlowHistory {
      */
     getLastFlow(): FlowHistoryEntry | null;
     /**
-     * Get a specific flow's output by ID
+     * Get a specific flow's output by ID (v2: returns latest run for backward compat)
      */
     getFlowOutput(flowId: string): FlowHistoryEntry | null;
     /**
-     * Get all executed flows in order
+     * Get all executed flows in order (v2: returns latest run for each)
      */
     getFlowSequence(): FlowHistoryEntry[];
     /**
@@ -92,13 +94,30 @@ export declare class FlowHistory {
      */
     hasFlowExecuted(flowId: string): boolean;
     /**
-     * Get flow execution count (useful for tracking iterations)
+     * Get flow execution count (fixed from v1 - now reads array length)
      */
     getFlowCount(flowId: string): number;
+    /**
+     * v2: Get all runs for a flow in chronological order
+     */
+    getFlowRuns(flowId: string): FlowHistoryEntry[];
+    /**
+     * v2: Get first successful run (baseline for regression detection)
+     */
+    getBaselineRun(flowId: string): FlowHistoryEntry | null;
+    /**
+     * v2: Get most recent run (replaces old getFlowOutput for latest)
+     */
+    getLatestRun(flowId: string): FlowHistoryEntry | null;
 }
 /**
- * Factory function to create or get FlowHistory instance
+ * Get or create FlowHistory singleton instance
+ * Ensures all callers share the same in-memory state within a process
  * Uses SIDECOACH_SESSION_ID environment variable
  */
 export declare function getFlowHistory(): FlowHistory;
+/**
+ * Reset singleton instance (for testing only)
+ */
+export declare function resetFlowHistorySingleton(): void;
 //# sourceMappingURL=flow-history.d.ts.map

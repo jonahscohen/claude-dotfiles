@@ -1,50 +1,110 @@
-# Sidecoach: Invisible Workflow Automation
+# Sidecoach v3: Design System Guardian
 
-Sidecoach is a system that automatically detects and executes design/development workflows based on natural conversation. Instead of slash commands (`/impeccable`, `/make-interfaces-feel-better`), you simply write naturally about what you need, and Sidecoach detects your intent and guides you through the appropriate workflow.
+Sidecoach is a design system orchestration engine that detects natural-language intent and chains design/development workflows into phases. It replaces command-based interfaces with conversation-driven, phase-gated execution.
+
+Instead of `/impeccable craft ...` or `/make-interfaces-feel-better`, you describe what you're building and Sidecoach automatically detects the phase, enforces prerequisites, and chains the right flows in sequence.
+
+## What Sidecoach Does
+
+1. **Intent Detection** - Understands natural language intent from your utterance
+2. **Prerequisite Enforcement** - Hard-blocks flows when PRODUCT.md/DESIGN.md are missing or incomplete
+3. **Phase Gating** - Enforces tier progression (can't run polish before build completes)
+4. **Flow Chaining** - Automatically chains related flows (Run Flow A → recommends B → recommends C)
+5. **Regression Detection** - Detects when a flow produces worse output than prior runs
+6. **Design Debt Tracking** - Auto-logs deferred issues and surfaces them at session start
+7. **Persona-Based Critique** - Extracts project-specific personas from PRODUCT.md for design review
 
 ## Architecture
 
-### Core Components
+### 5 Core Systems (New in v3)
 
-1. **Intent Detector** (`src/intent-detector.ts`)
-   - Rule-based pattern matching for trigger detection
-   - Conflict resolution via collision avoidance rules
-   - 100% accuracy on test utterances
+1. **DeterministicValidator** - Hard-blocking prerequisite gates
+   - PRODUCT.md must exist (>200 chars)
+   - DESIGN.md required for Tier 2+ (colors, typography, spacing)
+   - Tier 3 requires Tier 2 success
+   - Tier 4/5 require Tier 3 success
+   - Motion flows require GSAP/Lenis
 
-2. **Flow Handlers** (14 total)
-   - `flow-handlers-core.ts`: High-priority flows (2, 5, 7, 10)
-   - `flow-handlers-extended.ts`: Extended flows (1, 3, 4, 6, 8, 9, 11, 12, 13, 14)
-   - Each handler returns: guidance, checklists, next steps, artifacts
+2. **RegressionDetector** - Compares flow output across runs
+   - Status degradation (success → error) blocks chain
+   - Guidance/checklist drops warn but continue
+   - Message quality drops tracked
 
-3. **Orchestrator** (`src/sidecoach-orchestrator.ts`)
-   - Routes utterances to appropriate handlers
-   - Manages handler registry
-   - Returns structured FlowExecutionResult
+3. **ProjectPersonaEngine** - Async LLM extraction of project-specific personas
+   - Parses PRODUCT.md for user types, brand personality
+   - Generates 3 project personas (fallback to 5 generic archetypes)
+   - Used by Design Critique (FlowL) for context-aware review
 
-4. **Daemon System** (shell scripts)
-   - `claude/hooks/sidecoach-sessionstart.sh`: Launches daemon at session start
-   - `sidecoach/bin/sidecoach-daemon.sh`: Background process reading from named pipe
-   - `claude/hooks/sidecoach-postuserp.sh`: Feeds user messages to daemon
-   - `claude/hooks/sidecoach-postresponse.sh`: Injects results into response
+4. **DesignDebtTracker** - Persistent design debt logging
+   - Auto-logs warning-level violations
+   - Keyed by projectPath (cross-session tracking)
+   - Surfaced at session start
 
-## The 14 Flows
+5. **ImpeccableDetectBridge** - CLI integration with `npx impeccable detect`
+   - Runs 28-rule static analyzer during FlowK (Multi-Lens Audit)
+   - Includes real findings in guidance + checklist
 
-| # | Name | Trigger | Purpose |
-|---|------|---------|---------|
-| 1 | Clone/Match | "match from [source]", "clone [component]" | Pixel-perfect 1:1 replication |
-| 2 | Polish/Enhance | "make this feel better", "polish [element]" | Add feeling and microinteractions |
-| 3 | Audit Page | "audit [section]", "find issues on [page]" | Technical issue discovery |
-| 4 | Explore/Discovery | "explore [concept]", "experiment with [area]" | Open-ended brainstorming |
-| 5 | Review/QA | "review this PR", "comprehensive check" | Multi-lens QA framework |
-| 6 | Constraint Design | "design [element] for [constraint]" | Design under explicit limits |
-| 7 | Design Component | "design a [component]", "create [element]" | New component creation + QA triad |
-| 8 | Refactor/Improve | "refactor [section]", "[area] feels cluttered" | Layout/structure improvement |
-| 9 | Make Accessible | "make [area] accessible", "a11y audit" | WCAG 2.1 AA compliance |
-| 10 | Implement Design | "implement [component]", "code this design" | Design-to-code workflow |
-| 11 | Extract Tokens | "extract [pattern]", "make [pattern] reusable" | Pattern extraction into tokens |
-| 12 | Responsive Review | "responsive check", "test breakpoints" | Breakpoint and device testing |
-| 13 | Rapid Iteration | "iterate on [element]", "try variations" | Goal-driven refinement cycle |
-| 14 | Migration | "migrate [component] to", "replace [old] with [new]" | API change and component migration |
+### 36 Total Flows (22 new tiers + 14 legacy)
+
+**TIER 1 - STRATEGY & RESEARCH (Flows A-E)**
+| Flow | Name | Trigger | Purpose |
+|------|------|---------|---------|
+| A | Brand Verify | "verify brand alignment", "brand check" | PRODUCT.md alignment, brand guidelines |
+| B | Component Research | "research components", "component audit" | Accessibility, coverage, inventory |
+| C | Font Research | "typography research", "font system" | Font choices, loading, fallbacks |
+| D | Reference Search | "find inspiration", "design references" | Inspiration, prior art, design catalog |
+| E | Motion Patterns | "motion research", "animation patterns" | GSAP/Lenis integration, motion library |
+
+**TIER 2 - BUILD (Flows F-I)**
+| Flow | Name | Trigger | Purpose |
+|------|------|---------|---------|
+| F | Design Tokens | "extract tokens", "design tokens" | Colors, spacing, typography as tokens |
+| G | Component Implementation | "implement components", "build from design" | Component implementation with tokens |
+| H | Motion Integration | "integrate motion", "add animations" | Animation and interaction integration |
+| I | Accessibility | "make accessible", "a11y audit" | WCAG 2.1 AA compliance, SR testing |
+
+**TIER 3 - POLISH (Flows J-P)**
+| Flow | Name | Trigger | Purpose |
+|------|------|---------|---------|
+| J | Tactical Polish | "make feel better", "polish interface" | 16-point refinement (radius, optical, shadows) |
+| K | Multi-Lens Audit | "technical audit", "quality scan" | 5-dimension scan (a11y, perf, theming, responsive, anti-patterns) |
+| L | Design Critique | "design review", "critique" | Nielsen heuristics, AI-slop, cognitive load |
+| M | Responsive Validation | "responsive check", "breakpoint test" | Breakpoint testing, 40x40px hit targets |
+| N | Rapid Iteration | "iterate", "try variations" | Token-based variation generation |
+| O | Clone Match | "pixel perfect", "match exactly" | Pixel-perfect comparison vs design |
+| P | Constraint Design | "design for constraint", "finalize" | Design within system constraints |
+
+**TIER 4/5 - SPECIALIZED (Flows Q-T)**
+| Flow | Name | Trigger | Purpose |
+|------|------|---------|---------|
+| Q | Migration | "migrate to", "replace component" | API migration, dependency mapping |
+| R | Layout Optimization | "layout review", "spacing refine" | Whitespace, alignment, visual hierarchy |
+| S | Typography Excellence | "kerning", "typography detail" | Kerning, ligatures, line-height, variable fonts |
+| T | Ambitious Motion | "advanced animation", "motion sequences" | Advanced animation sequences, micro-interactions |
+
+**SPECIAL (Flows U-V)**
+| Flow | Name | Trigger | Purpose |
+|------|------|---------|---------|
+| U | Curate | "add reference", "design reference" | 5-step design reference capture wizard |
+| V | All-Seven QA | "comprehensive qa", "all-seven" | End-to-end QA chaining A-T with gates |
+
+**LEGACY (Flows 1-14)**
+| Flow | Name | Purpose |
+|------|------|---------|
+| 1 | Clone/Match | Pixel-perfect 1:1 replication |
+| 2 | Polish/Enhance | Microinteractions, tactile feel |
+| 3 | Audit Page | Technical issue discovery |
+| 4 | Explore/Discovery | Open-ended brainstorming |
+| 5 | Review/QA | Multi-lens QA framework |
+| 6 | Constraint Design | Design under explicit limits |
+| 7 | Design Component | New component creation + QA triad |
+| 8 | Refactor/Improve | Layout/structure improvement |
+| 9 | Make Accessible | WCAG 2.1 AA compliance |
+| 10 | Implement Design | Design-to-code workflow |
+| 11 | Extract Tokens | Pattern extraction into tokens |
+| 12 | Responsive Review | Breakpoint and device testing |
+| 13 | Rapid Iteration | Goal-driven refinement cycle |
+| 14 | Migration | API change and component migration |
 
 ## How It Works
 

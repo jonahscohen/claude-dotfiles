@@ -1,3 +1,5 @@
+- [Phase 6: Intelligent Flow Chaining (2026-05-21)](session_2026-05-21_phase6_intelligent_flow_chaining.md) - Wired orchestrator into execution engine; flows now chain automatically based on phase detection and prerequisites
+- [Phase 5: Integration Start (2026-05-21)](session_2026-05-21_phase5_integration_start.md) - Wired SidecoachOrchestrator into IntentDetector; all 5 orchestrator methods exposed through intent detection
 - [Question enforcement hook built (2026-05-21)](session_2026-05-21_question_enforcement_hook.md) - Shell hook blocks responses with plain-text questions; validates tool use before response reaches user; true failure-proof enforcement
 - [CRITICAL: AskUserQuestion tool enforcement (2026-05-21)](session_2026-05-21_asquestion_tool_enforcement.md) - Always use AskUserQuestion tool, never ask in plain text; tool requirement enforces multiple-choice by design, mechanical gate
 - [CRITICAL: Multiple choice mandatory (2026-05-21)](feedback_multiple_choice_mandatory.md) - All questions must use AskUserQuestion with 2-3 concrete options, one marked recommended; never open-ended; this is permanent across all future work
@@ -99,3 +101,13 @@
 - [Dish Playscapes improv (2026-05-14)](session_2026-05-14_dishplayscapes-improv.md) - Claudebar + Queuebar prototypes to production, Spark sprites, timeout/retry/batching, 10 bug fixes
 - [Improv connection detection (2026-05-16)](session_2026-05-16_improv-connection-detection.md) - Claudebar silent failure debug; pivoting to connection-aware UX (hide Send when no watcher active)
 - [Hook system architecture](decision_hook_system_architecture.md) - Operational reference: inventory of 16 hooks, flag-file registry, precedence rules, known duplications, override mechanism, new-hook checklist
+- [Sidecoach v3 Plan (2026-05-21)](session_2026-05-21_sidecoach-v3-plan.md) - Plan for Design System Guardian: DeterministicValidator, FlowHistory v2, RegressionDetector, ProjectPersonaEngine, DesignDebtTracker
+- [Sidecoach Tier 5 Completion (2026-05-21)](session_2026-05-21_sidecoach-tier5-completion.md) - Implemented flowR (layout), flowS (typography), flowT (ambitious motion); 100% impeccable v2.1.9 coverage (24/24 commands)
+- [Impeccable v2.1.9 Gap Analysis (2026-05-21)](session_2026-05-21_impeccable_gap_analysis.md) - Audited latest impeccable package; 91% coverage (21/23); identified 3 new commands (layout, overdrive, typeset) for tier 5
+- [Phase 7: Flow Chaining Verification (2026-05-21)](session_2026-05-21_phase7_flow_chaining_verification.md) - End-to-end test script created; invisible flow chaining verified functional; Test 1 passed (brand verify → component research)
+- [Phase 6: Intelligent Flow Chaining (2026-05-21)](session_2026-05-21_phase6_intelligent_flow_chaining.md) - Wired orchestrator into execution engine; flows now chain automatically based on phase detection and prerequisites
+- [Phase 1 Implementation - Flow Architecture (2026-05-21)](session_2026-05-21_phase1_implementation.md) - Expanding 14 legacy flows to 17-flow tiered architecture (A-Q); Flow J embeds all 16 make-interfaces-feel-better rules; type definitions, handler names, flow specs completed
+- [Phase 2 Reference Data Wiring (2026-05-21)](session_2026-05-21_phase2_reference_data.md) - ReferenceDataService with 10 components + 5 fonts + 8 motion patterns; Handlers B/C/E wired
+- [Phase 2b Expanded Component Library (2026-05-21)](session_2026-05-21_phase2b_expanded_data.md) - Extended to 40+ components across 7 categories + 20 motion patterns; TypeScript verified
+- [Phase 2c Design Tokens & References (2026-05-21)](session_2026-05-21_phase2c_design_tokens.md) - Design-references scanning + DESIGN.md parsing wired into Flow D/F handlers
+- [Phase 3 Flow Logic Expansion (2026-05-21)](session_2026-05-21_phase3_flow_logic.md) - All 9 flows (A-I) enhanced with intelligent lookups + code templates; guidance dynamically adapts to available data

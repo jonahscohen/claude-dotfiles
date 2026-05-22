@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FlowHistory = void 0;
 exports.getFlowHistory = getFlowHistory;
+exports.resetFlowHistorySingleton = resetFlowHistorySingleton;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 class FlowHistory {
@@ -93,7 +94,7 @@ class FlowHistory {
         return this.history.get(this.sessionId);
     }
     /**
-     * Record a flow execution
+     * Record a flow execution (v2: append to array, cap at 20 runs per flow)
      */
     recordFlow(entry) {
         const session = this.getSessionHistory();
@@ -101,10 +102,27 @@ class FlowHistory {
         if (!session.flowSequence.includes(flowId)) {
             session.flowSequence.push(flowId);
         }
-        session.flowOutputs[flowId] = {
+        const entryWithTimestamp = {
             ...entry,
             timestamp: new Date().toISOString(),
         };
+        // Get or create runs array
+        let runs = [];
+        const existing = session.flowOutputs[flowId];
+        if (existing && Array.isArray(existing)) {
+            runs = existing;
+        }
+        else if (existing) {
+            // Migration from v1 (single entry to array)
+            runs = [existing];
+        }
+        // Append to runs and cap at 20
+        if (runs.length >= 20) {
+            runs.shift();
+        }
+        runs.push(entryWithTimestamp);
+        // Update session with properly typed array
+        session.flowOutputs[flowId] = runs;
         this.save();
     }
     /**
@@ -115,22 +133,33 @@ class FlowHistory {
         if (session.flowSequence.length === 0)
             return null;
         const lastFlowId = session.flowSequence[session.flowSequence.length - 1];
-        return session.flowOutputs[lastFlowId] || null;
+        const runs = session.flowOutputs[lastFlowId];
+        if (!runs || !Array.isArray(runs) || runs.length === 0)
+            return null;
+        return runs[runs.length - 1];
     }
     /**
-     * Get a specific flow's output by ID
+     * Get a specific flow's output by ID (v2: returns latest run for backward compat)
      */
     getFlowOutput(flowId) {
-        const session = this.getSessionHistory();
-        return session.flowOutputs[flowId] || null;
+        return this.getLatestRun(flowId);
     }
     /**
-     * Get all executed flows in order
+     * Get all executed flows in order (v2: returns latest run for each)
      */
     getFlowSequence() {
         const session = this.getSessionHistory();
         return session.flowSequence
-            .map((flowId) => session.flowOutputs[flowId])
+            .map((flowId) => {
+            const runs = session.flowOutputs[flowId];
+            if (!runs)
+                return undefined;
+            if (Array.isArray(runs)) {
+                return runs.length > 0 ? runs[runs.length - 1] : undefined;
+            }
+            // Handle v1 migration (single entry)
+            return runs;
+        })
             .filter((f) => f !== undefined);
     }
     /**
@@ -170,21 +199,60 @@ class FlowHistory {
         return flowId in session.flowOutputs;
     }
     /**
-     * Get flow execution count (useful for tracking iterations)
+     * Get flow execution count (fixed from v1 - now reads array length)
      */
     getFlowCount(flowId) {
         const session = this.getSessionHistory();
-        return session.flowSequence.filter((id) => id === flowId).length;
+        const runs = session.flowOutputs[flowId];
+        if (!runs)
+            return 0;
+        return Array.isArray(runs) ? runs.length : 1;
+    }
+    /**
+     * v2: Get all runs for a flow in chronological order
+     */
+    getFlowRuns(flowId) {
+        const session = this.getSessionHistory();
+        const runs = session.flowOutputs[flowId];
+        if (!runs)
+            return [];
+        return Array.isArray(runs) ? runs : [runs];
+    }
+    /**
+     * v2: Get first successful run (baseline for regression detection)
+     */
+    getBaselineRun(flowId) {
+        const runs = this.getFlowRuns(flowId);
+        return runs.find((r) => r.status === 'success') || null;
+    }
+    /**
+     * v2: Get most recent run (replaces old getFlowOutput for latest)
+     */
+    getLatestRun(flowId) {
+        const runs = this.getFlowRuns(flowId);
+        return runs.length > 0 ? runs[runs.length - 1] : null;
     }
 }
 exports.FlowHistory = FlowHistory;
 FlowHistory.HISTORY_FILE = path.join(process.env.HOME || '~', '.claude', 'sidecoach-flow-history.json');
+// Module-level singleton instance
+let _flowHistoryInstance = null;
 /**
- * Factory function to create or get FlowHistory instance
+ * Get or create FlowHistory singleton instance
+ * Ensures all callers share the same in-memory state within a process
  * Uses SIDECOACH_SESSION_ID environment variable
  */
 function getFlowHistory() {
-    const sessionId = process.env.SIDECOACH_SESSION_ID || 'default';
-    return new FlowHistory(sessionId);
+    if (!_flowHistoryInstance) {
+        const sessionId = process.env.SIDECOACH_SESSION_ID || 'default';
+        _flowHistoryInstance = new FlowHistory(sessionId);
+    }
+    return _flowHistoryInstance;
+}
+/**
+ * Reset singleton instance (for testing only)
+ */
+function resetFlowHistorySingleton() {
+    _flowHistoryInstance = null;
 }
 //# sourceMappingURL=flow-history.js.map

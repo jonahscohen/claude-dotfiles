@@ -1,8 +1,9 @@
 import { FlowHandler, FlowExecutionContext, FlowExecutionResult } from './flow-handler';
 import { FlowId } from './types';
-export declare class SidecoachOrchestrator {
+export declare class FlowExecutionEngine {
     private intentDetector;
     private handlers;
+    private orchestrator;
     constructor();
     private initializeHandlers;
     process(utterance: string, context?: Partial<FlowExecutionContext>): Promise<SidecoachResult>;
@@ -32,5 +33,5 @@ export interface SidecoachResult {
         confidence: number;
     }>;
 }
-export declare function createOrchestrator(): SidecoachOrchestrator;
+export declare function createExecutionEngine(): FlowExecutionEngine;
 //# sourceMappingURL=sidecoach-orchestrator.d.ts.map
