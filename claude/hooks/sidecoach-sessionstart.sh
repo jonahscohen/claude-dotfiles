@@ -1,50 +1,38 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# Sidecoach SessionStart hook - starts daemon and writes state file
 
-# Sidecoach SessionStart Hook
-# Initializes Sidecoach intent detection + flow execution at session start
-# Launches background daemon that monitors conversation and triggers flows invisibly
+SIDECOACH_ROOT="/Users/spare3/Documents/Github/claude-dotfiles/sidecoach"
+STATE_FILE="$HOME/.claude/.sidecoach-state"
 
-set -e
-
-SIDECOACH_ROOT="$(dirname "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")")/sidecoach"
-SIDECOACH_BIN="${SIDECOACH_ROOT}/bin"
-SIDECOACH_DIST="${SIDECOACH_ROOT}/dist"
-
-# Check that Sidecoach is built
-if [[ ! -f "${SIDECOACH_DIST}/sidecoach-orchestrator.js" ]]; then
-  echo "Sidecoach not yet built. Skipping initialization." >&2
+# Check that dist is built
+if [[ ! -f "$SIDECOACH_ROOT/dist/sidecoach-orchestrator.js" ]]; then
   exit 0
 fi
 
-# Set up environment for Sidecoach daemon
-export SIDECOACH_ACTIVE=1
-export SIDECOACH_BIN
-export SIDECOACH_DIST
-export SIDECOACH_LOG="/tmp/sidecoach-${USER}-$$.log"
+# Generate session ID and pipe path
+SESSION_ID="$(date +%s)-$$"
+PIPE_PATH="/tmp/sidecoach-$USER-$SESSION_ID.pipe"
 
-# Determine session ID (use CLAUDE_SESSION_ID if available, otherwise PPID)
-# CLAUDE_SESSION_ID is set by Claude Code session infrastructure
-SESSION_ID="${CLAUDE_SESSION_ID:-$PPID}"
-export SIDECOACH_SESSION_ID="$SESSION_ID"
+# Create named pipe for daemon
+mkfifo "$PIPE_PATH" 2>/dev/null || exit 0
 
-# Create session-scoped pipe for daemon communication
-SIDECOACH_PIPE="/tmp/sidecoach-${USER}-$$.pipe"
-mkfifo "$SIDECOACH_PIPE" 2>/dev/null || true
-
-# Launch daemon in background
-# The daemon reads from stdin (utterances from PostUserPrompt hook),
-# processes them through Sidecoach orchestrator, and outputs JSON results
-"${SIDECOACH_BIN}/sidecoach-daemon.sh" \
-  --pipe "$SIDECOACH_PIPE" \
-  --log "$SIDECOACH_LOG" \
+# Start daemon in background (detached, survives hook exit)
+nohup "$SIDECOACH_ROOT/bin/sidecoach-daemon.sh" \
+  --pipe "$PIPE_PATH" \
+  --log "/tmp/sidecoach-$SESSION_ID.log" \
   --session-id "$SESSION_ID" \
-  >"${SIDECOACH_LOG}" 2>&1 &
+  >/dev/null 2>&1 &
+DAEMON_PID=$!
 
-SIDECOACH_PID=$!
-export SIDECOACH_PID
+# Write state file (persists across hook invocations)
+cat > "$STATE_FILE" <<EOF
+ACTIVE=1
+SESSION_ID=$SESSION_ID
+PIPE_PATH=$PIPE_PATH
+SIDECOACH_ROOT=$SIDECOACH_ROOT
+DAEMON_PID=$DAEMON_PID
+EOF
 
-# Clean up on session end (trap will fire at PostSessionEnd or when parent shell exits)
-trap "kill $SIDECOACH_PID 2>/dev/null; rm -f '$SIDECOACH_PIPE'; true" EXIT
-
-# Signal that Sidecoach is active and ready
-echo "Sidecoach initialized (PID: $SIDECOACH_PID, session: $PPID)"
+# Don't trap - let daemon run independently in background
+# State file cleanup happens in sidecoach-postresponse.sh
+exit 0
