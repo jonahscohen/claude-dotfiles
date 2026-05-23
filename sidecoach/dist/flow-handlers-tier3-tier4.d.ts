@@ -1,10 +1,7 @@
 import { BaseFlowHandler, FlowExecutionContext, FlowExecutionResult } from './flow-handler';
-/**
- * Flow J: 16-Point Tactical Polish
- * Apply make-interfaces-feel-better rules for visual refinement
- */
 export declare class FlowJTacticalPolishHandler extends BaseFlowHandler {
     constructor();
+    canExecute(context: FlowExecutionContext): boolean;
     execute(context: FlowExecutionContext): Promise<FlowExecutionResult>;
 }
 /**
@@ -16,8 +13,8 @@ export declare class FlowKMultiLensAuditHandler extends BaseFlowHandler {
     execute(context: FlowExecutionContext): Promise<FlowExecutionResult>;
 }
 /**
- * Flow L: Design Critique (Nielsen heuristics)
- * Independent design review - Nielsen heuristics, AI-slop detection, cognitive load, emotional journey
+ * Flow L: Design Critique (Nielsen heuristics + 12-rule framework)
+ * Independent design review - Nielsen heuristics, AI-slop detection, cognitive load, emotional journey, 12-rule critique
  */
 export declare class FlowLDesignCritiqueHandler extends BaseFlowHandler {
     constructor();

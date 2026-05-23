@@ -8,6 +8,7 @@ import { MotionReferenceImpl } from './motion-reference';
 import { SHARED_DESIGN_LAWS } from './design-laws';
 import { FlowMemoryBuilder } from './flow-memory-schema';
 import { ExtendedDomainValidator, DomainCheckContext } from './extended-domain-validator';
+import { EnhancedFlowExecutionContext } from './flow-execution-context-enhanced';
 
 export interface MotionPatternContext {
   motionDomainRules: string[];
@@ -42,6 +43,7 @@ export class FlowEMotionPatternsHandler extends BaseFlowHandler {
   }
 
   async execute(context: FlowExecutionContext): Promise<FlowExecutionResult> {
+    const enhancedContext = context as EnhancedFlowExecutionContext;
     const brandPersonality = context.projectContext?.product?.brandPersonality || context.projectContext?.product?.brand_personality;
     const register = context.projectContext?.register || 'product';
 
@@ -62,6 +64,18 @@ export class FlowEMotionPatternsHandler extends BaseFlowHandler {
 
       // Get full motion palette for register
       const motionPalette = await this.motionRef.getMotionPalette(register);
+
+      // Add custom data to enhanced context if available
+      if (enhancedContext?.flowMetadata) {
+        enhancedContext.flowMetadata.tags = ['flowE', 'motion-patterns', 'motion-domain'];
+        enhancedContext.flowMetadata.customData = {
+          'motion-intensity': intensity,
+          'easing-curves': easingPatterns.length,
+          'reduced-motion-strategies': 6,
+          'motion-register': register,
+          'brand-personality': brandPersonality || 'default',
+        };
+      }
 
       // Prepare easing curves response
       const easingCurves = easingPatterns.map((pattern) => ({

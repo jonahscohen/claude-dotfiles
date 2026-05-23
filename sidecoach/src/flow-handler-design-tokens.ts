@@ -5,6 +5,7 @@ import { BaseFlowHandler, FlowExecutionContext, FlowExecutionResult, ChecklistIt
 import { SHARED_DESIGN_LAWS } from './design-laws';
 import { FlowMemoryBuilder } from './flow-memory-schema';
 import { ExtendedDomainValidator, DomainCheckContext } from './extended-domain-validator';
+import { EnhancedFlowExecutionContext } from './flow-execution-context-enhanced';
 import fs from 'fs';
 import path from 'path';
 
@@ -36,6 +37,7 @@ export class FlowFDesignTokensHandler extends BaseFlowHandler {
   }
 
   async execute(context: FlowExecutionContext): Promise<FlowExecutionResult> {
+    const enhancedContext = context as EnhancedFlowExecutionContext;
     const projectPath = context.projectPath || process.cwd();
     const designMdPath = path.join(projectPath, 'DESIGN.md');
     const hasDesignMd = fs.existsSync(designMdPath);
@@ -148,6 +150,17 @@ export class FlowFDesignTokensHandler extends BaseFlowHandler {
           ? []
           : ['DESIGN.md missing - cannot validate writing tokens'],
       });
+
+      // Add custom data to enhanced context if available
+      if (enhancedContext?.flowMetadata) {
+        enhancedContext.flowMetadata.tags = ['flowF', 'design-tokens', 'token-validation'];
+        enhancedContext.flowMetadata.customData = {
+          'token-sections': tokenSections.length,
+          'has-design-md': hasDesignMd,
+          'domain-validation-count': domainValidationResults.length,
+          'domains-passed': domainValidationResults.filter((r) => r.validationStatus === 'pass').length,
+        };
+      }
 
       // Cache context for downstream flows
       this.cachedTokenContext = {

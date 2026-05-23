@@ -26,7 +26,7 @@ nohup "$SIDECOACH_ROOT/bin/sidecoach-daemon.sh" \
 DAEMON_PID=$!
 
 # Write state file (persists across hook invocations)
-cat > "$STATE_FILE" <<'EOF'
+cat > "$STATE_FILE" <<EOF
 ACTIVE=1
 SESSION_ID=$SESSION_ID
 PIPE_PATH=$PIPE_PATH

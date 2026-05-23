@@ -4,10 +4,20 @@ export declare class FlowExecutionEngine {
     private intentDetector;
     private handlers;
     private orchestrator;
+    private compositionEngine;
+    private contextManager;
     constructor();
+    private initializeValidators;
     private initializeHandlers;
     private recordFlowWithMemory;
+    private validateFlowExecution;
+    private cacheFlowResult;
+    private trackFlowMetrics;
+    private determineConditionalFlow;
+    private getExecutablePath;
+    private processWithEntryPoint;
     process(utterance: string, context?: Partial<FlowExecutionContext>): Promise<SidecoachResult>;
+    private showInteractiveMenu;
     registerHandler(handler: FlowHandler): void;
     getAvailableFlows(): FlowInfo[];
 }

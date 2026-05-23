@@ -21,6 +21,12 @@ export interface FlowExecutionResult {
     artifacts?: FlowArtifact[];
     error?: string;
     memory?: FlowMemoryEntry;
+    validationResults?: any[];
+    executionMetadata?: {
+        enhancedContext?: any;
+        executionChain?: any[];
+        executionDuration?: number | null;
+    };
 }
 export interface ChecklistItem {
     id: string;

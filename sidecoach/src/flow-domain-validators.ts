@@ -1,0 +1,278 @@
+/**
+ * Flow Domain Validators
+ * Defines domain validators for specific flows to ensure quality across different dimensions
+ */
+
+import { FlowExecutionResult } from './flow-handler';
+import { FlowCompositionEngine, ValidationRule, DomainValidator } from './flow-composition';
+
+/**
+ * Create accessibility validators for WCAG 2.1 AA compliance flows
+ */
+export function createAccessibilityValidator(): DomainValidator {
+  const rules: ValidationRule[] = [
+    {
+      name: 'has_wcag_guidance',
+      description: 'Result includes WCAG 2.1 AA compliance guidance',
+      validate: (result) => {
+        return result.guidance?.some(g => g.toLowerCase().includes('wcag') || g.toLowerCase().includes('accessibility')) ?? false;
+      },
+    },
+    {
+      name: 'has_testing_plan',
+      description: 'Result includes screen reader or accessibility testing plan',
+      validate: (result) => {
+        return result.guidance?.some(g =>
+          g.toLowerCase().includes('screen reader') ||
+          g.toLowerCase().includes('voiceover') ||
+          g.toLowerCase().includes('nvda') ||
+          g.toLowerCase().includes('keyboard')
+        ) ?? false;
+      },
+    },
+    {
+      name: 'has_checklist',
+      description: 'Result includes accessibility checklist items',
+      validate: (result) => {
+        return (result.checklist?.length ?? 0) > 0;
+      },
+    },
+  ];
+
+  return FlowCompositionEngine.createDomainValidator('accessibility', rules);
+}
+
+/**
+ * Create performance validators for motion and polish flows
+ */
+export function createPerformanceValidator(): DomainValidator {
+  const rules: ValidationRule[] = [
+    {
+      name: 'has_performance_metrics',
+      description: 'Result includes performance metrics or guidelines',
+      validate: (result) => {
+        return result.guidance?.some(g =>
+          g.toLowerCase().includes('performance') ||
+          g.toLowerCase().includes('fps') ||
+          g.toLowerCase().includes('animation') ||
+          g.toLowerCase().includes('motion')
+        ) ?? false;
+      },
+    },
+    {
+      name: 'has_optimization_guidance',
+      description: 'Result includes optimization or smoothness guidance',
+      validate: (result) => {
+        return result.guidance?.some(g =>
+          g.toLowerCase().includes('optimize') ||
+          g.toLowerCase().includes('smooth') ||
+          g.toLowerCase().includes('reduced-motion') ||
+          g.toLowerCase().includes('performance budget')
+        ) ?? false;
+      },
+    },
+  ];
+
+  return FlowCompositionEngine.createDomainValidator('performance', rules);
+}
+
+/**
+ * Create design system compliance validators
+ */
+export function createDesignSystemValidator(): DomainValidator {
+  const rules: ValidationRule[] = [
+    {
+      name: 'uses_design_tokens',
+      description: 'Result references design tokens or design system',
+      validate: (result) => {
+        return result.guidance?.some(g =>
+          g.toLowerCase().includes('token') ||
+          g.toLowerCase().includes('design system') ||
+          g.toLowerCase().includes('design.md') ||
+          g.toLowerCase().includes('typography')
+        ) ?? false;
+      },
+    },
+    {
+      name: 'has_design_rationale',
+      description: 'Result includes design decision rationale',
+      validate: (result) => {
+        return result.guidance?.some(g =>
+          g.toLowerCase().includes('why') ||
+          g.toLowerCase().includes('rationale') ||
+          g.toLowerCase().includes('principle') ||
+          g.toLowerCase().includes('constraint')
+        ) ?? false;
+      },
+    },
+    {
+      name: 'validates_coverage',
+      description: 'Result validates design system coverage',
+      validate: (result) => {
+        return (result.artifacts?.length ?? 0) > 0 || (result.checklist?.length ?? 0) > 0;
+      },
+    },
+  ];
+
+  return FlowCompositionEngine.createDomainValidator('design_system', rules);
+}
+
+/**
+ * Create semantic correctness validators for implementation flows
+ */
+export function createSemanticValidator(): DomainValidator {
+  const rules: ValidationRule[] = [
+    {
+      name: 'has_semantic_guidance',
+      description: 'Result includes semantic HTML or structure guidance',
+      validate: (result) => {
+        return result.guidance?.some(g =>
+          g.toLowerCase().includes('semantic') ||
+          g.toLowerCase().includes('html') ||
+          g.toLowerCase().includes('aria') ||
+          g.toLowerCase().includes('structure')
+        ) ?? false;
+      },
+    },
+    {
+      name: 'has_implementation_details',
+      description: 'Result includes specific implementation details or code patterns',
+      validate: (result) => {
+        return result.guidance?.some(g =>
+          g.toLowerCase().includes('implement') ||
+          g.toLowerCase().includes('code') ||
+          g.toLowerCase().includes('pattern') ||
+          g.toLowerCase().includes('component')
+        ) ?? false;
+      },
+    },
+    {
+      name: 'has_validation_criteria',
+      description: 'Result includes validation or success criteria',
+      validate: (result) => {
+        return (result.checklist?.length ?? 0) > 0 || (result.guidance?.some(g =>
+          g.toLowerCase().includes('verify') ||
+          g.toLowerCase().includes('validate') ||
+          g.toLowerCase().includes('test')
+        ) ?? false);
+      },
+    },
+  ];
+
+  return FlowCompositionEngine.createDomainValidator('semantic', rules);
+}
+
+/**
+ * Create content quality validators for reference and research flows
+ */
+export function createContentQualityValidator(): DomainValidator {
+  const rules: ValidationRule[] = [
+    {
+      name: 'has_meaningful_content',
+      description: 'Result includes meaningful content or references',
+      validate: (result) => {
+        return (result.guidance?.length ?? 0) > 0 || (result.artifacts?.length ?? 0) > 0;
+      },
+    },
+    {
+      name: 'avoids_generic_content',
+      description: 'Result avoids overly generic or AI-slop content',
+      validate: (result) => {
+        const allText = [
+          ...(result.guidance ?? []),
+          ...(result.checklist?.map(c => typeof c === 'string' ? c : c.label) ?? []),
+        ].join(' ').toLowerCase();
+
+        // Check for common AI-slop patterns
+        const genericPatterns = [
+          'leverage',
+          'synergy',
+          'paradigm shift',
+          'cutting edge',
+          'game changer',
+          'revolutionary',
+        ];
+
+        const hasGenerics = genericPatterns.some(pattern => allText.includes(pattern));
+        return !hasGenerics;
+      },
+    },
+  ];
+
+  return FlowCompositionEngine.createDomainValidator('content_quality', rules);
+}
+
+/**
+ * Register all domain validators into an engine
+ */
+export function registerFlowDomainValidators(engine: FlowCompositionEngine): void {
+  engine.registerDomainValidator(createAccessibilityValidator());
+  engine.registerDomainValidator(createPerformanceValidator());
+  engine.registerDomainValidator(createDesignSystemValidator());
+  engine.registerDomainValidator(createSemanticValidator());
+  engine.registerDomainValidator(createContentQualityValidator());
+}
+
+/**
+ * Get domain validators for a specific flow
+ */
+export function getValidatorsForFlow(flowId: string): string[] {
+  const flowValidatorMap: Record<string, string[]> = {
+    // Accessibility validation
+    flowI_accessibility: ['accessibility'],
+
+    // Performance validation (motion and polish flows)
+    flowE_motion_patterns: ['performance', 'content_quality'],
+    flowJ_tactical_polish: ['performance'],
+    flowK_multi_lens_audit: ['performance'],
+    flowT_ambitious_motion: ['performance'],
+
+    // Design system validation
+    flowF_design_tokens: ['design_system'],
+    flowA_brand_verify: ['design_system'],
+
+    // Semantic/implementation validation
+    flowG_component_implementation: ['semantic', 'design_system'],
+    flowH_motion_integration: ['semantic', 'performance'],
+
+    // Content quality validation
+    flowB_component_research: ['content_quality'],
+    flowC_font_research: ['content_quality'],
+    flowD_reference_inspiration: ['content_quality'],
+
+    // Multi-dimensional validation
+    flowU_curate: ['content_quality', 'design_system'],
+    flowV_all_seven_qa: ['accessibility', 'performance', 'design_system', 'semantic'],
+  };
+
+  return flowValidatorMap[flowId] ?? [];
+}
+
+/**
+ * Configuration for composite flows with domain validation
+ */
+export const COMPOSITE_FLOW_VALIDATIONS = {
+  // Accessibility-focused composite flow
+  accessibility_workflow: {
+    domains: ['accessibility', 'semantic'],
+    failOnError: false, // Log but continue
+  },
+
+  // Performance-focused composite flow
+  performance_workflow: {
+    domains: ['performance', 'content_quality'],
+    failOnError: false,
+  },
+
+  // Design system compliance flow
+  design_system_workflow: {
+    domains: ['design_system', 'content_quality'],
+    failOnError: false,
+  },
+
+  // Complete QA flow
+  complete_qa_workflow: {
+    domains: ['accessibility', 'performance', 'design_system', 'semantic', 'content_quality'],
+    failOnError: false,
+  },
+};

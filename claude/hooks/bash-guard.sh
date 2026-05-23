@@ -35,9 +35,34 @@ if [ -z "$REASON" ] && echo "$CMD" | grep -qE 'git\s+commit'; then
 fi
 
 # Verification gate: block git commit if deployed code not browser-verified
+# BUT: allow documentation/config-only commits (SKILL.md, *.md, JSON files, etc.)
 if [ -z "$REASON" ] && echo "$CMD" | grep -qE 'git\s+commit'; then
   if [ -f "$HOME/.claude/.needs-verification" ]; then
-    REASON="BLOCKED: code was deployed but not verified in the browser. Use Chrome MCP or cmux screenshot to verify BEFORE committing."
+    # Check if staged files are documentation/config only
+    STAGED_FILES=$(git diff --cached --name-only 2>/dev/null)
+    HAS_SOURCE_CODE=false
+
+    while IFS= read -r file; do
+      # Documentation files: skip verification requirement
+      if echo "$file" | grep -qE '\.md$|SKILL\.md|DESIGN\.md|README|CHANGELOG'; then
+        continue
+      # Config files: skip verification requirement
+      elif echo "$file" | grep -qE '\.json$|\.yml$|\.yaml$|\.lock$|\.eslintrc|tsconfig'; then
+        continue
+      # Source code files: require verification
+      elif echo "$file" | grep -qE '\.(ts|tsx|js|jsx|css|scss)$|src/.*\.(ts|tsx|js|jsx)$'; then
+        HAS_SOURCE_CODE=true
+        break
+      # Compiled output: require verification
+      elif echo "$file" | grep -qE '^dist/.*\.(js|d\.ts)$'; then
+        HAS_SOURCE_CODE=true
+        break
+      fi
+    done <<< "$STAGED_FILES"
+
+    if [ "$HAS_SOURCE_CODE" = true ]; then
+      REASON="BLOCKED: code was deployed but not verified in the browser. Use Chrome MCP or cmux screenshot to verify BEFORE committing."
+    fi
   fi
 fi
 

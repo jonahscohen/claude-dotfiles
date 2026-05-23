@@ -5,6 +5,7 @@ import { BaseFlowHandler, FlowExecutionContext, FlowExecutionResult } from './fl
 import { SHARED_DESIGN_LAWS } from './design-laws';
 import { FlowMemoryBuilder } from './flow-memory-schema';
 import { ExtendedDomainValidator, DomainCheckContext } from './extended-domain-validator';
+import { EnhancedFlowExecutionContext } from './flow-execution-context-enhanced';
 
 interface ComponentImplementationContext {
   interactionDomainRules: string[];
@@ -31,6 +32,7 @@ export class FlowGComponentImplementationHandler extends BaseFlowHandler {
   }
 
   async execute(context: FlowExecutionContext): Promise<FlowExecutionResult> {
+    const enhancedContext = context as EnhancedFlowExecutionContext;
     const componentName = (context.metadata?.componentName as string) || 'button';
     const register = context.projectContext?.register || 'product';
 
@@ -58,6 +60,18 @@ export class FlowGComponentImplementationHandler extends BaseFlowHandler {
         hasKeyboardInteraction: state !== 'Disabled',
         copyAppropriateness: ['Error', 'Success', 'Loading'].includes(state),
       }));
+
+      // Add custom data to enhanced context if available
+      if (enhancedContext?.flowMetadata) {
+        enhancedContext.flowMetadata.tags = ['flowG', 'component-implementation', '8-states'];
+        enhancedContext.flowMetadata.customData = {
+          'component-name': componentName,
+          'component-states': componentStates.length,
+          'interaction-rules': interactionDomain.rules.length,
+          'writing-rules': writingDomain.rules.length,
+          'aria-labels-count': validationResults.filter((r) => r.hasAriaLabels).length,
+        };
+      }
 
       // Cache context for downstream flows
       this.cachedComponentContext = {

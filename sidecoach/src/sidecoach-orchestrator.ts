@@ -10,9 +10,15 @@ import { RegressionDetector } from './regression-detector';
 import { DesignDebtTracker } from './design-debt-tracker';
 import { ExtendedDomainValidator, DomainCheckContext, DomainValidationReport } from './extended-domain-validator';
 import { ContextLoader } from './project-context';
+import { buildProjectContext, ProjectContext } from './context-loader';
 import { persistSessionMemory } from './session-memory-writer';
 import { parseSlashCommand, getAvailableCommands, getCommandsByPhase } from './slash-command-router';
+import { SidecoachEntryPoint, globalEntryPoint, EntryPointRequest } from './sidecoach-entry-point';
 import { TeachCommandHandler } from './teach-command-handler';
+import { FlowPrerequisiteValidator } from './flow-prerequisites';
+import { FlowCompositionEngine, PRESET_COMPOSITE_FLOWS, CompositeFlowDefinition } from './flow-composition';
+import { registerFlowDomainValidators, getValidatorsForFlow } from './flow-domain-validators';
+import { EnhancedContextManager, EnhancedFlowExecutionContext, COMMON_PROPAGATION_RULES } from './flow-execution-context-enhanced';
 import { FlowABrandVerifyHandler } from './flow-handler-brand-verify';
 import { FlowBComponentResearchHandler } from './flow-handler-component-research';
 import { FlowCFontResearchHandler } from './flow-handler-font-research';
@@ -56,18 +62,38 @@ import {
   FlowTAmbitiousMotionHandler,
 } from './flow-handlers-tier5-specialized';
 import { FlowUCurateHandler, FlowVAllSevenQAHandler } from './flow-handlers-curate-qa';
+// Phase III: Performance, Validation, Metrics
+import { FlowHandlerCache, globalPerformanceCache } from './flow-performance-cache';
+import { FlowSpecificValidator } from './flow-specific-validators';
+import { FlowMetricsTracker, globalMetricsTracker } from './flow-metrics-tracker';
+import { FlowConditionalRouter } from './flow-conditional-router';
 
 export class FlowExecutionEngine {
   private intentDetector: IntentDetector;
   private handlers: Map<FlowId, FlowHandler>;
   private orchestrator: IntelligentOrchestrator;
+  private compositionEngine: FlowCompositionEngine;
+  private contextManager: EnhancedContextManager;
 
   constructor() {
     this.intentDetector = createDetector();
     this.handlers = new Map();
     const flowHistory = getFlowHistory();
     this.orchestrator = new IntelligentOrchestrator(flowHistory);
+    this.compositionEngine = new FlowCompositionEngine();
+    this.contextManager = new EnhancedContextManager();
     this.initializeHandlers();
+    this.initializeValidators();
+  }
+
+  private initializeValidators(): void {
+    // Register all domain validators for flow execution
+    registerFlowDomainValidators(this.compositionEngine);
+
+    // Register context propagation rules for flow sequences
+    for (const rule of COMMON_PROPAGATION_RULES) {
+      this.contextManager.registerPropagationRule(rule);
+    }
   }
 
   private initializeHandlers(): void {
@@ -153,13 +179,125 @@ export class FlowExecutionEngine {
     flowHistory.recordFlow(entry as FlowHistoryEntry);
   }
 
-  async process(utterance: string, context: Partial<FlowExecutionContext> = {}): Promise<SidecoachResult> {
-    // Step 0: Check for empty input (show interactive menu)
-    if (!utterance || utterance.trim() === '' || utterance === '/sidecoach') {
-      return this.showInteractiveMenu(context);
+  // Phase III: Performance & Validation Integration
+  private validateFlowExecution(flowId: string, context: FlowExecutionContext, result: FlowExecutionResult): void {
+    // Run flow-specific validators
+    const validation = FlowSpecificValidator.validateFlow(flowId, context, result);
+    if (validation.warnings.length > 0) {
+      console.log(`[Validation Warnings] ${flowId}:`, validation.warnings);
+    }
+  }
+
+  private cacheFlowResult(flowId: string, result: FlowExecutionResult): void {
+    // Cache execution result for performance
+    globalPerformanceCache.cacheHandlerResult(flowId as FlowId, result);
+  }
+
+  private trackFlowMetrics(flowId: string, flowName: string, executionId: string, result: FlowExecutionResult, context?: FlowExecutionContext): void {
+    // Track metrics for this flow execution
+    globalMetricsTracker.startTracking(flowId, flowName, executionId);
+
+    // Record guidance as decisions
+    if (result.guidance && result.guidance.length > 0) {
+      globalMetricsTracker.recordDecision(
+        executionId,
+        `flow-executed-${flowId}`,
+        result.message,
+        'high'
+      );
     }
 
-    // Step 1: Check for slash commands (deterministic routing)
+    // Record checklist progress
+    if (result.checklist) {
+      const completed = result.checklist.filter(item => item.completed).length;
+      globalMetricsTracker.updateChecklistProgress(executionId, completed, result.checklist.length);
+    }
+
+    // Record artifacts
+    if (result.artifacts && result.artifacts.length > 0) {
+      for (const artifact of result.artifacts) {
+        // Map FlowArtifact types to ArtifactRecord types
+        const typeMap: Record<string, 'code' | 'checklist' | 'reference' | 'template' | 'guide'> = {
+          'script': 'code',
+          'command': 'code',
+          'checklist': 'checklist',
+          'reference': 'reference',
+          'template': 'template',
+        };
+        const recordType = typeMap[artifact.type] || 'template';
+        globalMetricsTracker.recordArtifact(executionId, recordType, artifact.name, artifact.description || '');
+      }
+    }
+
+    // Complete tracking and store metrics
+    globalMetricsTracker.completeTracking(executionId, {
+      projectPath: context?.projectPath,
+      userId: context?.userId,
+      metadataKeys: context?.metadata ? Object.keys(context.metadata) : [],
+    });
+  }
+
+  private determineConditionalFlow(context: FlowExecutionContext): string | null {
+    // Evaluate conditional execution routing
+    return FlowConditionalRouter.determineRoute(context) || null;
+  }
+
+  private getExecutablePath(context: FlowExecutionContext): string[] {
+    // Get the conditional execution path for a context
+    return FlowConditionalRouter.getExecutablePath(context);
+  }
+
+  private processWithEntryPoint(utterance: string, context: Partial<FlowExecutionContext> = {}): { flowIds: FlowId[], entryType: string, primaryFlow?: FlowId } | null {
+    // Process utterance through unified entry point system
+    const entryPointRequest: EntryPointRequest = {
+      utterance,
+      userId: context.userId || 'unknown',
+      projectPath: context.projectPath || process.cwd(),
+      sessionContext: context.metadata,
+    };
+
+    const entryPointResponse = globalEntryPoint.process(entryPointRequest);
+
+    // Record entry point request in context metadata if available
+    if (context.metadata) {
+      context.metadata.entryPointType = entryPointResponse.entryType;
+      context.metadata.entryPointFlows = entryPointResponse.selectedFlows;
+      context.metadata.entryPointReason = entryPointResponse.reason;
+    }
+
+    if (!entryPointResponse.isValid || entryPointResponse.selectedFlows.length === 0) {
+      return null;
+    }
+
+    return {
+      flowIds: entryPointResponse.selectedFlows,
+      entryType: entryPointResponse.entryType,
+      primaryFlow: entryPointResponse.primaryFlow,
+    };
+  }
+
+  async process(utterance: string, context: Partial<FlowExecutionContext> = {}): Promise<SidecoachResult> {
+    // Step 0: Load project context (PRODUCT.md, DESIGN.md, register detection)
+    const projectPath = context.projectPath || process.cwd();
+    const loadedContext = buildProjectContext(projectPath);
+    const enrichedContext: Partial<FlowExecutionContext> = {
+      ...context,
+      projectPath,
+      metadata: {
+        ...(context.metadata || {}),
+        register: loadedContext.register,
+        productContent: loadedContext.productContent,
+        designContent: loadedContext.designContent,
+        hasFullContext: loadedContext.hasFullContext,
+      },
+    };
+
+    // Step 1: Check for empty input (show interactive menu)
+    if (!utterance || utterance.trim() === '' || utterance === '/sidecoach') {
+      return this.showInteractiveMenu(enrichedContext);
+    }
+
+    // Step 2: Check for slash commands (deterministic routing)
     const commandMatch = parseSlashCommand(utterance);
     if (commandMatch.isCommand) {
       if (commandMatch.command === 'teach') {
@@ -206,6 +344,215 @@ export class FlowExecutionEngine {
           guidance: groupedGuidance,
         };
       }
+
+      // Handle composite flow execution
+      if (commandMatch.command === 'composite') {
+        const compositeFlowId = commandMatch.target;
+        if (!compositeFlowId) {
+          return {
+            success: false,
+            message: 'Please specify composite flow ID: /sidecoach composite:<flow-id>',
+            detectedFlow: null,
+            flowResults: [],
+            guidance: [
+              'Available composite flows:',
+              '  /sidecoach composite:composite_research_to_impl - Research to Implementation (9 flows)',
+              '  /sidecoach composite:composite_qa_workflow - Quality Assurance (4 flows)',
+              '  /sidecoach composite:composite_optimization - Complete Optimization (5 flows)',
+            ],
+          };
+        }
+
+        // Find the composite flow definition
+        const compositeFlow = PRESET_COMPOSITE_FLOWS.find(cf => cf.id === compositeFlowId);
+        if (!compositeFlow) {
+          return {
+            success: false,
+            message: `Composite flow not found: ${compositeFlowId}`,
+            detectedFlow: null,
+            flowResults: [],
+          };
+        }
+
+        // Execute composite flow steps
+        const executionContext: FlowExecutionContext = {
+          utterance,
+          userId: context.userId,
+          projectPath: context.projectPath || process.cwd(),
+          currentFile: context.currentFile,
+          selectedText: context.selectedText,
+          metadata: { ...context.metadata, compositeFlowId },
+        };
+
+        const flowResults: FlowExecutionResult[] = [];
+        const flowHistory = getFlowHistory();
+        const historyEntries = flowHistory.getFlowSequence();
+        const startTime = Date.now();
+
+        for (const step of compositeFlow.steps) {
+          const handler = this.handlers.get(step.flowId);
+          if (!handler) continue;
+
+          // Check prerequisites
+          const prerequisiteCheck = FlowPrerequisiteValidator.canExecute(step.flowId, historyEntries);
+          if (!prerequisiteCheck.canExecute) {
+            if (step.skipOnError) {
+              flowResults.push({
+                flowId: step.flowId,
+                flowName: step.flowId,
+                status: 'skipped',
+                message: `Prerequisites not met: ${prerequisiteCheck.reason}`,
+                guidance: [],
+                checklist: [],
+              } as FlowExecutionResult);
+              continue;
+            } else if (compositeFlow.failOnFirstError) {
+              return {
+                success: false,
+                message: `Composite flow halted: ${step.flowId} failed prerequisites`,
+                detectedFlow: null,
+                flowResults,
+              };
+            }
+            flowResults.push({
+              flowId: step.flowId,
+              flowName: step.flowId,
+              status: 'error',
+              message: `Prerequisites not met: ${prerequisiteCheck.reason}`,
+              guidance: [],
+              checklist: [],
+            } as FlowExecutionResult);
+            continue;
+          }
+
+          // Execute the flow with context tracking
+          if (handler.canExecute(executionContext)) {
+            try {
+              // Track flow entry in execution chain
+              this.contextManager.addToExecutionChain(step.flowId, step.flowId);
+
+              // Execute the handler
+              const result = await handler.execute(executionContext);
+
+              // Track flow completion in execution chain
+              this.contextManager.completeInChain(
+                step.flowId,
+                result.status === 'success' ? 'completed' : 'error',
+                result.message
+              );
+
+              // Store execution metadata in result
+              result.executionMetadata = {
+                executionChain: this.contextManager.getExecutionChain(),
+                executionDuration: this.contextManager.getExecutionDuration(step.flowId),
+              };
+
+              this.recordFlowWithMemory(result);
+
+              // Apply automatic domain validators based on flow type (soft-fail)
+              if (result.status === 'success') {
+                const validatorsForFlow = getValidatorsForFlow(step.flowId);
+                if (validatorsForFlow.length > 0) {
+                  const validations = this.compositionEngine.validateMultipleDomains(validatorsForFlow, result);
+                  result.validationResults = validations;
+
+                  // Log validation failures as warnings (soft-fail mode)
+                  const failedValidations = validations.filter(v => v.status !== 'pass');
+                  if (failedValidations.length > 0) {
+                    const warningMsg = failedValidations
+                      .map(v => `[${v.domain}] ${v.failedRules.join(', ')}`)
+                      .join('; ');
+                    result.message = `${result.message}\n\nValidation warnings: ${warningMsg}`;
+                  }
+                }
+              }
+
+              // Also support explicit domain validation if configured in the step
+              if (step.domainValidation?.domains && step.domainValidation.domains.length > 0) {
+                const validations = this.compositionEngine.validateMultipleDomains(step.domainValidation.domains, result);
+                result.validationResults = validations;
+
+                // Check if any validation failed
+                const allPassed = FlowCompositionEngine.allValidationsPassed(validations);
+                if (!allPassed && step.domainValidation.failOnError) {
+                  // Halt composition on validation failure
+                  return {
+                    success: false,
+                    message: `Composite flow halted: ${step.flowId} failed domain validation`,
+                    detectedFlow: null,
+                    flowResults: [...flowResults, result],
+                  };
+                }
+              }
+
+              flowResults.push(result);
+
+              // Apply context transformation if defined
+              if (step.transformContext) {
+                Object.assign(executionContext, step.transformContext(executionContext, result));
+              } else {
+                // Default: propagate context
+                Object.assign(executionContext,
+                  FlowCompositionEngine.propagateContext(executionContext, result)
+                );
+              }
+            } catch (err) {
+              const errorResult: FlowExecutionResult = {
+                flowId: step.flowId,
+                flowName: step.flowId,
+                status: 'error',
+                message: `Flow execution failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+                guidance: [],
+                checklist: [],
+                error: err instanceof Error ? err.message : 'Unknown error',
+              };
+
+              // Track error in execution chain
+              this.contextManager.completeInChain(step.flowId, 'error', errorResult.message);
+              errorResult.executionMetadata = {
+                executionChain: this.contextManager.getExecutionChain(),
+                executionDuration: this.contextManager.getExecutionDuration(step.flowId),
+              };
+
+              flowResults.push(errorResult);
+
+              if (!step.skipOnError && compositeFlow.failOnFirstError) {
+                return {
+                  success: false,
+                  message: `Composite flow halted: ${step.flowId} failed`,
+                  detectedFlow: null,
+                  flowResults,
+                };
+              }
+            }
+          }
+        }
+
+        const totalTime = Date.now() - startTime;
+
+        // Aggregate results if requested
+        let aggregatedGuidance: string[] = [];
+        let aggregatedChecklist: any[] = [];
+        if (compositeFlow.aggregateResults) {
+          const aggregated = FlowCompositionEngine.aggregateResults(flowResults);
+          aggregatedGuidance = aggregated.guidance;
+          aggregatedChecklist = aggregated.checklist;
+        }
+
+        return {
+          success: flowResults.some(r => r.status === 'success'),
+          message: `Composite flow complete: ${compositeFlow.name} (${flowResults.filter(r => r.status === 'success').length}/${flowResults.length} flows successful, ${totalTime}ms)`,
+          detectedFlow: {
+            flowId: compositeFlowId as FlowId,
+            flowName: compositeFlow.name,
+            confidence: 1.0,
+          },
+          flowResults,
+          guidance: aggregatedGuidance.length > 0 ? aggregatedGuidance : undefined,
+          checklist: aggregatedChecklist.length > 0 ? aggregatedChecklist : undefined,
+        };
+      }
+
       // Route to command's flow chain
       const executionContext: FlowExecutionContext = {
         utterance,
@@ -217,10 +564,65 @@ export class FlowExecutionEngine {
       };
       const flowResults: FlowExecutionResult[] = [];
       let detectedFlow: { flowId: FlowId; flowName: string; confidence: number } | null = null;
+      const flowHistory = getFlowHistory();
+      const historyEntries = flowHistory.getFlowSequence();
+
       for (const flowId of commandMatch.flowIds) {
         const handler = this.handlers.get(flowId);
-        if (handler && handler.canExecute(executionContext)) {
+        if (!handler) continue;
+
+        // Check prerequisites before executing
+        const prerequisiteCheck = FlowPrerequisiteValidator.canExecute(flowId, historyEntries);
+        if (!prerequisiteCheck.canExecute) {
+          flowResults.push({
+            flowId,
+            flowName: flowId,
+            status: 'error',
+            message: `Flow prerequisites not met: ${prerequisiteCheck.reason}`,
+            guidance: [`Cannot execute ${flowId}: ${prerequisiteCheck.reason}`],
+            checklist: [],
+            error: prerequisiteCheck.reason,
+          } as FlowExecutionResult);
+          continue;
+        }
+
+        // Check context requirements
+        const contextCheck = FlowPrerequisiteValidator.validateContextRequirements(
+          flowId,
+          executionContext
+        );
+        if (!contextCheck.valid) {
+          flowResults.push({
+            flowId,
+            flowName: flowId,
+            status: 'error',
+            message: `Missing context: ${contextCheck.missing?.join(', ')}`,
+            guidance: [`Context requirements not met: ${contextCheck.missing?.join(', ')}`],
+            checklist: [],
+            error: `Missing: ${contextCheck.missing?.join(', ')}`,
+          } as FlowExecutionResult);
+          continue;
+        }
+
+        if (handler.canExecute(executionContext)) {
+          // Track flow entry in execution chain
+          this.contextManager.addToExecutionChain(flowId, flowId);
+
           const result = await handler.execute(executionContext);
+
+          // Track flow completion and store metadata
+          this.contextManager.completeInChain(
+            flowId,
+            result.status === 'success' ? 'completed' : 'error',
+            result.message
+          );
+
+          // Store execution metadata in result
+          result.executionMetadata = {
+            executionChain: this.contextManager.getExecutionChain(),
+            executionDuration: this.contextManager.getExecutionDuration(flowId),
+          };
+
           this.recordFlowWithMemory(result);
           flowResults.push(result);
           if (!detectedFlow) {
@@ -233,8 +635,8 @@ export class FlowExecutionEngine {
         }
       }
       return {
-        success: true,
-        message: `Executed ${commandMatch.command} flow chain (${flowResults.length} flows)`,
+        success: flowResults.some((r) => r.status === 'success'),
+        message: `Executed ${commandMatch.command} flow chain (${flowResults.filter((r) => r.status === 'success').length}/${flowResults.length} flows successful)`,
         detectedFlow,
         flowResults,
       };
@@ -307,7 +709,24 @@ export class FlowExecutionEngine {
 
     // Run Flow A to verify brand register and cache design laws
     const flowAHandler = new FlowABrandVerifyHandler();
+
+    // Track Flow A execution in context chain
+    this.contextManager.addToExecutionChain('flowA_brand_verify', 'Brand/PRODUCT.md Verification');
+
     const flowAResult = await flowAHandler.execute(executionContext);
+
+    // Complete Flow A in execution chain and store metadata
+    this.contextManager.completeInChain(
+      'flowA_brand_verify',
+      flowAResult.status === 'success' ? 'completed' : 'error',
+      flowAResult.message
+    );
+
+    flowAResult.executionMetadata = {
+      executionChain: this.contextManager.getExecutionChain(),
+      executionDuration: this.contextManager.getExecutionDuration('flowA_brand_verify'),
+    };
+
     flowResults.push(flowAResult);
     this.recordFlowWithMemory(flowAResult);
 
@@ -401,10 +820,27 @@ export class FlowExecutionEngine {
         break;
       }
 
-      // Execute handler
+      // Execute handler with context tracking
       let result: FlowExecutionResult;
+      const enhancedContext = EnhancedContextManager.createEnhancedContext(
+        executionContext,
+        currentFlowId,
+        flowName
+      ) as EnhancedFlowExecutionContext;
+
+      // Track flow entry in execution chain
+      this.contextManager.addToExecutionChain(currentFlowId, flowName);
+
       try {
+        // Execute the handler
         result = await handler.execute(executionContext);
+
+        // Track flow completion in execution chain
+        this.contextManager.completeInChain(
+          currentFlowId,
+          result.status === 'success' ? 'completed' : 'error',
+          result.message
+        );
       } catch (error) {
         result = {
           flowId: currentFlowId,
@@ -413,6 +849,32 @@ export class FlowExecutionEngine {
           message: `Error executing flow: ${error instanceof Error ? error.message : 'Unknown error'}`,
           error: error instanceof Error ? error.message : String(error),
         };
+
+        // Track error in execution chain
+        this.contextManager.completeInChain(currentFlowId, 'error', result.message);
+      }
+
+      // Store execution metadata in result (both success and error paths)
+      result.executionMetadata = {
+        enhancedContext,
+        executionChain: this.contextManager.getExecutionChain(),
+        executionDuration: this.contextManager.getExecutionDuration(currentFlowId),
+      };
+
+      // Apply domain validators if configured for this flow (soft-fail: log but continue)
+      const validatorsForFlow = getValidatorsForFlow(currentFlowId);
+      if (validatorsForFlow.length > 0 && result.status === 'success') {
+        const validations = this.compositionEngine.validateMultipleDomains(validatorsForFlow, result);
+        result.validationResults = validations;
+
+        // Log any validation failures as warnings (soft-fail mode)
+        const failedValidations = validations.filter(v => v.status !== 'pass');
+        if (failedValidations.length > 0) {
+          const warningMsg = failedValidations
+            .map(v => `[${v.domain}] ${v.failedRules.join(', ')}`)
+            .join('; ');
+          result.message = `${result.message}\n\nValidation warnings: ${warningMsg}`;
+        }
       }
 
       // Check for regressions (RegressionDetector: compare against prior runs)

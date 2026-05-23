@@ -410,7 +410,8 @@ export class IntentDetector {
       flowId: 'flowQ_migration_special',
       score: (u) => {
         if (this.hasAny(u, ['migrate', 'breaking', 'refactor', 'api', 'migration', 'dependencies'])) {
-          if (this.hasAny(u, ['api', 'breaking', 'migrate'])) {
+          // Special migration requires "breaking" or "migrate" keywords, not just "refactor api"
+          if (this.hasAny(u, ['breaking', 'migrate'])) {
             return 0.9;
           }
         }
@@ -483,6 +484,10 @@ export class IntentDetector {
       score: (u) => {
         if (this.hasAny(u, ['feel', 'polish', 'animation', 'microinteraction', 'janky', 'life', 'experience'])) {
           if (this.hasNone(u, ['layout', 'hierarchy', 'accessible', 'cluttered', 'reorganize', 'restructure'])) {
+            // Higher score for 'feel' keyword (more specific to polish/enhance)
+            if (this.has(u, 'feel')) {
+              return 0.9;
+            }
             return 0.85;
           }
         }
@@ -572,7 +577,7 @@ export class IntentDetector {
           if (this.hasNone(u, ['migrate', 'accessible', 'responsive'])) {
             // "refactor" without "api" keyword -> assume layout refactor
             if (this.has(u, 'refactor') && this.hasNone(u, ['api'])) {
-              return 0.75;
+              return 0.85;
             }
             // Other layout keywords
             if (this.hasAny(u, ['cluttered', 'hierarchy', 'layout', 'restructure', 'reorganize', 'clearer'])) {
@@ -664,9 +669,9 @@ export class IntentDetector {
             return 0.9;
           }
         }
-        // "refactor" alone is ambiguous - need API context
+        // "refactor" with API context -> migration/upgrade (highest confidence)
         if (this.has(u, 'refactor') && this.hasAny(u, ['api', 'breaking change'])) {
-          return 0.8;
+          return 0.95;
         }
         return 0;
       },

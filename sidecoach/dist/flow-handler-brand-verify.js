@@ -20,6 +20,7 @@ class FlowABrandVerifyHandler extends flow_handler_1.BaseFlowHandler {
     }
     async execute(context) {
         const projectPath = context.projectPath || process.cwd();
+        const enhancedContext = context;
         try {
             // Step 0: Load project context
             const projectContext = this.contextLoader.load(projectPath);
@@ -51,11 +52,24 @@ class FlowABrandVerifyHandler extends flow_handler_1.BaseFlowHandler {
             const registerDetected = projectContext.register;
             // Step 2: Cache design laws for this register
             const designLawsCached = this.cacheDesignLawsForRegister(registerDetected);
+            // Add custom data to enhanced context if available
+            if (enhancedContext?.flowMetadata) {
+                enhancedContext.flowMetadata.tags = ['flowA', 'brand-verification', 'foundation'];
+                enhancedContext.flowMetadata.customData = {
+                    register: registerDetected,
+                    'design-domains-cached': designLawsCached.length,
+                    'design-laws': designLawsCached,
+                };
+            }
             // Step 3: Pre-flight checks
             const preflightIssues = this.runPreflight(projectContext);
             // Step 4: Extract metadata
             const productMetadata = projectContext.product;
             const designMetadata = projectContext.design;
+            // Update context with preflight results
+            if (enhancedContext?.flowMetadata?.customData) {
+                enhancedContext.flowMetadata.customData['preflight-issues'] = preflightIssues.length;
+            }
             // Cache for downstream flows
             this.cachedBrandContext = {
                 projectContext,

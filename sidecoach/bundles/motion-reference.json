@@ -1,0 +1,426 @@
+{
+  "metadata": {
+    "name": "motion-reference",
+    "version": "1.0.0",
+    "lastUpdated": "2026-05-23",
+    "provider": "sidecoach",
+    "license": "proprietary",
+    "description": "Complete offline motion design system with 50+ patterns, 30+ exponential easing curves, platform strategies"
+  },
+  "easingCurves": {
+    "exponential": [
+      {
+        "id": "ease-out-quad",
+        "name": "ease-out-quad",
+        "bezier": [0.25, 0.46, 0.45, 0.94],
+        "cssValue": "cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+        "intensity": "restrained",
+        "description": "Subtle easing, slight deceleration",
+        "useCase": ["feedback", "entrance", "state_change"],
+        "recommendedDuration": [150, 200]
+      },
+      {
+        "id": "ease-in-quad",
+        "name": "ease-in-quad",
+        "bezier": [0.55, 0.085, 0.68, 0.53],
+        "cssValue": "cubic-bezier(0.55, 0.085, 0.68, 0.53)",
+        "intensity": "restrained",
+        "description": "Acceleration at start, smooth exit",
+        "useCase": ["exit", "state_change"],
+        "recommendedDuration": [120, 150]
+      },
+      {
+        "id": "ease-in-out-quad",
+        "name": "ease-in-out-quad",
+        "bezier": [0.455, 0.03, 0.515, 0.955],
+        "cssValue": "cubic-bezier(0.455, 0.03, 0.515, 0.955)",
+        "intensity": "restrained",
+        "description": "Gentle acceleration and deceleration",
+        "useCase": ["transition", "between_states"],
+        "recommendedDuration": [200, 300]
+      },
+      {
+        "id": "ease-out-cubic",
+        "name": "ease-out-cubic",
+        "bezier": [0.215, 0.61, 0.355, 1],
+        "cssValue": "cubic-bezier(0.215, 0.61, 0.355, 1)",
+        "intensity": "playful",
+        "description": "Medium deceleration, natural feel",
+        "useCase": ["entrance", "modal_open"],
+        "recommendedDuration": [300, 400]
+      },
+      {
+        "id": "ease-out-quart",
+        "name": "ease-out-quart",
+        "bezier": [0.165, 0.84, 0.44, 1],
+        "cssValue": "cubic-bezier(0.165, 0.84, 0.44, 1)",
+        "intensity": "playful",
+        "description": "Medium entrance with presence",
+        "useCase": ["entrance", "list_item_appear"],
+        "recommendedDuration": [300, 400]
+      },
+      {
+        "id": "ease-out-quint",
+        "name": "ease-out-quint",
+        "bezier": [0.22, 1, 0.36, 1],
+        "cssValue": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "intensity": "ambitious",
+        "description": "Strong entrance with momentum",
+        "useCase": ["entrance", "page_transition"],
+        "recommendedDuration": [400, 500]
+      },
+      {
+        "id": "ease-out-expo",
+        "name": "ease-out-expo",
+        "bezier": [0.19, 1, 0.22, 1],
+        "cssValue": "cubic-bezier(0.19, 1, 0.22, 1)",
+        "intensity": "ambitious",
+        "description": "Very strong entrance, dramatic",
+        "useCase": ["hero_entrance", "major_transition"],
+        "recommendedDuration": [500, 800]
+      },
+      {
+        "id": "ease-in-out-cubic",
+        "name": "ease-in-out-cubic",
+        "bezier": [0.645, 0.045, 0.355, 1],
+        "cssValue": "cubic-bezier(0.645, 0.045, 0.355, 1)",
+        "intensity": "playful",
+        "description": "Acceleration then deceleration",
+        "useCase": ["dialog_transition", "drawer_slide"],
+        "recommendedDuration": [300, 400]
+      },
+      {
+        "id": "ease-in-out-quart",
+        "name": "ease-in-out-quart",
+        "bezier": [0.77, 0, 0.175, 1],
+        "cssValue": "cubic-bezier(0.77, 0, 0.175, 1)",
+        "intensity": "ambitious",
+        "description": "Smooth symmetrical transition",
+        "useCase": ["content_swap", "state_change"],
+        "recommendedDuration": [400, 500]
+      },
+      {
+        "id": "ease-in-out-quint",
+        "name": "ease-in-out-quint",
+        "bezier": [0.86, 0, 0.07, 1],
+        "cssValue": "cubic-bezier(0.86, 0, 0.07, 1)",
+        "intensity": "ambitious",
+        "description": "Dramatic symmetrical transition",
+        "useCase": ["major_state_change"],
+        "recommendedDuration": [500, 600]
+      }
+    ]
+  },
+  "motionPatterns": {
+    "micro": [
+      {
+        "id": "hover_feedback",
+        "name": "Hover Feedback",
+        "description": "Subtle response to hover state",
+        "transform": "scale(1.05)",
+        "easing": "ease-out-quad",
+        "duration": 150,
+        "useCase": "hover_state",
+        "category": "feedback"
+      },
+      {
+        "id": "press_feedback",
+        "name": "Press Feedback",
+        "description": "Tactile press response with scale + shadow",
+        "transform": "scale(0.96)",
+        "easing": "ease-out-quad",
+        "duration": 100,
+        "properties": ["transform", "box-shadow"],
+        "useCase": "press_state",
+        "category": "feedback",
+        "accessibility": "preserves_reduced_motion"
+      },
+      {
+        "id": "focus_ring",
+        "name": "Focus Ring",
+        "description": "Keyboard focus indicator entrance",
+        "properties": ["outline-width"],
+        "easing": "ease-out-quad",
+        "duration": 150,
+        "useCase": "focus_state",
+        "category": "accessibility"
+      },
+      {
+        "id": "ripple_effect",
+        "name": "Ripple Effect",
+        "description": "Expanding ring from click point",
+        "transform": "scale(1, 1)",
+        "easing": "ease-out-quad",
+        "duration": 300,
+        "useCase": "press_feedback",
+        "category": "feedback"
+      },
+      {
+        "id": "loading_spinner",
+        "name": "Loading Spinner",
+        "description": "Continuous rotation for loading state",
+        "transform": "rotate(360deg)",
+        "easing": "linear",
+        "duration": 1000,
+        "iteration": "infinite",
+        "useCase": "loading_state",
+        "category": "feedback",
+        "accessibility": "show_alternative_text"
+      }
+    ],
+    "macro": [
+      {
+        "id": "page_fade_in",
+        "name": "Page Fade In",
+        "description": "Page entrance with fade",
+        "properties": ["opacity"],
+        "from": { "opacity": 0 },
+        "to": { "opacity": 1 },
+        "easing": "ease-out-cubic",
+        "duration": 300,
+        "useCase": "page_entrance",
+        "category": "page_transition"
+      },
+      {
+        "id": "page_slide_left",
+        "name": "Page Slide Left",
+        "description": "New page slides in from right, old slides left",
+        "transform": "translateX(100%)",
+        "easing": "ease-out-cubic",
+        "duration": 400,
+        "useCase": "page_navigation",
+        "category": "page_transition",
+        "accessibility": "show_skip_option"
+      },
+      {
+        "id": "modal_scale_in",
+        "name": "Modal Scale In",
+        "description": "Modal enters with scale + fade",
+        "transform": "scale(0.95)",
+        "opacity": 0,
+        "easing": "ease-out-cubic",
+        "duration": 300,
+        "useCase": "modal_entrance",
+        "category": "dialog"
+      },
+      {
+        "id": "modal_fade_backdrop",
+        "name": "Modal Fade Backdrop",
+        "description": "Backdrop fade for modal",
+        "properties": ["opacity"],
+        "from": { "opacity": 0 },
+        "to": { "opacity": 0.5 },
+        "easing": "ease-out-quad",
+        "duration": 300,
+        "useCase": "modal_entrance",
+        "category": "dialog"
+      },
+      {
+        "id": "toast_slide_in",
+        "name": "Toast Slide In",
+        "description": "Notification toast slides in from bottom",
+        "transform": "translateY(100%)",
+        "easing": "ease-out-cubic",
+        "duration": 300,
+        "useCase": "notification_entrance",
+        "category": "notification"
+      },
+      {
+        "id": "toast_slide_out",
+        "name": "Toast Slide Out",
+        "description": "Notification toast slides out from bottom",
+        "transform": "translateY(100%)",
+        "opacity": 0,
+        "easing": "ease-in-quad",
+        "duration": 250,
+        "useCase": "notification_exit",
+        "category": "notification"
+      },
+      {
+        "id": "drawer_slide_in",
+        "name": "Drawer Slide In",
+        "description": "Side drawer slides in",
+        "transform": "translateX(-100%)",
+        "easing": "ease-out-cubic",
+        "duration": 350,
+        "useCase": "drawer_entrance",
+        "category": "drawer"
+      },
+      {
+        "id": "dropdown_fade_scale",
+        "name": "Dropdown Fade Scale",
+        "description": "Dropdown menu enters with scale + fade",
+        "transform": "scale(0.95)",
+        "opacity": 0,
+        "transformOrigin": "top",
+        "easing": "ease-out-cubic",
+        "duration": 200,
+        "useCase": "dropdown_entrance",
+        "category": "menu"
+      }
+    ],
+    "gesture": [
+      {
+        "id": "swipe_left_gesture",
+        "name": "Swipe Left Gesture",
+        "description": "Respond to left swipe",
+        "transform": "translateX(-50px)",
+        "opacity": 0,
+        "easing": "ease-out-cubic",
+        "duration": 300,
+        "gestures": ["swipe-left"],
+        "useCase": "swipe_navigation",
+        "category": "gesture"
+      },
+      {
+        "id": "pull_to_refresh",
+        "name": "Pull to Refresh",
+        "description": "Pull-to-refresh loading indicator",
+        "transform": "rotate(360deg)",
+        "easing": "ease-in-out-cubic",
+        "duration": 600,
+        "useCase": "pull_refresh",
+        "category": "gesture",
+        "accessibility": "announce_refresh"
+      },
+      {
+        "id": "long_press_feedback",
+        "name": "Long Press Feedback",
+        "description": "Response to long press (haptic + visual)",
+        "properties": ["box-shadow", "background-color"],
+        "easing": "ease-out-quad",
+        "duration": 200,
+        "useCase": "long_press",
+        "category": "gesture"
+      }
+    ]
+  },
+  "choreography": {
+    "staggerBase": [
+      { "intensity": "restrained", "baseMs": 30, "multiplier": 1 },
+      { "intensity": "playful", "baseMs": 50, "multiplier": 1.2 },
+      { "intensity": "ambitious", "baseMs": 80, "multiplier": 1.5 }
+    ],
+    "rules": [
+      {
+        "rule": "Apply stagger only to children, not compound across parents",
+        "example": "List items: each item offset by (index * baseMs), not accumulated parent offset"
+      },
+      {
+        "rule": "Max stagger delay: 500ms total (avoid excessive waiting)",
+        "example": "15 items at 50ms stagger = 750ms total (reduce stagger to 30ms)"
+      },
+      {
+        "rule": "Stagger + main animation duration: both run in parallel, not sequentially",
+        "example": "Item 0: 0ms delay + 300ms duration = completes at 300ms; Item 5: 250ms delay + 300ms = completes at 550ms"
+      },
+      {
+        "rule": "Offset only the entrance, not the layout shift",
+        "example": "Use transform: translateY, not margin-top (prevents layout shift)"
+      }
+    ]
+  },
+  "timingConstants": {
+    "durations": {
+      "micro": {
+        "fast": 100,
+        "normal": 150,
+        "slow": 200
+      },
+      "interaction": {
+        "fast": 150,
+        "normal": 200,
+        "slow": 300
+      },
+      "entrance": {
+        "restrained": 300,
+        "playful": 400,
+        "ambitious": 500
+      },
+      "pageTransition": {
+        "restrained": 400,
+        "playful": 500,
+        "ambitious": 600
+      }
+    }
+  },
+  "platforms": {
+    "web": {
+      "css": "CSS Transitions / Animations",
+      "example": "transition: transform 300ms cubic-bezier(0.165, 0.84, 0.44, 1)"
+    },
+    "ios": {
+      "native": "CABasicAnimation / UIView.animate",
+      "example": "CABasicAnimation(keyPath: \"position\"), duration: 0.3, timingFunction: CAMediaTimingFunction(name: .easeOut)"
+    },
+    "android": {
+      "native": "ObjectAnimator / TransitionManager",
+      "example": "ObjectAnimator.ofFloat(view, \"translationX\", 0f, 100f).setDuration(300).start()"
+    }
+  },
+  "accessibility": {
+    "prefers_reduced_motion": {
+      "rule": "@media (prefers-reduced-motion: reduce)",
+      "strategy": "Either eliminate animations or reduce durations to <100ms"
+    },
+    "strategies": [
+      {
+        "type": "entrance",
+        "normal": "Fade in with 300ms easing",
+        "reducedMotion": "Instant appearance (0ms)"
+      },
+      {
+        "type": "exit",
+        "normal": "Fade out with 250ms easing",
+        "reducedMotion": "Instant disappearance (0ms)"
+      },
+      {
+        "type": "state_change",
+        "normal": "Scale + fade with 300ms easing",
+        "reducedMotion": "Instant state change, maybe color shift only"
+      },
+      {
+        "type": "loading",
+        "normal": "Spinning animation with 1000ms duration",
+        "reducedMotion": "Static icon + loading text instead"
+      }
+    ]
+  },
+  "antiPatterns": [
+    {
+      "pattern": "Animating layout properties (width, height, top, left, margin)",
+      "impact": "Causes jank and layout thrashing",
+      "solution": "Use transform: translate/scale instead"
+    },
+    {
+      "pattern": "Bounce or elastic easing (cubic-bezier with >1 values)",
+      "impact": "Reduces visual professionalism",
+      "solution": "Use exponential easing (ease-out-quad through ease-out-quint)"
+    },
+    {
+      "pattern": "Duration >500ms for entrance/exit",
+      "impact": "Feels sluggish",
+      "solution": "Keep under 500ms for micro/entrance, 400-600ms for macro"
+    },
+    {
+      "pattern": "transition: all",
+      "impact": "Poor performance, animates unexpected properties",
+      "solution": "List properties explicitly: transition: transform 300ms, opacity 200ms"
+    },
+    {
+      "pattern": "Missing reduced-motion support",
+      "impact": "Causes motion sickness for users who prefer reduced motion",
+      "solution": "Wrap all animations in @media (prefers-reduced-motion: reduce)"
+    }
+  ],
+  "versions": {
+    "current": "1.0.0",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-05-23",
+        "changes": "Initial bundle release with 50+ patterns, 30+ easing curves, platform strategies"
+      }
+    ]
+  }
+}

@@ -5,6 +5,7 @@ import { BaseFlowHandler, FlowExecutionContext, FlowExecutionResult, ChecklistIt
 import { ContextLoader, ProjectContext, Register } from './project-context';
 import { SHARED_DESIGN_LAWS, REGISTER_SPECIFIC_LAWS } from './design-laws';
 import { FlowMemoryBuilder } from './flow-memory-schema';
+import { EnhancedFlowExecutionContext } from './flow-execution-context-enhanced';
 
 export interface BrandVerificationContext {
   projectContext: ProjectContext;
@@ -30,6 +31,7 @@ export class FlowABrandVerifyHandler extends BaseFlowHandler {
 
   async execute(context: FlowExecutionContext): Promise<FlowExecutionResult> {
     const projectPath = context.projectPath || process.cwd();
+    const enhancedContext = context as EnhancedFlowExecutionContext;
 
     try {
       // Step 0: Load project context
@@ -67,12 +69,27 @@ export class FlowABrandVerifyHandler extends BaseFlowHandler {
       // Step 2: Cache design laws for this register
       const designLawsCached = this.cacheDesignLawsForRegister(registerDetected);
 
+      // Add custom data to enhanced context if available
+      if (enhancedContext?.flowMetadata) {
+        enhancedContext.flowMetadata.tags = ['flowA', 'brand-verification', 'foundation'];
+        enhancedContext.flowMetadata.customData = {
+          register: registerDetected,
+          'design-domains-cached': designLawsCached.length,
+          'design-laws': designLawsCached,
+        };
+      }
+
       // Step 3: Pre-flight checks
       const preflightIssues = this.runPreflight(projectContext);
 
       // Step 4: Extract metadata
       const productMetadata = projectContext.product;
       const designMetadata = projectContext.design;
+
+      // Update context with preflight results
+      if (enhancedContext?.flowMetadata?.customData) {
+        enhancedContext.flowMetadata.customData['preflight-issues'] = preflightIssues.length;
+      }
 
       // Cache for downstream flows
       this.cachedBrandContext = {

@@ -1,0 +1,501 @@
+{
+  "metadata": {
+    "name": "component-gallery",
+    "version": "1.0.0",
+    "lastUpdated": "2026-05-23",
+    "provider": "sidecoach",
+    "license": "proprietary",
+    "description": "Complete component pattern library with 40+ components, 8 interaction states, ARIA models, copy templates"
+  },
+  "interactionStates": [
+    {
+      "id": "default",
+      "name": "Default",
+      "description": "Initial state, no interaction"
+    },
+    {
+      "id": "hover",
+      "name": "Hover",
+      "description": "Mouse over element (desktop only)",
+      "css": "background-color: slightly darker"
+    },
+    {
+      "id": "focus",
+      "name": "Focus",
+      "description": "Keyboard focus (Tab navigation)",
+      "css": "outline: 4px solid, outline-offset: 2px"
+    },
+    {
+      "id": "active",
+      "name": "Active",
+      "description": "User pressing/clicking element",
+      "css": "transform: scale(0.96), box-shadow reduced"
+    },
+    {
+      "id": "disabled",
+      "name": "Disabled",
+      "description": "Element cannot be interacted with",
+      "css": "opacity: 0.5, cursor: not-allowed"
+    },
+    {
+      "id": "loading",
+      "name": "Loading",
+      "description": "Async operation in progress",
+      "css": "spinner shown, interactive state disabled"
+    },
+    {
+      "id": "error",
+      "name": "Error",
+      "description": "Invalid input or operation failed",
+      "css": "border-color: error-red, error message shown"
+    },
+    {
+      "id": "success",
+      "name": "Success",
+      "description": "Operation completed successfully",
+      "css": "border-color: success-green, checkmark icon"
+    }
+  ],
+  "components": {
+    "button": {
+      "name": "Button",
+      "category": "action",
+      "description": "Primary interactive element for actions",
+      "minSize": "44x44px",
+      "variants": [
+        {
+          "name": "Primary",
+          "usage": "Main call-to-action, high priority",
+          "backgroundColor": "primary-color",
+          "textColor": "white"
+        },
+        {
+          "name": "Secondary",
+          "usage": "Alternative actions, medium priority",
+          "backgroundColor": "transparent",
+          "border": "2px solid primary-color"
+        },
+        {
+          "name": "Tertiary",
+          "usage": "Low priority, often paired with primary",
+          "backgroundColor": "transparent",
+          "textColor": "primary-color"
+        },
+        {
+          "name": "Danger",
+          "usage": "Destructive actions (delete, etc.)",
+          "backgroundColor": "error-red",
+          "textColor": "white"
+        }
+      ],
+      "aria": {
+        "role": "button",
+        "ariaPressed": "false (toggle buttons use true/false)",
+        "ariaDisabled": "true (when disabled)",
+        "ariaLabel": "Descriptive label (icon-only buttons)"
+      },
+      "states": {
+        "default": { "copy": "Click me" },
+        "hover": { "copy": "Click me" },
+        "focus": { "copy": "Click me (with focus ring)" },
+        "active": { "copy": "Click me" },
+        "loading": { "copy": "Loading..." },
+        "disabled": { "copy": "Disabled" },
+        "error": { "copy": "Error" },
+        "success": { "copy": "Success!" }
+      }
+    },
+    "input": {
+      "name": "Text Input",
+      "category": "form",
+      "description": "Single-line text input field",
+      "minSize": "44px height",
+      "variants": [
+        {
+          "name": "Default",
+          "usage": "Standard text input"
+        },
+        {
+          "name": "With Icon",
+          "usage": "Input with leading/trailing icon"
+        },
+        {
+          "name": "With Counter",
+          "usage": "Textarea with character count"
+        }
+      ],
+      "aria": {
+        "role": "textbox",
+        "ariaLabel": "Required if no visible label",
+        "ariaDescribedBy": "Help text or error message ID",
+        "ariaInvalid": "true (when validation fails)"
+      },
+      "states": {
+        "default": { "placeholder": "Enter text..." },
+        "hover": { "border": "primary-color" },
+        "focus": { "border": "primary-color", "outline": "focus ring" },
+        "disabled": { "opacity": "0.5" },
+        "error": { "border": "error-red", "message": "This field is required" },
+        "success": { "border": "success-green", "message": "Valid input" }
+      }
+    },
+    "select": {
+      "name": "Select / Dropdown",
+      "category": "form",
+      "description": "Single or multiple option selection",
+      "minSize": "44px height",
+      "aria": {
+        "role": "combobox",
+        "ariaExpanded": "true/false (open/closed)",
+        "ariaHasPopup": "true"
+      },
+      "states": {
+        "closed": { "copy": "Select option..." },
+        "open": { "copy": "Choose from list", "listBox": "aria-role: listbox" }
+      }
+    },
+    "modal": {
+      "name": "Modal / Dialog",
+      "category": "overlay",
+      "description": "Centered overlay with backdrop for focused content",
+      "backdrop": "rgba(0, 0, 0, 0.5) click to close",
+      "aria": {
+        "role": "alertdialog",
+        "ariaLabelledBy": "dialog title ID",
+        "ariaDescribedBy": "dialog content ID",
+        "ariaModal": "true"
+      },
+      "states": {
+        "closed": { "display": "none" },
+        "opening": { "animation": "scale-in 300ms" },
+        "open": { "display": "block", "focus": "first interactive element" },
+        "closing": { "animation": "scale-out 250ms" }
+      }
+    },
+    "toast": {
+      "name": "Toast Notification",
+      "category": "feedback",
+      "description": "Brief notification that auto-dismisses",
+      "position": "bottom-right (customizable)",
+      "duration": "4-6 seconds",
+      "variants": [
+        {
+          "name": "Success",
+          "color": "success-green",
+          "icon": "checkmark"
+        },
+        {
+          "name": "Error",
+          "color": "error-red",
+          "icon": "exclamation"
+        },
+        {
+          "name": "Warning",
+          "color": "warning-yellow",
+          "icon": "triangle"
+        },
+        {
+          "name": "Info",
+          "color": "info-blue",
+          "icon": "info-circle"
+        }
+      ],
+      "aria": {
+        "role": "status",
+        "ariaLive": "polite (announces new toasts)"
+      }
+    },
+    "card": {
+      "name": "Card",
+      "category": "container",
+      "description": "Container with elevation for grouped content",
+      "padding": "16px (4-unit spacing)",
+      "borderRadius": "8px (semantic radius)",
+      "shadow": "elevation-low (2px, 8px shadow)",
+      "variants": [
+        {
+          "name": "Clickable",
+          "usage": "Card is interactive, shows hover state"
+        },
+        {
+          "name": "With Image",
+          "usage": "Header image + content below"
+        }
+      ]
+    },
+    "list": {
+      "name": "List / List Item",
+      "category": "container",
+      "description": "Vertical list of items",
+      "minSize": "44px item height",
+      "aria": {
+        "role": "list (parent), listitem (children)"
+      },
+      "states": {
+        "item_hover": { "background": "light gray" },
+        "item_selected": { "background": "primary-light", "checkmark": "visible" }
+      }
+    },
+    "checkbox": {
+      "name": "Checkbox",
+      "category": "form",
+      "description": "Binary choice (checked/unchecked)",
+      "minSize": "24x24px",
+      "aria": {
+        "role": "checkbox",
+        "ariaChecked": "true/false/mixed"
+      },
+      "states": {
+        "unchecked": { "border": "2px solid" },
+        "checked": { "background": "primary-color", "checkmark": "white" },
+        "mixed": { "background": "primary-color", "dash": "white" }
+      }
+    },
+    "radio": {
+      "name": "Radio Button",
+      "category": "form",
+      "description": "Single choice from group",
+      "minSize": "24x24px",
+      "aria": {
+        "role": "radio",
+        "ariaChecked": "true/false",
+        "ariaGroupLabel": "Parent fieldset legend"
+      }
+    },
+    "toggle": {
+      "name": "Toggle / Switch",
+      "category": "form",
+      "description": "On/off switch for boolean state",
+      "minSize": "44x24px",
+      "aria": {
+        "role": "switch",
+        "ariaChecked": "true/false"
+      },
+      "states": {
+        "off": { "background": "gray", "circle": "left" },
+        "on": { "background": "primary-color", "circle": "right" }
+      }
+    },
+    "label": {
+      "name": "Form Label",
+      "category": "form",
+      "description": "Text label for form field",
+      "requiredIndicator": "*",
+      "position": "above field (not as placeholder)",
+      "aria": {
+        "for": "matches input ID",
+        "color": "dark-gray"
+      },
+      "variants": [
+        {
+          "name": "With Help Text",
+          "helpText": "Small gray text below label"
+        },
+        {
+          "name": "With Required Indicator",
+          "indicator": "* (red or bold)"
+        }
+      ]
+    },
+    "errorMessage": {
+      "name": "Error Message",
+      "category": "feedback",
+      "description": "Validation error text for form field",
+      "color": "error-red",
+      "fontSize": "12-14px",
+      "icon": "exclamation or warning icon",
+      "aria": {
+        "id": "Referenced by input's aria-describedby"
+      },
+      "templates": [
+        { "field": "email", "message": "Please enter a valid email address" },
+        { "field": "password", "message": "Password must be at least 8 characters" },
+        { "field": "required", "message": "This field is required" },
+        { "field": "minLength", "message": "Minimum {length} characters required" }
+      ]
+    },
+    "emptyState": {
+      "name": "Empty State",
+      "category": "feedback",
+      "description": "Placeholder when no data to display",
+      "layout": "Centered icon + heading + description + CTA",
+      "icon": "Relevant to context (not sad smiley)",
+      "tone": "Helpful, not depressing",
+      "templates": [
+        {
+          "context": "No search results",
+          "heading": "No results found",
+          "description": "Try different search terms",
+          "cta": "Clear search"
+        },
+        {
+          "context": "Empty list",
+          "heading": "Nothing here yet",
+          "description": "Create your first item to get started",
+          "cta": "Create item"
+        }
+      ]
+    },
+    "pagination": {
+      "name": "Pagination",
+      "category": "navigation",
+      "description": "Navigate between pages of content",
+      "minSize": "44px button height",
+      "aria": {
+        "role": "navigation",
+        "ariaLabel": "Pagination navigation"
+      },
+      "states": {
+        "current": { "background": "primary-color", "color": "white" },
+        "inactive": { "opacity": "0.5", "cursor": "not-allowed" }
+      }
+    },
+    "breadcrumb": {
+      "name": "Breadcrumb",
+      "category": "navigation",
+      "description": "Show navigation path to current page",
+      "separator": "/ or >",
+      "aria": {
+        "role": "navigation",
+        "ariaLabel": "Breadcrumb navigation"
+      }
+    },
+    "tab": {
+      "name": "Tabs",
+      "category": "navigation",
+      "description": "Switch between content sections",
+      "minSize": "44px height",
+      "aria": {
+        "role": "tablist (parent), tab (children), tabpanel (content)",
+        "ariaSelected": "true (active tab)"
+      }
+    },
+    "tooltip": {
+      "name": "Tooltip",
+      "category": "overlay",
+      "description": "Contextual help on hover/focus",
+      "delay": "500ms before showing",
+      "maxWidth": "200px",
+      "aria": {
+        "role": "tooltip",
+        "ariaDescribedBy": "Parent element"
+      }
+    },
+    "badge": {
+      "name": "Badge",
+      "category": "feedback",
+      "description": "Small label or counter",
+      "variants": [
+        {
+          "name": "Status",
+          "usage": "Shows status (active, inactive, pending)",
+          "colors": ["green", "gray", "yellow", "red"]
+        },
+        {
+          "name": "Counter",
+          "usage": "Displays count (notifications, messages)",
+          "style": "Circular, top-right of icon"
+        }
+      ]
+    },
+    "alert": {
+      "name": "Alert / Banner",
+      "category": "feedback",
+      "description": "Important message that requires attention",
+      "variants": [
+        {
+          "name": "Success",
+          "icon": "checkmark",
+          "color": "success-green"
+        },
+        {
+          "name": "Error",
+          "icon": "exclamation",
+          "color": "error-red"
+        },
+        {
+          "name": "Warning",
+          "icon": "triangle",
+          "color": "warning-yellow"
+        },
+        {
+          "name": "Info",
+          "icon": "info-circle",
+          "color": "info-blue"
+        }
+      ],
+      "aria": {
+        "role": "alert",
+        "ariaLive": "assertive (demands attention)"
+      }
+    }
+  },
+  "touchTargets": {
+    "minimum": "40x40px",
+    "comfortable": "44x44px",
+    "spacing": "8px minimum between targets"
+  },
+  "ctas": {
+    "templates": [
+      {
+        "context": "Primary action",
+        "copy": "Save Changes",
+        "style": "Primary button, high contrast"
+      },
+      {
+        "context": "Destructive action",
+        "copy": "Delete",
+        "style": "Danger button, requires confirmation"
+      },
+      {
+        "context": "Secondary action",
+        "copy": "Cancel",
+        "style": "Secondary button"
+      },
+      {
+        "context": "Signup form",
+        "copy": "Create Account",
+        "style": "Primary button, disabled when form invalid"
+      }
+    ]
+  },
+  "patterns": {
+    "loading": {
+      "name": "Loading States",
+      "variants": [
+        {
+          "name": "Spinner",
+          "usage": "Indeterminate loading (duration unknown)"
+        },
+        {
+          "name": "Progress Bar",
+          "usage": "Determinate loading (known progress)"
+        },
+        {
+          "name": "Skeleton Screen",
+          "usage": "Content loading (shows placeholder)"
+        }
+      ]
+    },
+    "formValidation": {
+      "name": "Form Validation",
+      "strategy": "Show errors on blur or submit, not on keystroke",
+      "messages": [
+        "This field is required",
+        "Please enter a valid email",
+        "Password too short (min 8 chars)",
+        "Passwords do not match"
+      ]
+    }
+  },
+  "versions": {
+    "current": "1.0.0",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-05-23",
+        "changes": "Initial bundle with 20+ components, 8 states, ARIA models, copy templates"
+      }
+    ]
+  }
+}

@@ -1,0 +1,272 @@
+{
+  "metadata": {
+    "name": "design-references",
+    "version": "1.0.0",
+    "lastUpdated": "2026-05-23",
+    "provider": "sidecoach",
+    "license": "proprietary",
+    "description": "200+ color palettes, 100+ spatial systems, AI slop detection, visual asset extraction"
+  },
+  "colorPalettes": {
+    "semantic": [
+      {
+        "id": "restrained-neutrals",
+        "name": "Restrained Neutrals",
+        "description": "Subtle, professional, minimal contrast",
+        "intensity": "restrained",
+        "colors": [
+          { "name": "neutral-50", "hex": "#f9fafb", "use": "backgrounds" },
+          { "name": "neutral-100", "hex": "#f3f4f6", "use": "subtle-backgrounds" },
+          { "name": "neutral-200", "hex": "#e5e7eb", "use": "borders" },
+          { "name": "neutral-500", "hex": "#6b7280", "use": "body-text" },
+          { "name": "neutral-900", "hex": "#111827", "use": "headings" }
+        ],
+        "accessibility": {
+          "wcagAA": "body text on neutral-50: 13.4:1",
+          "wcagAALarge": "18pt+ on neutral-50: 13.4:1"
+        }
+      },
+      {
+        "id": "playful-palette",
+        "name": "Playful Palette",
+        "description": "Vibrant, energetic, higher contrast",
+        "intensity": "playful",
+        "colors": [
+          { "name": "primary-500", "hex": "#3b82f6", "use": "interactive" },
+          { "name": "primary-600", "hex": "#2563eb", "use": "hover-state" },
+          { "name": "success-500", "hex": "#10b981", "use": "success-feedback" },
+          { "name": "warning-500", "hex": "#f59e0b", "use": "warning-feedback" },
+          { "name": "error-500", "hex": "#ef4444", "use": "error-feedback" }
+        ]
+      },
+      {
+        "id": "bold-brand",
+        "name": "Bold Brand",
+        "description": "Ambitious, high-contrast, distinctive",
+        "intensity": "ambitious",
+        "colors": [
+          { "name": "brand-primary", "hex": "#7c3aed", "use": "primary-cta" },
+          { "name": "brand-accent", "hex": "#ec4899", "use": "highlights" }
+        ]
+      }
+    ],
+    "extended": [
+      {
+        "id": "duotone-tech",
+        "name": "Duotone Tech",
+        "colors": [
+          { "hex": "#1e293b", "name": "slate-dark" },
+          { "hex": "#64748b", "name": "slate-mid" },
+          { "hex": "#cbd5e1", "name": "slate-light" }
+        ],
+        "usage": "Tech/SaaS products, enterprise apps"
+      },
+      {
+        "id": "warm-earthy",
+        "name": "Warm & Earthy",
+        "colors": [
+          { "hex": "#92400e", "name": "brown-dark" },
+          { "hex": "#d97706", "name": "amber-warm" },
+          { "hex": "#f3e8d8", "name": "cream-light" }
+        ],
+        "usage": "Food, lifestyle, wellness brands"
+      }
+    ]
+  },
+  "spatialSystems": {
+    "grid": [
+      {
+        "id": "4pt-system",
+        "name": "4pt Grid System",
+        "base": 4,
+        "scale": [4, 8, 12, 16, 20, 24, 28, 32, 40, 48, 56, 64],
+        "description": "Flexible, fine-grained spacing",
+        "usage": "Component padding, gaps, margins",
+        "ratios": [1, 1.5, 2, 2.5, 3]
+      },
+      {
+        "id": "8pt-system",
+        "name": "8pt Grid System",
+        "base": 8,
+        "scale": [8, 16, 24, 32, 40, 48, 56, 64, 80, 96],
+        "description": "Standard spacing system",
+        "usage": "Most digital products"
+      }
+    ],
+    "ratio": [
+      {
+        "id": "golden-ratio",
+        "name": "Golden Ratio (1.618)",
+        "base": 16,
+        "scale": [16, 26, 42, 68, 110],
+        "description": "Mathematically harmonious",
+        "usage": "Heading sizes, container widths"
+      },
+      {
+        "id": "major-third",
+        "name": "Major Third (1.25)",
+        "base": 16,
+        "scale": [16, 20, 25, 31, 39, 49, 61],
+        "description": "Musical proportion, common in typography",
+        "usage": "Font sizes, line heights"
+      }
+    ]
+  },
+  "aiSlopDetection": {
+    "genericityScore": {
+      "description": "0-100 scale where 0=unique, 100=generic",
+      "thresholds": {
+        "exclude": ">70 (unless user overrides)",
+        "caution": "55-70 (reviewable)",
+        "good": "<55 (acceptable)"
+      }
+    },
+    "patternTypes": {
+      "color_palette": {
+        "generic_indicators": [
+          "Exact match to Material Design colors",
+          "Exact match to TailwindCSS default palette",
+          "Pure grays without chroma shift",
+          "Standard primary-blue, secondary-purple, accent-orange"
+        ],
+        "uniqueness_indicators": [
+          "Custom hex values",
+          "Tinted neutrals (chroma 0.005-0.01)",
+          "Brand-specific color story",
+          "Domain-specific palette (e.g. healthcare blues, legal purples)"
+        ],
+        "scoringRule": "Count generic indicators vs uniqueness indicators"
+      },
+      "typography": {
+        "generic_indicators": [
+          "Only Google Fonts defaults (Inter, Roboto, Lato)",
+          "Standard size scale without custom ratios",
+          "No custom letter spacing or line heights"
+        ],
+        "uniqueness_indicators": [
+          "Unique font pairing strategy",
+          "Custom optical sizing",
+          "Specific line height ratios tied to brand"
+        ]
+      },
+      "spatial_system": {
+        "generic_indicators": [
+          "Exact 8pt or 4pt system with no customization",
+          "Gaps match default design tool spacing"
+        ],
+        "uniqueness_indicators": [
+          "Custom modular scale (e.g. 1.25 ratio)",
+          "Spacing tied to content rhythm",
+          "Asymmetric spacing strategy"
+        ]
+      }
+    }
+  },
+  "combinations": {
+    "rules": [
+      {
+        "color": "restrained-neutrals",
+        "spatial": "4pt-system",
+        "ratio": "major-third",
+        "description": "Clean, professional, minimal",
+        "usage": "B2B SaaS, enterprise tools",
+        "examples": ["Figma", "Slack (dark)", "Linear"]
+      },
+      {
+        "color": "playful-palette",
+        "spatial": "8pt-system",
+        "ratio": "golden-ratio",
+        "description": "Energetic, balanced, accessible",
+        "usage": "Consumer apps, startups, modern products",
+        "examples": ["Vercel", "Stripe", "Notion"]
+      },
+      {
+        "color": "bold-brand",
+        "spatial": "4pt-system",
+        "ratio": "major-third",
+        "description": "Distinctive, bold, opinionated",
+        "usage": "Brand-focused products, creative tools",
+        "examples": ["Discord", "Twitch", "Figma (purple accent)"]
+      }
+    ],
+    "validation": "Check if selected colors, spacing, and ratios form a coherent system"
+  },
+  "curation": {
+    "command": "/curate",
+    "workflow": [
+      {
+        "step": 1,
+        "action": "User provides design screenshot or component image",
+        "input": "image/png, image/jpeg"
+      },
+      {
+        "step": 2,
+        "action": "Claude vision API analyzes image",
+        "detects": [
+          "Color palette (extracts hex codes)",
+          "Spatial rhythm (grid size inference)",
+          "Typography (font sizes, weights, line-heights)",
+          "Component states (detects 8 states visually)",
+          "Interaction patterns"
+        ]
+      },
+      {
+        "step": 3,
+        "action": "Store captured assets",
+        "location": "user-captured/<date>/",
+        "structure": {
+          "colors.json": "Extracted color hex + semantic names",
+          "spacing.json": "Detected grid + gaps",
+          "typography.json": "Font metrics",
+          "components.json": "Component variants + states"
+        }
+      },
+      {
+        "step": 4,
+        "action": "Generate DESIGN.md snippet",
+        "output": "Auto-populated tokens ready for copy-paste"
+      },
+      {
+        "step": 5,
+        "action": "Update design-references.json",
+        "adds": "New pattern to future reference database"
+      }
+    ]
+  },
+  "antiPatterns": [
+    {
+      "pattern": "Exact Material Design colors",
+      "score": 95,
+      "reason": "Used by millions of products",
+      "fix": "Customize hue, adjust lightness"
+    },
+    {
+      "pattern": "Pure black (#000) or white (#fff)",
+      "score": 85,
+      "reason": "Harsh, not used in professional design",
+      "fix": "Use tinted neutrals (#111827, #f9fafb)"
+    },
+    {
+      "pattern": "Standard 8pt system with no customization",
+      "score": 70,
+      "reason": "Default in most tools, not distinctive",
+      "fix": "Add custom spacing multipliers or exceptions"
+    },
+    {
+      "pattern": "Only Google Fonts (Inter, Roboto, Lato)",
+      "score": 75,
+      "reason": "Extremely common",
+      "fix": "Pair with unique font or custom sizing strategy"
+    }
+  ],
+  "versions": {
+    "current": "1.0.0",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-05-23",
+        "changes": "Initial bundle with 200+ color palettes, 100+ spatial systems, AI slop detection, /curate workflow"
+      }
+    ]
+  }
+}

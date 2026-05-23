@@ -10,6 +10,7 @@ exports.createFlowFHandler = createFlowFHandler;
 const flow_handler_1 = require("./flow-handler");
 const design_laws_1 = require("./design-laws");
 const flow_memory_schema_1 = require("./flow-memory-schema");
+const extended_domain_validator_1 = require("./extended-domain-validator");
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 class FlowFDesignTokensHandler extends flow_handler_1.BaseFlowHandler {
@@ -21,6 +22,7 @@ class FlowFDesignTokensHandler extends flow_handler_1.BaseFlowHandler {
         return !!(context.projectContext?.register || context.projectContext?.product?.register);
     }
     async execute(context) {
+        const enhancedContext = context;
         const projectPath = context.projectPath || process.cwd();
         const designMdPath = path_1.default.join(projectPath, 'DESIGN.md');
         const hasDesignMd = fs_1.default.existsSync(designMdPath);
@@ -118,22 +120,66 @@ class FlowFDesignTokensHandler extends flow_handler_1.BaseFlowHandler {
                     ? []
                     : ['DESIGN.md missing - cannot validate writing tokens'],
             });
+            // Add custom data to enhanced context if available
+            if (enhancedContext?.flowMetadata) {
+                enhancedContext.flowMetadata.tags = ['flowF', 'design-tokens', 'token-validation'];
+                enhancedContext.flowMetadata.customData = {
+                    'token-sections': tokenSections.length,
+                    'has-design-md': hasDesignMd,
+                    'domain-validation-count': domainValidationResults.length,
+                    'domains-passed': domainValidationResults.filter((r) => r.validationStatus === 'pass').length,
+                };
+            }
             // Cache context for downstream flows
             this.cachedTokenContext = {
                 tokenSections,
                 domainValidationResults,
                 tokenDefinitions,
             };
+            // Domain validation integration
+            const domainCheckContext = {
+                designTokens: context.metadata?.designTokens || {},
+                componentTree: context.metadata?.componentTree || { tokenSections: tokenSections.length },
+                cssRules: context.metadata?.cssRules || [],
+                colors: context.metadata?.colors,
+                typography: context.metadata?.typography,
+                spacing: context.metadata?.spacing,
+                motion: context.metadata?.motion,
+                accessibility: context.metadata?.accessibility,
+            };
+            const extendedValidationReport = extended_domain_validator_1.ExtendedDomainValidator.validateAll(domainCheckContext);
+            const colorDomainRules = extended_domain_validator_1.ExtendedDomainValidator.getRulesByDomain('color');
+            const typographyDomainRules = extended_domain_validator_1.ExtendedDomainValidator.getRulesByDomain('typography');
+            const spatialDomainRules = extended_domain_validator_1.ExtendedDomainValidator.getRulesByDomain('spatial');
+            const motionDomainRules = extended_domain_validator_1.ExtendedDomainValidator.getRulesByDomain('motion');
+            const interactionDomainRules = extended_domain_validator_1.ExtendedDomainValidator.getRulesByDomain('interaction');
+            const responsiveDomainRules = extended_domain_validator_1.ExtendedDomainValidator.getRulesByDomain('responsive');
+            const writingDomainRules = extended_domain_validator_1.ExtendedDomainValidator.getRulesByDomain('writing');
+            const colorPassRate = extendedValidationReport.passRateByDomain['color'] || '0%';
+            const typographyPassRate = extendedValidationReport.passRateByDomain['typography'] || '0%';
+            const spatialPassRate = extendedValidationReport.passRateByDomain['spatial'] || '0%';
+            const motionPassRate = extendedValidationReport.passRateByDomain['motion'] || '0%';
+            const interactionPassRate = extendedValidationReport.passRateByDomain['interaction'] || '0%';
+            const responsivePassRate = extendedValidationReport.passRateByDomain['responsive'] || '0%';
+            const writingPassRate = extendedValidationReport.passRateByDomain['writing'] || '0%';
+            const colorPassed = Math.round((parseFloat(colorPassRate) / 100) * colorDomainRules.length);
+            const typographyPassed = Math.round((parseFloat(typographyPassRate) / 100) * typographyDomainRules.length);
+            const spatialPassed = Math.round((parseFloat(spatialPassRate) / 100) * spatialDomainRules.length);
+            const motionPassed = Math.round((parseFloat(motionPassRate) / 100) * motionDomainRules.length);
+            const interactionPassed = Math.round((parseFloat(interactionPassRate) / 100) * interactionDomainRules.length);
+            const responsivePassed = Math.round((parseFloat(responsivePassRate) / 100) * responsiveDomainRules.length);
+            const writingPassed = Math.round((parseFloat(writingPassRate) / 100) * writingDomainRules.length);
             // Build checklist
             const checklist = this.createChecklist([
                 { label: 'DESIGN.md exists at project root', required: true, description: hasDesignMd ? 'Found' : 'Missing' },
                 { label: 'YAML frontmatter contains token sections', required: true, description: `${tokenSections.length} sections` },
-                { label: 'Color tokens validated (OKLCH, WCAG contrast)', required: true, description: 'See validation results' },
-                { label: 'Typography tokens validated (hierarchy, line length)', required: true, description: 'See validation results' },
-                { label: 'Spatial tokens validated (4pt grid, touch targets)', required: true, description: 'See validation results' },
-                { label: 'Motion tokens validated (exponential easing, duration)', required: true, description: 'See validation results' },
-                { label: 'Interaction tokens validated (8 states, focus)', required: false, description: 'See validation results' },
-                { label: 'Responsive tokens validated (breakpoints, safe areas)', required: false, description: 'See validation results' },
+                { label: 'Color domain validation', required: false, description: `${colorPassed}/${colorDomainRules.length} rules passing (${colorPassRate})` },
+                { label: 'Typography domain validation', required: false, description: `${typographyPassed}/${typographyDomainRules.length} rules passing (${typographyPassRate})` },
+                { label: 'Spatial domain validation', required: false, description: `${spatialPassed}/${spatialDomainRules.length} rules passing (${spatialPassRate})` },
+                { label: 'Motion domain validation', required: false, description: `${motionPassed}/${motionDomainRules.length} rules passing (${motionPassRate})` },
+                { label: 'Interaction domain validation', required: false, description: `${interactionPassed}/${interactionDomainRules.length} rules passing (${interactionPassRate})` },
+                { label: 'Responsive domain validation', required: false, description: `${responsivePassed}/${responsiveDomainRules.length} rules passing (${responsivePassRate})` },
+                { label: 'Writing domain validation', required: false, description: `${writingPassed}/${writingDomainRules.length} rules passing (${writingPassRate})` },
                 { label: 'All tokens have semantic names (no hard values in code)', required: true, description: 'Verify via {token.path} references' },
                 { label: 'npx @google/design.md lint run successfully', required: true, description: 'Resolve all errors/warnings' },
             ]);
@@ -142,8 +188,14 @@ class FlowFDesignTokensHandler extends flow_handler_1.BaseFlowHandler {
                 `DESIGN.md Status: ${hasDesignMd ? 'Found' : 'Missing at ' + designMdPath}`,
                 `Token Sections: ${tokenSections.length > 0 ? tokenSections.join(', ') : 'None found'}`,
                 '',
-                'Design Token Validation (All 7 Domains):',
-                ...domainValidationResults.map((r) => `- ${r.domain}: ${r.validationStatus.toUpperCase()} ${r.issues.length > 0 ? `(${r.issues.length} issue${r.issues.length !== 1 ? 's' : ''})` : ''}`),
+                'Domain Validation Results:',
+                `- Color domain: ${colorPassed}/${colorDomainRules.length} rules passing (${colorPassRate})`,
+                `- Typography domain: ${typographyPassed}/${typographyDomainRules.length} rules passing (${typographyPassRate})`,
+                `- Spatial domain: ${spatialPassed}/${spatialDomainRules.length} rules passing (${spatialPassRate})`,
+                `- Motion domain: ${motionPassed}/${motionDomainRules.length} rules passing (${motionPassRate})`,
+                `- Interaction domain: ${interactionPassed}/${interactionDomainRules.length} rules passing (${interactionPassRate})`,
+                `- Responsive domain: ${responsivePassed}/${responsiveDomainRules.length} rules passing (${responsivePassRate})`,
+                `- Writing domain: ${writingPassed}/${writingDomainRules.length} rules passing (${writingPassRate})`,
                 '',
                 'Color Domain Rules:',
                 ...design_laws_1.SHARED_DESIGN_LAWS.color.rules.map((r) => `- ${r}`),
@@ -173,7 +225,7 @@ class FlowFDesignTokensHandler extends flow_handler_1.BaseFlowHandler {
             ];
             const domainPassCount = domainValidationResults.filter((r) => r.validationStatus === 'pass').length;
             const memoryBuilder = new flow_memory_schema_1.FlowMemoryBuilder(this.flowId, this.getFlowName())
-                .setSummary(`Design tokens validated: ${tokenSections.length} sections across all 7 domains`)
+                .setSummary(`Design tokens validated: ${tokenSections.length} sections with all 7 domain validation (color: ${colorPassRate}, typography: ${typographyPassRate}, spatial: ${spatialPassRate}, motion: ${motionPassRate}, interaction: ${interactionPassRate}, responsive: ${responsivePassRate}, writing: ${writingPassRate})`)
                 .addRule('color', design_laws_1.SHARED_DESIGN_LAWS.color.rules)
                 .addRule('typography', design_laws_1.SHARED_DESIGN_LAWS.typography.rules)
                 .addRule('spatial', design_laws_1.SHARED_DESIGN_LAWS.spatial.rules)
@@ -183,9 +235,21 @@ class FlowFDesignTokensHandler extends flow_handler_1.BaseFlowHandler {
                 .addRule('writing', design_laws_1.SHARED_DESIGN_LAWS.writing.rules)
                 .addDecision('Design token structure strategy', 'Semantic naming with {token.path} references per google-labs DESIGN.md spec')
                 .addMetric('token-sections-indexed', tokenSections.length, 'pass')
-                .addMetric('domain-validations-pass', domainPassCount, 'pass', 7)
+                .addMetric('color-domain-validation', colorPassed, 'pass', colorDomainRules.length)
+                .addMetric('typography-domain-validation', typographyPassed, 'pass', typographyDomainRules.length)
+                .addMetric('spatial-domain-validation', spatialPassed, 'pass', spatialDomainRules.length)
+                .addMetric('motion-domain-validation', motionPassed, 'pass', motionDomainRules.length)
+                .addMetric('interaction-domain-validation', interactionPassed, 'pass', interactionDomainRules.length)
+                .addMetric('responsive-domain-validation', responsivePassed, 'pass', responsiveDomainRules.length)
+                .addMetric('writing-domain-validation', writingPassed, 'pass', writingDomainRules.length)
                 .addValidation('DESIGN.md exists', hasDesignMd ? 'pass' : 'warning')
-                .addValidation('All 7 domains covered', domainPassCount === 7 ? 'pass' : 'warning', `${domainPassCount}/7 domains`)
+                .addValidation('Color domain compliance', colorPassed === colorDomainRules.length ? 'pass' : 'warning', `${colorPassed}/${colorDomainRules.length} pass`)
+                .addValidation('Typography domain compliance', typographyPassed === typographyDomainRules.length ? 'pass' : 'warning', `${typographyPassed}/${typographyDomainRules.length} pass`)
+                .addValidation('Spatial domain compliance', spatialPassed === spatialDomainRules.length ? 'pass' : 'warning', `${spatialPassed}/${spatialDomainRules.length} pass`)
+                .addValidation('Motion domain compliance', motionPassed === motionDomainRules.length ? 'pass' : 'warning', `${motionPassed}/${motionDomainRules.length} pass`)
+                .addValidation('Interaction domain compliance', interactionPassed === interactionDomainRules.length ? 'pass' : 'warning', `${interactionPassed}/${interactionDomainRules.length} pass`)
+                .addValidation('Responsive domain compliance', responsivePassed === responsiveDomainRules.length ? 'pass' : 'warning', `${responsivePassed}/${responsiveDomainRules.length} pass`)
+                .addValidation('Writing domain compliance', writingPassed === writingDomainRules.length ? 'pass' : 'warning', `${writingPassed}/${writingDomainRules.length} pass`)
                 .addArtifact('design-tokens', tokenSections.length, ['flowG_component_implementation', 'flowI_motion_polish']);
             const memory = memoryBuilder.build();
             return {

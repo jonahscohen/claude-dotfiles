@@ -10,6 +10,15 @@ const deterministic_validator_1 = require("./deterministic-validator");
 const regression_detector_1 = require("./regression-detector");
 const design_debt_tracker_1 = require("./design-debt-tracker");
 const project_context_1 = require("./project-context");
+const context_loader_1 = require("./context-loader");
+const session_memory_writer_1 = require("./session-memory-writer");
+const slash_command_router_1 = require("./slash-command-router");
+const sidecoach_entry_point_1 = require("./sidecoach-entry-point");
+const teach_command_handler_1 = require("./teach-command-handler");
+const flow_prerequisites_1 = require("./flow-prerequisites");
+const flow_composition_1 = require("./flow-composition");
+const flow_domain_validators_1 = require("./flow-domain-validators");
+const flow_execution_context_enhanced_1 = require("./flow-execution-context-enhanced");
 const flow_handler_brand_verify_1 = require("./flow-handler-brand-verify");
 const flow_handler_component_research_1 = require("./flow-handler-component-research");
 const flow_handler_font_research_1 = require("./flow-handler-font-research");
@@ -24,13 +33,29 @@ const flow_handler_accessibility_1 = require("./flow-handler-accessibility");
 const flow_handlers_tier3_tier4_1 = require("./flow-handlers-tier3-tier4");
 const flow_handlers_tier5_specialized_1 = require("./flow-handlers-tier5-specialized");
 const flow_handlers_curate_qa_1 = require("./flow-handlers-curate-qa");
+// Phase III: Performance, Validation, Metrics
+const flow_performance_cache_1 = require("./flow-performance-cache");
+const flow_specific_validators_1 = require("./flow-specific-validators");
+const flow_metrics_tracker_1 = require("./flow-metrics-tracker");
+const flow_conditional_router_1 = require("./flow-conditional-router");
 class FlowExecutionEngine {
     constructor() {
         this.intentDetector = (0, intent_detector_1.createDetector)();
         this.handlers = new Map();
         const flowHistory = (0, flow_history_1.getFlowHistory)();
         this.orchestrator = new orchestrator_1.SidecoachOrchestrator(flowHistory);
+        this.compositionEngine = new flow_composition_1.FlowCompositionEngine();
+        this.contextManager = new flow_execution_context_enhanced_1.EnhancedContextManager();
         this.initializeHandlers();
+        this.initializeValidators();
+    }
+    initializeValidators() {
+        // Register all domain validators for flow execution
+        (0, flow_domain_validators_1.registerFlowDomainValidators)(this.compositionEngine);
+        // Register context propagation rules for flow sequences
+        for (const rule of flow_execution_context_enhanced_1.COMMON_PROPAGATION_RULES) {
+            this.contextManager.registerPropagationRule(rule);
+        }
     }
     initializeHandlers() {
         // Register all flow handlers with their implementations
@@ -110,8 +135,405 @@ class FlowExecutionEngine {
         }
         flowHistory.recordFlow(entry);
     }
+    // Phase III: Performance & Validation Integration
+    validateFlowExecution(flowId, context, result) {
+        // Run flow-specific validators
+        const validation = flow_specific_validators_1.FlowSpecificValidator.validateFlow(flowId, context, result);
+        if (validation.warnings.length > 0) {
+            console.log(`[Validation Warnings] ${flowId}:`, validation.warnings);
+        }
+    }
+    cacheFlowResult(flowId, result) {
+        // Cache execution result for performance
+        flow_performance_cache_1.globalPerformanceCache.cacheHandlerResult(flowId, result);
+    }
+    trackFlowMetrics(flowId, flowName, executionId, result, context) {
+        // Track metrics for this flow execution
+        flow_metrics_tracker_1.globalMetricsTracker.startTracking(flowId, flowName, executionId);
+        // Record guidance as decisions
+        if (result.guidance && result.guidance.length > 0) {
+            flow_metrics_tracker_1.globalMetricsTracker.recordDecision(executionId, `flow-executed-${flowId}`, result.message, 'high');
+        }
+        // Record checklist progress
+        if (result.checklist) {
+            const completed = result.checklist.filter(item => item.completed).length;
+            flow_metrics_tracker_1.globalMetricsTracker.updateChecklistProgress(executionId, completed, result.checklist.length);
+        }
+        // Record artifacts
+        if (result.artifacts && result.artifacts.length > 0) {
+            for (const artifact of result.artifacts) {
+                // Map FlowArtifact types to ArtifactRecord types
+                const typeMap = {
+                    'script': 'code',
+                    'command': 'code',
+                    'checklist': 'checklist',
+                    'reference': 'reference',
+                    'template': 'template',
+                };
+                const recordType = typeMap[artifact.type] || 'template';
+                flow_metrics_tracker_1.globalMetricsTracker.recordArtifact(executionId, recordType, artifact.name, artifact.description || '');
+            }
+        }
+        // Complete tracking and store metrics
+        flow_metrics_tracker_1.globalMetricsTracker.completeTracking(executionId, {
+            projectPath: context?.projectPath,
+            userId: context?.userId,
+            metadataKeys: context?.metadata ? Object.keys(context.metadata) : [],
+        });
+    }
+    determineConditionalFlow(context) {
+        // Evaluate conditional execution routing
+        return flow_conditional_router_1.FlowConditionalRouter.determineRoute(context) || null;
+    }
+    getExecutablePath(context) {
+        // Get the conditional execution path for a context
+        return flow_conditional_router_1.FlowConditionalRouter.getExecutablePath(context);
+    }
+    processWithEntryPoint(utterance, context = {}) {
+        // Process utterance through unified entry point system
+        const entryPointRequest = {
+            utterance,
+            userId: context.userId || 'unknown',
+            projectPath: context.projectPath || process.cwd(),
+            sessionContext: context.metadata,
+        };
+        const entryPointResponse = sidecoach_entry_point_1.globalEntryPoint.process(entryPointRequest);
+        // Record entry point request in context metadata if available
+        if (context.metadata) {
+            context.metadata.entryPointType = entryPointResponse.entryType;
+            context.metadata.entryPointFlows = entryPointResponse.selectedFlows;
+            context.metadata.entryPointReason = entryPointResponse.reason;
+        }
+        if (!entryPointResponse.isValid || entryPointResponse.selectedFlows.length === 0) {
+            return null;
+        }
+        return {
+            flowIds: entryPointResponse.selectedFlows,
+            entryType: entryPointResponse.entryType,
+            primaryFlow: entryPointResponse.primaryFlow,
+        };
+    }
     async process(utterance, context = {}) {
-        // Step 1: Detect intent
+        // Step 0: Load project context (PRODUCT.md, DESIGN.md, register detection)
+        const projectPath = context.projectPath || process.cwd();
+        const loadedContext = (0, context_loader_1.buildProjectContext)(projectPath);
+        const enrichedContext = {
+            ...context,
+            projectPath,
+            metadata: {
+                ...(context.metadata || {}),
+                register: loadedContext.register,
+                productContent: loadedContext.productContent,
+                designContent: loadedContext.designContent,
+                hasFullContext: loadedContext.hasFullContext,
+            },
+        };
+        // Step 1: Check for empty input (show interactive menu)
+        if (!utterance || utterance.trim() === '' || utterance === '/sidecoach') {
+            return this.showInteractiveMenu(enrichedContext);
+        }
+        // Step 2: Check for slash commands (deterministic routing)
+        const commandMatch = (0, slash_command_router_1.parseSlashCommand)(utterance);
+        if (commandMatch.isCommand) {
+            if (commandMatch.command === 'teach') {
+                const teachHandler = new teach_command_handler_1.TeachCommandHandler();
+                const result = await teachHandler.execute({
+                    utterance,
+                    userId: context.userId,
+                    projectPath: context.projectPath || process.cwd(),
+                    currentFile: context.currentFile,
+                    selectedText: context.selectedText,
+                    metadata: context.metadata,
+                });
+                return {
+                    success: true,
+                    message: result.message,
+                    detectedFlow: null,
+                    flowResults: [result],
+                    guidance: result.guidance,
+                    checklist: result.checklist,
+                    artifacts: result.artifacts,
+                };
+            }
+            if (commandMatch.command === 'list') {
+                const byPhase = (0, slash_command_router_1.getCommandsByPhase)();
+                const groupedGuidance = [];
+                // Build grouped output by phase
+                for (const phase of ['Research', 'Implement', 'Review', 'Special']) {
+                    const phaseCommands = byPhase[phase]?.commands || [];
+                    if (phaseCommands.length > 0) {
+                        groupedGuidance.push(`\n## ${phase} Phase (${phaseCommands.length} commands)`);
+                        for (const cmd of phaseCommands) {
+                            groupedGuidance.push(`  /sidecoach ${cmd.command} - ${cmd.description} (${cmd.flowCount} flows)`);
+                        }
+                    }
+                }
+                return {
+                    success: true,
+                    message: 'Available Sidecoach Commands (grouped by workflow phase)',
+                    detectedFlow: null,
+                    flowResults: [],
+                    guidance: groupedGuidance,
+                };
+            }
+            // Handle composite flow execution
+            if (commandMatch.command === 'composite') {
+                const compositeFlowId = commandMatch.target;
+                if (!compositeFlowId) {
+                    return {
+                        success: false,
+                        message: 'Please specify composite flow ID: /sidecoach composite:<flow-id>',
+                        detectedFlow: null,
+                        flowResults: [],
+                        guidance: [
+                            'Available composite flows:',
+                            '  /sidecoach composite:composite_research_to_impl - Research to Implementation (9 flows)',
+                            '  /sidecoach composite:composite_qa_workflow - Quality Assurance (4 flows)',
+                            '  /sidecoach composite:composite_optimization - Complete Optimization (5 flows)',
+                        ],
+                    };
+                }
+                // Find the composite flow definition
+                const compositeFlow = flow_composition_1.PRESET_COMPOSITE_FLOWS.find(cf => cf.id === compositeFlowId);
+                if (!compositeFlow) {
+                    return {
+                        success: false,
+                        message: `Composite flow not found: ${compositeFlowId}`,
+                        detectedFlow: null,
+                        flowResults: [],
+                    };
+                }
+                // Execute composite flow steps
+                const executionContext = {
+                    utterance,
+                    userId: context.userId,
+                    projectPath: context.projectPath || process.cwd(),
+                    currentFile: context.currentFile,
+                    selectedText: context.selectedText,
+                    metadata: { ...context.metadata, compositeFlowId },
+                };
+                const flowResults = [];
+                const flowHistory = (0, flow_history_1.getFlowHistory)();
+                const historyEntries = flowHistory.getFlowSequence();
+                const startTime = Date.now();
+                for (const step of compositeFlow.steps) {
+                    const handler = this.handlers.get(step.flowId);
+                    if (!handler)
+                        continue;
+                    // Check prerequisites
+                    const prerequisiteCheck = flow_prerequisites_1.FlowPrerequisiteValidator.canExecute(step.flowId, historyEntries);
+                    if (!prerequisiteCheck.canExecute) {
+                        if (step.skipOnError) {
+                            flowResults.push({
+                                flowId: step.flowId,
+                                flowName: step.flowId,
+                                status: 'skipped',
+                                message: `Prerequisites not met: ${prerequisiteCheck.reason}`,
+                                guidance: [],
+                                checklist: [],
+                            });
+                            continue;
+                        }
+                        else if (compositeFlow.failOnFirstError) {
+                            return {
+                                success: false,
+                                message: `Composite flow halted: ${step.flowId} failed prerequisites`,
+                                detectedFlow: null,
+                                flowResults,
+                            };
+                        }
+                        flowResults.push({
+                            flowId: step.flowId,
+                            flowName: step.flowId,
+                            status: 'error',
+                            message: `Prerequisites not met: ${prerequisiteCheck.reason}`,
+                            guidance: [],
+                            checklist: [],
+                        });
+                        continue;
+                    }
+                    // Execute the flow with context tracking
+                    if (handler.canExecute(executionContext)) {
+                        try {
+                            // Track flow entry in execution chain
+                            this.contextManager.addToExecutionChain(step.flowId, step.flowId);
+                            // Execute the handler
+                            const result = await handler.execute(executionContext);
+                            // Track flow completion in execution chain
+                            this.contextManager.completeInChain(step.flowId, result.status === 'success' ? 'completed' : 'error', result.message);
+                            // Store execution metadata in result
+                            result.executionMetadata = {
+                                executionChain: this.contextManager.getExecutionChain(),
+                                executionDuration: this.contextManager.getExecutionDuration(step.flowId),
+                            };
+                            this.recordFlowWithMemory(result);
+                            // Apply automatic domain validators based on flow type (soft-fail)
+                            if (result.status === 'success') {
+                                const validatorsForFlow = (0, flow_domain_validators_1.getValidatorsForFlow)(step.flowId);
+                                if (validatorsForFlow.length > 0) {
+                                    const validations = this.compositionEngine.validateMultipleDomains(validatorsForFlow, result);
+                                    result.validationResults = validations;
+                                    // Log validation failures as warnings (soft-fail mode)
+                                    const failedValidations = validations.filter(v => v.status !== 'pass');
+                                    if (failedValidations.length > 0) {
+                                        const warningMsg = failedValidations
+                                            .map(v => `[${v.domain}] ${v.failedRules.join(', ')}`)
+                                            .join('; ');
+                                        result.message = `${result.message}\n\nValidation warnings: ${warningMsg}`;
+                                    }
+                                }
+                            }
+                            // Also support explicit domain validation if configured in the step
+                            if (step.domainValidation?.domains && step.domainValidation.domains.length > 0) {
+                                const validations = this.compositionEngine.validateMultipleDomains(step.domainValidation.domains, result);
+                                result.validationResults = validations;
+                                // Check if any validation failed
+                                const allPassed = flow_composition_1.FlowCompositionEngine.allValidationsPassed(validations);
+                                if (!allPassed && step.domainValidation.failOnError) {
+                                    // Halt composition on validation failure
+                                    return {
+                                        success: false,
+                                        message: `Composite flow halted: ${step.flowId} failed domain validation`,
+                                        detectedFlow: null,
+                                        flowResults: [...flowResults, result],
+                                    };
+                                }
+                            }
+                            flowResults.push(result);
+                            // Apply context transformation if defined
+                            if (step.transformContext) {
+                                Object.assign(executionContext, step.transformContext(executionContext, result));
+                            }
+                            else {
+                                // Default: propagate context
+                                Object.assign(executionContext, flow_composition_1.FlowCompositionEngine.propagateContext(executionContext, result));
+                            }
+                        }
+                        catch (err) {
+                            const errorResult = {
+                                flowId: step.flowId,
+                                flowName: step.flowId,
+                                status: 'error',
+                                message: `Flow execution failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+                                guidance: [],
+                                checklist: [],
+                                error: err instanceof Error ? err.message : 'Unknown error',
+                            };
+                            // Track error in execution chain
+                            this.contextManager.completeInChain(step.flowId, 'error', errorResult.message);
+                            errorResult.executionMetadata = {
+                                executionChain: this.contextManager.getExecutionChain(),
+                                executionDuration: this.contextManager.getExecutionDuration(step.flowId),
+                            };
+                            flowResults.push(errorResult);
+                            if (!step.skipOnError && compositeFlow.failOnFirstError) {
+                                return {
+                                    success: false,
+                                    message: `Composite flow halted: ${step.flowId} failed`,
+                                    detectedFlow: null,
+                                    flowResults,
+                                };
+                            }
+                        }
+                    }
+                }
+                const totalTime = Date.now() - startTime;
+                // Aggregate results if requested
+                let aggregatedGuidance = [];
+                let aggregatedChecklist = [];
+                if (compositeFlow.aggregateResults) {
+                    const aggregated = flow_composition_1.FlowCompositionEngine.aggregateResults(flowResults);
+                    aggregatedGuidance = aggregated.guidance;
+                    aggregatedChecklist = aggregated.checklist;
+                }
+                return {
+                    success: flowResults.some(r => r.status === 'success'),
+                    message: `Composite flow complete: ${compositeFlow.name} (${flowResults.filter(r => r.status === 'success').length}/${flowResults.length} flows successful, ${totalTime}ms)`,
+                    detectedFlow: {
+                        flowId: compositeFlowId,
+                        flowName: compositeFlow.name,
+                        confidence: 1.0,
+                    },
+                    flowResults,
+                    guidance: aggregatedGuidance.length > 0 ? aggregatedGuidance : undefined,
+                    checklist: aggregatedChecklist.length > 0 ? aggregatedChecklist : undefined,
+                };
+            }
+            // Route to command's flow chain
+            const executionContext = {
+                utterance,
+                userId: context.userId,
+                projectPath: context.projectPath || process.cwd(),
+                currentFile: context.currentFile,
+                selectedText: context.selectedText,
+                metadata: { ...context.metadata, commandTarget: commandMatch.target },
+            };
+            const flowResults = [];
+            let detectedFlow = null;
+            const flowHistory = (0, flow_history_1.getFlowHistory)();
+            const historyEntries = flowHistory.getFlowSequence();
+            for (const flowId of commandMatch.flowIds) {
+                const handler = this.handlers.get(flowId);
+                if (!handler)
+                    continue;
+                // Check prerequisites before executing
+                const prerequisiteCheck = flow_prerequisites_1.FlowPrerequisiteValidator.canExecute(flowId, historyEntries);
+                if (!prerequisiteCheck.canExecute) {
+                    flowResults.push({
+                        flowId,
+                        flowName: flowId,
+                        status: 'error',
+                        message: `Flow prerequisites not met: ${prerequisiteCheck.reason}`,
+                        guidance: [`Cannot execute ${flowId}: ${prerequisiteCheck.reason}`],
+                        checklist: [],
+                        error: prerequisiteCheck.reason,
+                    });
+                    continue;
+                }
+                // Check context requirements
+                const contextCheck = flow_prerequisites_1.FlowPrerequisiteValidator.validateContextRequirements(flowId, executionContext);
+                if (!contextCheck.valid) {
+                    flowResults.push({
+                        flowId,
+                        flowName: flowId,
+                        status: 'error',
+                        message: `Missing context: ${contextCheck.missing?.join(', ')}`,
+                        guidance: [`Context requirements not met: ${contextCheck.missing?.join(', ')}`],
+                        checklist: [],
+                        error: `Missing: ${contextCheck.missing?.join(', ')}`,
+                    });
+                    continue;
+                }
+                if (handler.canExecute(executionContext)) {
+                    // Track flow entry in execution chain
+                    this.contextManager.addToExecutionChain(flowId, flowId);
+                    const result = await handler.execute(executionContext);
+                    // Track flow completion and store metadata
+                    this.contextManager.completeInChain(flowId, result.status === 'success' ? 'completed' : 'error', result.message);
+                    // Store execution metadata in result
+                    result.executionMetadata = {
+                        executionChain: this.contextManager.getExecutionChain(),
+                        executionDuration: this.contextManager.getExecutionDuration(flowId),
+                    };
+                    this.recordFlowWithMemory(result);
+                    flowResults.push(result);
+                    if (!detectedFlow) {
+                        detectedFlow = {
+                            flowId,
+                            flowName: result.flowName || flowId,
+                            confidence: 1.0
+                        };
+                    }
+                }
+            }
+            return {
+                success: flowResults.some((r) => r.status === 'success'),
+                message: `Executed ${commandMatch.command} flow chain (${flowResults.filter((r) => r.status === 'success').length}/${flowResults.length} flows successful)`,
+                detectedFlow,
+                flowResults,
+            };
+        }
+        // Step 1: Detect intent (falls back to intent detection if not a slash command)
         const detection = this.intentDetector.detect(utterance);
         // Handle no matches
         if (Array.isArray(detection.candidates) && detection.candidates.length === 0) {
@@ -170,7 +592,15 @@ class FlowExecutionEngine {
         executionContext.projectContext = projectContext;
         // Run Flow A to verify brand register and cache design laws
         const flowAHandler = new flow_handler_brand_verify_1.FlowABrandVerifyHandler();
+        // Track Flow A execution in context chain
+        this.contextManager.addToExecutionChain('flowA_brand_verify', 'Brand/PRODUCT.md Verification');
         const flowAResult = await flowAHandler.execute(executionContext);
+        // Complete Flow A in execution chain and store metadata
+        this.contextManager.completeInChain('flowA_brand_verify', flowAResult.status === 'success' ? 'completed' : 'error', flowAResult.message);
+        flowAResult.executionMetadata = {
+            executionChain: this.contextManager.getExecutionChain(),
+            executionDuration: this.contextManager.getExecutionDuration('flowA_brand_verify'),
+        };
         flowResults.push(flowAResult);
         this.recordFlowWithMemory(flowAResult);
         // If Flow A failed, block the chain (context is mandatory)
@@ -251,10 +681,16 @@ class FlowExecutionEngine {
                 });
                 break;
             }
-            // Execute handler
+            // Execute handler with context tracking
             let result;
+            const enhancedContext = flow_execution_context_enhanced_1.EnhancedContextManager.createEnhancedContext(executionContext, currentFlowId, flowName);
+            // Track flow entry in execution chain
+            this.contextManager.addToExecutionChain(currentFlowId, flowName);
             try {
+                // Execute the handler
                 result = await handler.execute(executionContext);
+                // Track flow completion in execution chain
+                this.contextManager.completeInChain(currentFlowId, result.status === 'success' ? 'completed' : 'error', result.message);
             }
             catch (error) {
                 result = {
@@ -264,6 +700,28 @@ class FlowExecutionEngine {
                     message: `Error executing flow: ${error instanceof Error ? error.message : 'Unknown error'}`,
                     error: error instanceof Error ? error.message : String(error),
                 };
+                // Track error in execution chain
+                this.contextManager.completeInChain(currentFlowId, 'error', result.message);
+            }
+            // Store execution metadata in result (both success and error paths)
+            result.executionMetadata = {
+                enhancedContext,
+                executionChain: this.contextManager.getExecutionChain(),
+                executionDuration: this.contextManager.getExecutionDuration(currentFlowId),
+            };
+            // Apply domain validators if configured for this flow (soft-fail: log but continue)
+            const validatorsForFlow = (0, flow_domain_validators_1.getValidatorsForFlow)(currentFlowId);
+            if (validatorsForFlow.length > 0 && result.status === 'success') {
+                const validations = this.compositionEngine.validateMultipleDomains(validatorsForFlow, result);
+                result.validationResults = validations;
+                // Log any validation failures as warnings (soft-fail mode)
+                const failedValidations = validations.filter(v => v.status !== 'pass');
+                if (failedValidations.length > 0) {
+                    const warningMsg = failedValidations
+                        .map(v => `[${v.domain}] ${v.failedRules.join(', ')}`)
+                        .join('; ');
+                    result.message = `${result.message}\n\nValidation warnings: ${warningMsg}`;
+                }
             }
             // Check for regressions (RegressionDetector: compare against prior runs)
             const regressionDetector = new regression_detector_1.RegressionDetector();
@@ -308,6 +766,8 @@ class FlowExecutionEngine {
         // Prepend open design debt summary if any (DesignDebtTracker session start)
         const debtSummary = debtTracker.getSummary();
         const finalMessage = debtSummary ? `${debtSummary}\n\n---\n\n${combinedMessage}` : combinedMessage;
+        // Persist session memory for all executed flows
+        (0, session_memory_writer_1.persistSessionMemory)(executionContext.projectPath);
         return {
             success: flowResults.some((r) => r.status === 'success'),
             message: finalMessage,
@@ -316,6 +776,35 @@ class FlowExecutionEngine {
             guidance: flowResults.flatMap((r) => r.guidance || []),
             checklist: flowResults.flatMap((r) => r.checklist || []),
             artifacts: flowResults.flatMap((r) => r.artifacts || []),
+        };
+    }
+    showInteractiveMenu(context) {
+        const byPhase = (0, slash_command_router_1.getCommandsByPhase)();
+        const menuItems = [];
+        let itemNum = 1;
+        const commandMap = {};
+        menuItems.push('\n=== Sidecoach Interactive Menu ===\n');
+        for (const phase of ['Research', 'Implement', 'Review', 'Special']) {
+            const phaseCommands = byPhase[phase]?.commands || [];
+            if (phaseCommands.length > 0) {
+                menuItems.push(`\n[${phase} Phase]\n`);
+                for (const cmd of phaseCommands) {
+                    menuItems.push(`  ${itemNum}. /sidecoach ${cmd.command}`);
+                    menuItems.push(`     ${cmd.description}`);
+                    commandMap[itemNum] = cmd.command;
+                    itemNum++;
+                }
+            }
+        }
+        menuItems.push('\n\nEnter a number (1-' + (itemNum - 1) + ') to execute that command.');
+        menuItems.push('Or type: /sidecoach <command> [options]');
+        menuItems.push('Or type: /sidecoach list to see commands grouped by phase');
+        return {
+            success: true,
+            message: 'Sidecoach - Interactive Design Flow Engine',
+            detectedFlow: null,
+            flowResults: [],
+            guidance: menuItems,
         };
     }
     registerHandler(handler) {

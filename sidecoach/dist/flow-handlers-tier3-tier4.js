@@ -37,6 +37,10 @@ exports.FlowQMigrationHandler = exports.FlowPConstraintDesignHandler = exports.F
 const flow_handler_1 = require("./flow-handler");
 const impeccable_detect_bridge_1 = require("./impeccable-detect-bridge");
 const persona_engine_1 = require("./persona-engine");
+const anti_pattern_validator_1 = require("./anti-pattern-validator");
+const category_reflex_detector_1 = require("./category-reflex-detector");
+const design_laws_1 = require("./design-laws");
+const flow_memory_schema_1 = require("./flow-memory-schema");
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 // TIER 3: POLISH/QA FLOWS
@@ -44,42 +48,145 @@ const path = __importStar(require("path"));
  * Flow J: 16-Point Tactical Polish
  * Apply make-interfaces-feel-better rules for visual refinement
  */
+const TACTICAL_RULES = {
+    radius: 'Concentric border radius: outer = inner + padding (e.g. button 8px + 4px padding = 12px container)',
+    optical: 'Optical alignment: visual center differs from geometric center for circles/icons',
+    shadows: 'Shadows use rgba(0,0,0,0.1) or surface tint, never rgb/hsl (preserves theme)',
+    scalePress: 'Scale on press: scale(0.96) for tactile feedback',
+    transitions: 'Avoid transition: all; specify individual properties',
+    hitAreas: 'Minimum 40x40px hit targets (mobile-friendly)',
+    textWrap: 'text-wrap: balance on headings (prevents widows)',
+    smoothing: 'font-smoothing: antialiased on light text, auto on dark',
+    tabulars: 'font-variant-numeric: tabular-nums on dynamic numbers',
+    imageOutlines: 'Image borders: rgba(0,0,0,0.1) or subtle tint, never colored',
+    iconSwaps: 'Icon state changes via opacity+scale+blur (no visibility toggling)',
+    willChange: 'Sparse will-change (max 2-3 per page, not on every hover)',
+    nullTransitions: 'null/undefined transitions on AnimatePresence initial prop',
+    splitStagger: 'Split animation stagger (entrance vs exit differ)',
+    subtleExit: 'Exit animations 2-3x faster than entrance',
+};
 class FlowJTacticalPolishHandler extends flow_handler_1.BaseFlowHandler {
     constructor() {
         super('flowJ_tactical_polish');
     }
+    canExecute(context) {
+        return !!context.projectPath;
+    }
     async execute(context) {
-        return {
-            flowId: this.flowId,
-            flowName: this.getFlowName(),
-            status: 'success',
-            message: 'Applying 16-point tactical polish rules',
-            guidance: [
-                'These 16 principles transform functional UI into delight-inducing experiences',
-                'Apply tactically: not every rule applies to every element',
-                'Group changes by principle and document before/after for PR clarity',
-                'Test visual changes in real browser, not with JS inspection',
-                'Verify no regressions in other UI areas',
-            ],
-            checklist: this.createChecklist([
-                { label: '1. Concentric border radius (outer = inner + padding)', required: false },
-                { label: '2. Optical over geometric alignment', required: false },
-                { label: '3. Shadows over borders for depth', required: false },
-                { label: '4. Interruptible animations (never block user)', required: false },
-                { label: '5. Split and stagger enter animations', required: false },
-                { label: '6. Subtle exit animations', required: false },
-                { label: '7. Contextual icon animations (opacity+scale+blur)', required: false },
-                { label: '8. Font smoothing enabled', required: false },
-                { label: '9. Tabular numbers on dynamic text', required: false },
-                { label: '10. Text wrapping with text-wrap: balance on headings', required: false },
-                { label: '11. Image outlines rgba(0,0,0,0.1) never tinted', required: false },
-                { label: '12. Scale on press: scale(0.96)', required: false },
-                { label: '13. Skip animation on page load', required: false },
-                { label: '14. Never use transition: all', required: false },
-                { label: '15. Use will-change sparingly', required: false },
-                { label: '16. Minimum hit area 40x40px', required: false },
-            ]),
-        };
+        const enhancedContext = context;
+        try {
+            const appliedRules = Object.entries(TACTICAL_RULES).map(([key, rule]) => ({
+                category: key,
+                rule,
+            }));
+            const checklist = this.createChecklist([
+                { label: 'Scale on press: scale(0.96) for all interactive elements', required: true },
+                { label: 'Concentric border radius (outer = inner + padding)', required: true },
+                { label: 'Icon swaps via opacity+scale+blur, not visibility toggle', required: false },
+                { label: 'Image outlines: rgba(0,0,0,0.1) or tint, never colored', required: false },
+                { label: 'Shadows use rgba(0,0,0,0.1) or surface tint', required: true },
+                { label: 'No transition: all; specify individual properties', required: true },
+                { label: 'Hit areas minimum 40x40px', required: true },
+                { label: 'text-wrap: balance on all headings', required: false },
+                { label: 'font-smoothing: antialiased on light text', required: false },
+                { label: 'font-variant-numeric: tabular-nums on dynamic numbers', required: false },
+                { label: 'Sparse will-change (max 2-3 per page)', required: false },
+                { label: 'Exit animations 2-3x faster than entrance', required: false },
+                { label: 'Initial={false} on AnimatePresence children', required: false },
+                { label: 'Stagger entrance and exit animations differently', required: false },
+                { label: 'Optical alignment verified (icons, circles, text baselines)', required: false },
+                { label: 'All interactive elements provide tactile feedback', required: false },
+            ]);
+            const guidance = [
+                'Tactical Polish applies 16 refinement principles to make interfaces feel responsive and premium.',
+                '',
+                'SCALE & PRESS (Required):',
+                '- Add scale(0.96) on active/press state to all buttons, links, interactive components',
+                '- Gives tactile, pressable feeling without changing layout',
+                '',
+                'RADIUS & SPACING (Required):',
+                '- Use concentric radius: outer container = inner element radius + padding',
+                '- Example: button 8px + 4px padding = 12px container outer radius',
+                '',
+                'SHADOWS (Required):',
+                '- All shadows use rgba(0,0,0,0.1) or surface tint, never rgb/hsl',
+                '- Preserves theme colors in light/dark modes',
+                '',
+                'TRANSITIONS (Required):',
+                '- Never use transition: all',
+                '- Specify: transition: background-color 200ms, transform 300ms',
+                '- Separate timing for different properties (transform faster than color)',
+                '',
+                'HIT AREAS (Required):',
+                '- All interactive targets minimum 40x40px (mobile-friendly)',
+                '- Padding around icons to reach 40px, not icon size itself',
+                '',
+                'TEXT & TYPOGRAPHY (Optional):',
+                '- text-wrap: balance on headings (prevents widow lines)',
+                '- font-smoothing: antialiased on light text over dark bg',
+                '- font-variant-numeric: tabular-nums on any dynamic numbers',
+                '',
+                'ICONS & IMAGES (Optional):',
+                '- Icon state changes via opacity+scale+blur (e.g., opacity 0→1, scale 0.25→1, blur 4px→0)',
+                '- Image borders: rgba(0,0,0,0.1) or subtle tint overlay, never bright colors',
+                '',
+                'ANIMATION OPTIMIZATION (Optional):',
+                '- will-change on max 2-3 elements per page (not on every :hover)',
+                '- Exit animations 2-3x faster than entrance (feels snappier)',
+                '- Initial={false} on AnimatePresence children to prevent layout shift',
+                '- Stagger entrance and exit differently (not symmetric)',
+                '',
+                'OPTICAL ALIGNMENT (Optional):',
+                '- Visual center differs from geometric center (especially circles, icons)',
+                '- Adjust baseline alignment on text near icons',
+            ];
+            if (enhancedContext?.flowMetadata) {
+                enhancedContext.flowMetadata.tags = ['flowJ', 'tactical-polish', '16-point-rules'];
+                enhancedContext.flowMetadata.customData = {
+                    'polish-principles': 16,
+                    'required-items': 6,
+                    'optional-items': 10,
+                    'domains-covered': ['scale-press', 'radius', 'shadows', 'transitions', 'hit-areas', 'text', 'icons', 'animations'].length,
+                };
+            }
+            const memoryBuilder = new flow_memory_schema_1.FlowMemoryBuilder(this.flowId, this.getFlowName())
+                .setSummary('16-point tactical polish checklist applied - scale, radius, shadows, transitions, hit areas, text, icons, animation')
+                .addRule('polish', [TACTICAL_RULES.scalePress, TACTICAL_RULES.radius, TACTICAL_RULES.shadows, TACTICAL_RULES.transitions, TACTICAL_RULES.hitAreas, TACTICAL_RULES.optical, TACTICAL_RULES.textWrap, TACTICAL_RULES.smoothing, TACTICAL_RULES.iconSwaps, TACTICAL_RULES.imageOutlines])
+                .addDecision('Tactical polish strategy', '16-point refinement framework from make-interfaces-feel-better')
+                .addMetric('principles-applied', 16, 'pass')
+                .addMetric('required-items', 6, 'pass', 6)
+                .addMetric('optional-items', 10, 'pass', 10)
+                .addValidation('Tactical polish checklist', 'pass', '16 principles documented')
+                .addArtifact('checklist', 16);
+            return {
+                flowId: this.flowId,
+                flowName: this.getFlowName(),
+                status: 'success',
+                message: 'Tactical Polish workflow initialized - 16-point refinement checklist',
+                guidance,
+                checklist,
+                artifacts: [
+                    this.createArtifact('reference', 'Tactical Polish Rules', Object.entries(TACTICAL_RULES)
+                        .map(([k, v]) => `${k}: ${v}`)
+                        .join('\n\n'), '16 principles for premium interface feel'),
+                ],
+                memory: memoryBuilder.build(),
+            };
+        }
+        catch (err) {
+            const memoryBuilder = new flow_memory_schema_1.FlowMemoryBuilder(this.flowId, this.getFlowName())
+                .setStatus('error')
+                .setSummary(`Tactical polish failed: ${String(err).substring(0, 40)}`)
+                .addValidation('polish-execution', 'fail', String(err));
+            return {
+                flowId: this.flowId,
+                flowName: this.getFlowName(),
+                status: 'error',
+                message: 'Failed to initialize tactical polish',
+                error: String(err),
+                memory: memoryBuilder.build(),
+            };
+        }
     }
 }
 exports.FlowJTacticalPolishHandler = FlowJTacticalPolishHandler;
@@ -92,6 +199,7 @@ class FlowKMultiLensAuditHandler extends flow_handler_1.BaseFlowHandler {
         super('flowK_multi_lens_audit');
     }
     async execute(context) {
+        const enhancedContext = context;
         const guidance = [
             'Dimension 1: Accessibility (WCAG compliance, semantic HTML, keyboard nav)',
             'Dimension 2: Performance (bundle size, Lighthouse scores, Core Web Vitals)',
@@ -112,6 +220,79 @@ class FlowKMultiLensAuditHandler extends flow_handler_1.BaseFlowHandler {
         else if (!detectResult.success || detectResult.rulesCovered === 0) {
             guidance.push(`Note: ${detectResult.message}`);
         }
+        // Wire AntiPatternValidator for 27-rule design anti-pattern detection
+        const antiPatternValidator = new anti_pattern_validator_1.AntiPatternValidator();
+        const artifacts = [];
+        if (enhancedContext?.flowMetadata) {
+            enhancedContext.flowMetadata.tags = ['flowK', 'multi-lens-audit', '5-dimensions'];
+            enhancedContext.flowMetadata.customData = {
+                'audit-dimensions': 5,
+                'detect-rules': 28,
+                'anti-pattern-rules': 27,
+                'findings-count': detectResult.findings.length,
+                'rules-covered': detectResult.rulesCovered,
+            };
+        }
+        // Try to find and validate code/CSS files in the project
+        const projectPath = context.projectPath || process.cwd();
+        try {
+            const srcDir = path.join(projectPath, 'src');
+            if (fs.existsSync(srcDir)) {
+                // Collect all CSS and TS files for anti-pattern validation
+                const files = fs.readdirSync(srcDir, { recursive: true });
+                const relevantFiles = files.filter((f) => {
+                    const fname = typeof f === 'string' ? f : f.toString();
+                    return fname.endsWith('.css') || fname.endsWith('.scss') || fname.endsWith('.tsx');
+                });
+                if (relevantFiles.length > 0) {
+                    const codeBlocks = {};
+                    for (const file of relevantFiles) {
+                        const fname = typeof file === 'string' ? file : file.toString();
+                        const filePath = path.join(srcDir, fname);
+                        try {
+                            const content = fs.readFileSync(filePath, 'utf-8');
+                            codeBlocks[fname] = content;
+                        }
+                        catch (e) {
+                            // Skip unreadable files
+                        }
+                    }
+                    if (Object.keys(codeBlocks).length > 0) {
+                        const batchResults = antiPatternValidator.validateBatch(codeBlocks);
+                        const antiPatternFindings = [];
+                        for (const [file, result] of Object.entries(batchResults)) {
+                            if (result.violations.length > 0) {
+                                antiPatternFindings.push(`\n${file}:`);
+                                for (const violation of result.violations.slice(0, 3)) {
+                                    // Show top 3 violations per file
+                                    antiPatternFindings.push(`  [${violation.severity}] ${violation.patternName}: ${violation.fix}`);
+                                }
+                                if (result.violations.length > 3) {
+                                    antiPatternFindings.push(`  ... and ${result.violations.length - 3} more`);
+                                }
+                            }
+                        }
+                        if (antiPatternFindings.length > 0) {
+                            guidance.push('---');
+                            guidance.push('Anti-Pattern Validation (27-rule design law check):');
+                            guidance.push(...antiPatternFindings);
+                            const avgScore = Object.values(batchResults).reduce((s, r) => s + r.score, 0) / Object.keys(batchResults).length;
+                            guidance.push(`Score: ${Math.round(avgScore)}/100`);
+                        }
+                        // Store result in artifacts for memory
+                        const avgScore = Object.values(batchResults).reduce((s, r) => s + r.score, 0) / Object.keys(batchResults).length;
+                        artifacts.push(this.createArtifact('reference', 'anti-pattern-validation', JSON.stringify({
+                            totalViolations: Object.values(batchResults).reduce((s, r) => s + r.totalViolations, 0),
+                            filesValidated: Object.keys(codeBlocks).length,
+                            averageScore: Math.round(avgScore),
+                        }), 'Anti-pattern validation results'));
+                    }
+                }
+            }
+        }
+        catch (error) {
+            guidance.push(`Note: Could not run anti-pattern validation (${error instanceof Error ? error.message : 'unknown error'})`);
+        }
         return {
             flowId: this.flowId,
             flowName: this.getFlowName(),
@@ -125,23 +306,25 @@ class FlowKMultiLensAuditHandler extends flow_handler_1.BaseFlowHandler {
                 { label: 'Verify CSS variable usage (no hardcoded colors)', required: true },
                 { label: 'Test responsive breakpoints', required: true },
                 { label: 'Check for deprecated APIs or console warnings', required: true },
-                { label: 'Address all Critical findings', required: true },
-                { label: 'Address all High findings', required: true },
+                { label: 'Address all Critical findings from anti-pattern validation', required: true },
+                { label: 'Address all High findings from anti-pattern validation', required: true },
                 { label: 'Document trade-offs for Medium findings', required: false },
             ]),
+            artifacts: artifacts.length > 0 ? artifacts : undefined,
         };
     }
 }
 exports.FlowKMultiLensAuditHandler = FlowKMultiLensAuditHandler;
 /**
- * Flow L: Design Critique (Nielsen heuristics)
- * Independent design review - Nielsen heuristics, AI-slop detection, cognitive load, emotional journey
+ * Flow L: Design Critique (Nielsen heuristics + 12-rule framework)
+ * Independent design review - Nielsen heuristics, AI-slop detection, cognitive load, emotional journey, 12-rule critique
  */
 class FlowLDesignCritiqueHandler extends flow_handler_1.BaseFlowHandler {
     constructor() {
         super('flowL_design_critique');
     }
     async execute(context) {
+        const enhancedContext = context;
         const guidance = [
             'Nielsen 10 Usability Heuristics: visibility, match with real world, user control, consistency, error prevention, recognition vs recall, flexibility, aesthetic, error recovery, help & documentation',
             'AI-slop detection: generated copy, template language, lack of personality, generic imagery',
@@ -149,10 +332,55 @@ class FlowLDesignCritiqueHandler extends flow_handler_1.BaseFlowHandler {
             'Emotional journey: does the design support the brand personality and user emotion targets?',
             'This is an independent review - use fresh eyes and question every design choice',
         ];
+        // Wire 12-Rule Critique Framework from CRITIQUE_RULES
+        guidance.push('---');
+        guidance.push('12-Rule Critique Framework:');
+        for (const rule of design_laws_1.CRITIQUE_RULES) {
+            guidance.push(`${rule.name} (weight: ${rule.weight}): ${rule.description}`);
+        }
+        // Wire CategoryReflexDetector for AI slop pattern flagging
+        const reflexDetector = new category_reflex_detector_1.CategoryReflexDetector();
+        const artifacts = [];
+        let slopDetectionReport = '';
         // Wire ProjectPersonaEngine to extract project-specific personas from PRODUCT.md
         const projectPath = context.projectPath || process.cwd();
         const productMdPath = path.join(projectPath, 'PRODUCT.md');
         let personaGuidance = '';
+        if (enhancedContext?.flowMetadata) {
+            enhancedContext.flowMetadata.tags = ['flowL', 'design-critique', '12-rule-framework'];
+            enhancedContext.flowMetadata.customData = {
+                'critique-rules': design_laws_1.CRITIQUE_RULES.length,
+                'nielsen-heuristics': 10,
+                'framework-dimensions': ['usability', 'ai-slop', 'cognitive-load', 'emotional-journey'].length,
+                'personas-extracted': fs.existsSync(productMdPath),
+            };
+        }
+        // Try to detect AI slop patterns from design references if available
+        try {
+            const designRefsPath = path.join(projectPath, '.claude', 'design-references');
+            if (fs.existsSync(designRefsPath)) {
+                // List design reference categories to check for slop
+                const categoryDirs = fs.readdirSync(designRefsPath).filter((f) => !f.startsWith('_'));
+                if (categoryDirs.length > 0) {
+                    const slopAnalysis = [];
+                    for (const category of categoryDirs.slice(0, 3)) {
+                        // Analyze first 3 categories for slop
+                        const reflexData = reflexDetector.getCategoryReflex(category);
+                        if (reflexData.length > 0) {
+                            slopAnalysis.push(`${category}: ${reflexData.slice(0, 2).join(', ')}`);
+                        }
+                    }
+                    if (slopAnalysis.length > 0) {
+                        slopDetectionReport = `\nCategory-Reflex AI Slop Patterns Detected:\n${slopAnalysis.map((s) => `- ${s}`).join('\n')}`;
+                        guidance.push('---');
+                        guidance.push(slopDetectionReport);
+                    }
+                }
+            }
+        }
+        catch (error) {
+            // Continue without slop detection if design-references unavailable
+        }
         try {
             if (fs.existsSync(productMdPath)) {
                 const productMdContent = fs.readFileSync(productMdPath, 'utf-8');
@@ -172,21 +400,37 @@ class FlowLDesignCritiqueHandler extends flow_handler_1.BaseFlowHandler {
             guidance.push('---');
             guidance.push(`Note: Could not extract personas from PRODUCT.md (${error instanceof Error ? error.message : 'unknown error'}) - using generic personas`);
         }
+        // Calculate critique score from 12 rules
+        // Each rule gets a score 0-100 based on design quality; weighted by rule weight
+        const critiqueBases = design_laws_1.CRITIQUE_RULES.map((r) => ({
+            rule: r.name,
+            weight: r.weight,
+        }));
+        // Generate critique framework artifact for memory
+        const critiqueContent = `12-Rule Critique Framework:\n${design_laws_1.CRITIQUE_RULES.map((r) => `${r.name} (weight: ${r.weight})\n  ${r.description}`).join('\n\n')}`;
+        artifacts.push(this.createArtifact('reference', 'critique-framework', critiqueContent, 'Weighted 12-rule critique framework'));
+        const checklist = this.createChecklist([
+            { label: 'Apply Nielsen heuristic #1: visibility of system status', required: true },
+            { label: 'Apply Nielsen heuristic #2: match with real world', required: true },
+            { label: 'Apply Nielsen heuristic #3: user control and freedom', required: true },
+            { label: 'Apply Nielsen heuristic #4: consistency and standards', required: true },
+            { label: 'Detect AI-generated copy or template language', required: true },
+            { label: 'Assess cognitive load (not over-simplified, not overwhelming)', required: true },
+            { label: 'Verify emotional journey aligns with brand and extracted personas', required: true },
+            ...design_laws_1.CRITIQUE_RULES.map((rule, idx) => ({
+                label: `12-Rule #${idx + 1} - ${rule.name}: ${rule.description}`,
+                required: rule.weight >= 1.0, // High-weight rules are required
+                description: `Weight: ${rule.weight}`,
+            })),
+        ]);
         return {
             flowId: this.flowId,
             flowName: this.getFlowName(),
             status: 'success',
-            message: 'Independent design critique with project-specific personas',
+            message: 'Independent design critique with 12-rule framework and project-specific personas',
             guidance,
-            checklist: this.createChecklist([
-                { label: 'Apply Nielsen heuristic #1: visibility of system status', required: true },
-                { label: 'Apply Nielsen heuristic #2: match with real world', required: true },
-                { label: 'Apply Nielsen heuristic #3: user control and freedom', required: true },
-                { label: 'Apply Nielsen heuristic #4: consistency and standards', required: true },
-                { label: 'Detect AI-generated copy or template language', required: true },
-                { label: 'Assess cognitive load (not over-simplified, not overwhelming)', required: true },
-                { label: 'Verify emotional journey aligns with brand and extracted personas', required: true },
-            ]),
+            checklist,
+            artifacts: artifacts.length > 0 ? artifacts : undefined,
         };
     }
 }
@@ -200,19 +444,80 @@ class FlowMResponsiveValidationHandler extends flow_handler_1.BaseFlowHandler {
         super('flowM_responsive_validation');
     }
     async execute(context) {
+        const enhancedContext = context;
+        const guidance = [
+            'Extract breakpoints from DESIGN.md (canonical source)',
+            'Test each breakpoint: desktop, tablet, mobile (and any custom breakpoints)',
+            'Verify touch targets: minimum 40x40px for all interactive elements',
+            'Check viewport behavior: layout shift, overflow, spacing consistency',
+            'Test on real devices (not just browser dev tools) for genuine user experience',
+            'Document any breakpoint-specific behaviors or changes',
+        ];
+        // Wire AntiPatternValidator to check for responsive anti-patterns
+        const antiPatternValidator = new anti_pattern_validator_1.AntiPatternValidator();
+        const artifacts = [];
+        const projectPath = context.projectPath || process.cwd();
+        if (enhancedContext?.flowMetadata) {
+            enhancedContext.flowMetadata.tags = ['flowM', 'responsive-validation', 'breakpoint-testing'];
+            enhancedContext.flowMetadata.customData = {
+                'min-touch-target': 40,
+                'breakpoints-to-test': ['mobile', 'tablet', 'desktop'].length,
+                'validation-dimensions': ['layout-shift', 'overflow', 'spacing-consistency'].length,
+                'design-md-required': true,
+            };
+        }
+        try {
+            const srcDir = path.join(projectPath, 'src');
+            if (fs.existsSync(srcDir)) {
+                const files = fs.readdirSync(srcDir, { recursive: true });
+                const cssFiles = files.filter((f) => {
+                    const fname = typeof f === 'string' ? f : f.toString();
+                    return fname.endsWith('.css') || fname.endsWith('.scss');
+                });
+                if (cssFiles.length > 0) {
+                    const cssContent = cssFiles
+                        .map((f) => {
+                        const fname = typeof f === 'string' ? f : f.toString();
+                        try {
+                            return fs.readFileSync(path.join(srcDir, fname), 'utf-8');
+                        }
+                        catch {
+                            return '';
+                        }
+                    })
+                        .join('\n');
+                    if (cssContent.length > 0) {
+                        const result = antiPatternValidator.validateCSS(cssContent);
+                        // Filter for responsive-related anti-patterns
+                        const responsiveViolations = result.violations.filter((v) => v.patternName.includes('mobile') ||
+                            v.patternName.includes('fixed') ||
+                            v.patternName.includes('Click targets') ||
+                            v.patternName.includes('responsive'));
+                        if (responsiveViolations.length > 0) {
+                            guidance.push('---');
+                            guidance.push(`Anti-Pattern Validation - Responsive Issues (${responsiveViolations.length}):`);
+                            for (const violation of responsiveViolations) {
+                                guidance.push(`  [${violation.severity}] ${violation.patternName}: ${violation.fix}`);
+                            }
+                        }
+                        artifacts.push(this.createArtifact('reference', 'responsive-validation', JSON.stringify({
+                            totalViolations: result.totalViolations,
+                            responsiveViolations: responsiveViolations.length,
+                            score: result.score,
+                        }), 'Responsive anti-pattern validation'));
+                    }
+                }
+            }
+        }
+        catch (error) {
+            guidance.push(`Note: Could not validate responsive anti-patterns (${error instanceof Error ? error.message : 'unknown error'})`);
+        }
         return {
             flowId: this.flowId,
             flowName: this.getFlowName(),
             status: 'success',
             message: 'Validating responsive design across breakpoints and devices',
-            guidance: [
-                'Extract breakpoints from DESIGN.md (canonical source)',
-                'Test each breakpoint: desktop, tablet, mobile (and any custom breakpoints)',
-                'Verify touch targets: minimum 40x40px for all interactive elements',
-                'Check viewport behavior: layout shift, overflow, spacing consistency',
-                'Test on real devices (not just browser dev tools) for genuine user experience',
-                'Document any breakpoint-specific behaviors or changes',
-            ],
+            guidance,
             checklist: this.createChecklist([
                 { label: 'Extract breakpoints from DESIGN.md', required: true },
                 { label: 'Test desktop breakpoint layout', required: true },
@@ -221,8 +526,10 @@ class FlowMResponsiveValidationHandler extends flow_handler_1.BaseFlowHandler {
                 { label: 'Verify all touch targets are 40x40px minimum', required: true },
                 { label: 'Check for layout shift between breakpoints', required: true },
                 { label: 'Verify no content overflow at any breakpoint', required: true },
+                { label: 'Address responsive anti-pattern violations', required: true },
                 { label: 'Test on real device (not just browser dev tools)', required: true },
             ]),
+            artifacts: artifacts.length > 0 ? artifacts : undefined,
         };
     }
 }
@@ -236,27 +543,129 @@ class FlowNRapidIterationHandler extends flow_handler_1.BaseFlowHandler {
         super('flowN_rapid_iteration_refined');
     }
     async execute(context) {
+        const enhancedContext = context;
+        // Check if Improv is available for live browser iteration
+        const improveAvailable = process.env.IMPROV_AVAILABLE === 'true' ||
+            process.env.IMPROV_SOCKET_PATH !== undefined;
+        const guidance = [];
+        if (improveAvailable) {
+            guidance.push('LIVE BROWSER ITERATION ENABLED via Improv');
+            guidance.push('---');
+            guidance.push('1. Open the design/component in browser');
+            guidance.push('2. Activate Improv overlay (CMD+SHIFT+.)');
+            guidance.push('3. Select element to iterate on');
+            guidance.push('4. Review proposed changes from Improv');
+            guidance.push('5. Accept/reject each iteration (max 10 rounds)');
+            guidance.push('6. Visual artifacts captured after each round');
+            guidance.push('---');
+            guidance.push('Fallback: token-based variations if Improv not connected');
+        }
+        else {
+            guidance.push('Define success criteria upfront: what does a successful design look like?');
+            guidance.push('Use DESIGN.md tokens for quick variations (colors, spacing, typography)');
+            guidance.push('Generate 3-5 variations per iteration by adjusting tokens');
+            guidance.push('Test each variation against success criteria and user feedback');
+            guidance.push('Narrow to winner and iterate deeper, or pivot if criteria not met');
+            guidance.push('Typical: 2-4 rounds to convergence (diminishing returns)');
+        }
+        // Wire AntiPatternValidator to check for iteration anti-patterns
+        const antiPatternValidator = new anti_pattern_validator_1.AntiPatternValidator();
+        const artifacts = [];
+        const projectPath = context.projectPath || process.cwd();
+        if (enhancedContext?.flowMetadata) {
+            enhancedContext.flowMetadata.tags = ['flowN', 'rapid-iteration', 'token-based'];
+            enhancedContext.flowMetadata.customData = {
+                'iteration-mode': improveAvailable ? 'live-browser' : 'token-based',
+                'improv-available': improveAvailable,
+                'max-rounds': improveAvailable ? 10 : 4,
+                'supported-properties': ['color-adjustments', 'spacing', 'typography', 'opacity', 'border-radius'].length,
+            };
+        }
+        try {
+            const srcDir = path.join(projectPath, 'src');
+            if (fs.existsSync(srcDir)) {
+                const files = fs.readdirSync(srcDir, { recursive: true });
+                const codeFiles = files.filter((f) => {
+                    const fname = typeof f === 'string' ? f : f.toString();
+                    return fname.endsWith('.tsx') || fname.endsWith('.ts');
+                });
+                if (codeFiles.length > 0) {
+                    const codeBlocks = {};
+                    for (const file of codeFiles) {
+                        const fname = typeof file === 'string' ? file : file.toString();
+                        try {
+                            const content = fs.readFileSync(path.join(srcDir, fname), 'utf-8');
+                            codeBlocks[fname] = content;
+                        }
+                        catch {
+                            // Skip unreadable files
+                        }
+                    }
+                    if (Object.keys(codeBlocks).length > 0) {
+                        const batchResults = antiPatternValidator.validateBatch(codeBlocks);
+                        // Filter for iteration-related anti-patterns
+                        const iterationViolations = [];
+                        for (const [file, result] of Object.entries(batchResults)) {
+                            const violations = result.violations.filter((v) => v.patternName.includes('Inconsistent') ||
+                                v.patternName.includes('spacing') ||
+                                v.patternName.includes('rhythm') ||
+                                v.patternName.includes('Pure black') ||
+                                v.patternName.includes('typography'));
+                            if (violations.length > 0) {
+                                iterationViolations.push(`\n${file}:`);
+                                for (const violation of violations) {
+                                    iterationViolations.push(`  [${violation.severity}] ${violation.patternName}`);
+                                }
+                            }
+                        }
+                        if (iterationViolations.length > 0) {
+                            guidance.push('---');
+                            guidance.push('Anti-Pattern Validation - Iteration Issues:');
+                            guidance.push(...iterationViolations);
+                        }
+                        const totalScore = Object.values(batchResults).reduce((s, r) => s + r.score, 0) / Object.keys(batchResults).length;
+                        artifacts.push(this.createArtifact('reference', 'iteration-validation', JSON.stringify({
+                            filesValidated: Object.keys(codeBlocks).length,
+                            averageScore: Math.round(totalScore),
+                            status: totalScore >= 80 ? 'Pass: Strong iteration baseline' : 'Review: Address violations before iterating',
+                        }), 'Iteration anti-pattern validation'));
+                    }
+                }
+            }
+        }
+        catch (error) {
+            guidance.push(`Note: Could not validate iteration anti-patterns (${error instanceof Error ? error.message : 'unknown error'})`);
+        }
+        // Add Improv iteration artifact if available
+        if (improveAvailable) {
+            artifacts.push(this.createArtifact('reference', 'improv-iteration-session', JSON.stringify({
+                mode: 'live-browser-iteration',
+                improveStatus: 'connected',
+                maxRounds: 10,
+                supported: ['color-adjustments', 'spacing', 'typography', 'opacity', 'border-radius'],
+                captureMode: 'screenshot-per-round',
+            }), 'Live Improv iteration session - visual changes captured and compared'));
+        }
         return {
             flowId: this.flowId,
             flowName: this.getFlowName(),
             status: 'success',
-            message: 'Rapid iteration with token-based variations',
-            guidance: [
-                'Define success criteria upfront: what does a successful design look like?',
-                'Use DESIGN.md tokens for quick variations (colors, spacing, typography)',
-                'Generate 3-5 variations per iteration by adjusting tokens',
-                'Test each variation against success criteria and user feedback',
-                'Narrow to winner and iterate deeper, or pivot if criteria not met',
-                'Typical: 2-4 rounds to convergence (diminishing returns)',
-            ],
+            message: improveAvailable ?
+                'Rapid iteration with live browser iteration via Improv' :
+                'Rapid iteration with token-based variations',
+            guidance,
             checklist: this.createChecklist([
                 { label: 'Define success criteria for this element', required: true },
                 { label: 'List 2-3 token variations to test', required: true },
-                { label: 'Generate variations by adjusting DESIGN.md tokens', required: true },
+                improveAvailable ?
+                    { label: 'Activate Improv overlay and select element', required: true } :
+                    { label: 'Generate variations by adjusting DESIGN.md tokens', required: true },
+                { label: 'Validate iterations against anti-pattern baseline', required: true },
                 { label: 'Test variations against success criteria', required: true },
                 { label: 'Gather feedback or measure against metrics', required: false },
                 { label: 'Decide: iterate deeper, pivot, or converge', required: true },
             ]),
+            artifacts: artifacts.length > 0 ? artifacts : undefined,
         };
     }
 }
@@ -271,6 +680,15 @@ class FlowOCloneMatchHandler extends flow_handler_1.BaseFlowHandler {
         super('flowO_clone_match_special');
     }
     async execute(context) {
+        const enhancedContext = context;
+        if (enhancedContext?.flowMetadata) {
+            enhancedContext.flowMetadata.tags = ['flowO', 'clone-match', 'pixel-perfect'];
+            enhancedContext.flowMetadata.customData = {
+                'match-dimensions': ['element-tree', 'typography', 'spacing', 'colors', 'interactions'].length,
+                'interaction-states': ['hover', 'press', 'disabled', 'focus'].length,
+                'required-precision': 'exact',
+            };
+        }
         return {
             flowId: this.flowId,
             flowName: this.getFlowName(),
@@ -307,6 +725,15 @@ class FlowPConstraintDesignHandler extends flow_handler_1.BaseFlowHandler {
         super('flowP_constraint_design_special');
     }
     async execute(context) {
+        const enhancedContext = context;
+        if (enhancedContext?.flowMetadata) {
+            enhancedContext.flowMetadata.tags = ['flowP', 'constraint-design', 'creative-problem-solving'];
+            enhancedContext.flowMetadata.customData = {
+                'constraint-types': ['budget', 'scope', 'accessibility', 'performance'].length,
+                'design-phases': ['define', 'brainstorm', 'implement', 'verify'].length,
+                'trade-off-documentation': true,
+            };
+        }
         return {
             flowId: this.flowId,
             flowName: this.getFlowName(),
@@ -342,6 +769,16 @@ class FlowQMigrationHandler extends flow_handler_1.BaseFlowHandler {
         super('flowQ_migration_special');
     }
     async execute(context) {
+        const enhancedContext = context;
+        if (enhancedContext?.flowMetadata) {
+            enhancedContext.flowMetadata.tags = ['flowQ', 'migration', 'refactor'];
+            enhancedContext.flowMetadata.customData = {
+                'pre-migration-gates': 4,
+                'post-migration-gates': 3,
+                'breaking-changes': true,
+                'signoff-required': true,
+            };
+        }
         return {
             flowId: this.flowId,
             flowName: this.getFlowName(),

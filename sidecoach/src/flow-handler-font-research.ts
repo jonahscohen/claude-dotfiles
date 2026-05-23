@@ -8,6 +8,7 @@ import { FontshareReferenceImpl } from './fontshare-reference';
 import { SHARED_DESIGN_LAWS } from './design-laws';
 import { FlowMemoryBuilder } from './flow-memory-schema';
 import { ExtendedDomainValidator, DomainCheckContext } from './extended-domain-validator';
+import { EnhancedFlowExecutionContext } from './flow-execution-context-enhanced';
 
 export interface FontResearchContext {
   brandPersonality?: string;
@@ -32,6 +33,7 @@ export class FlowCFontResearchHandler extends BaseFlowHandler {
   }
 
   async execute(context: FlowExecutionContext): Promise<FlowExecutionResult> {
+    const enhancedContext = context as EnhancedFlowExecutionContext;
     const brandPersonality = context.projectContext?.product?.brandPersonality || context.projectContext?.product?.brand_personality;
     const typographyApproach = context.projectContext?.design?.typography?.approach || 'undefined';
 
@@ -42,6 +44,17 @@ export class FlowCFontResearchHandler extends BaseFlowHandler {
 
       // Get font pairing rules based on brand personality
       const pairingRules = await this.fontshareRef.getPairingRules(brandPersonality || 'default');
+
+      // Populate enhanced context with Flow C metadata
+      if (enhancedContext?.flowMetadata) {
+        enhancedContext.flowMetadata.tags = ['flowC', 'font-research', 'typography-domain'];
+        enhancedContext.flowMetadata.customData = {
+          'typography-rules': typographyRules.length,
+          'pairing-rules': pairingRules.length,
+          'typography-approach': typographyApproach,
+          'brand-personality': brandPersonality || 'default',
+        };
+      }
 
       // Get font candidates for this brand personality
       const fontCandidates = await this.fontshareRef.getFontCandidates(typographyApproach, context.projectContext?.register || 'product');

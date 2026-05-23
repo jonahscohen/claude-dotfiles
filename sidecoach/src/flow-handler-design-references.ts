@@ -9,6 +9,7 @@ import { DesignReferencesSystemImpl } from './design-references-reference';
 import { SHARED_DESIGN_LAWS, CATEGORY_REFLEX } from './design-laws';
 import { FlowMemoryBuilder } from './flow-memory-schema';
 import { ExtendedDomainValidator, DomainCheckContext } from './extended-domain-validator';
+import { EnhancedFlowExecutionContext } from './flow-execution-context-enhanced';
 
 export interface DesignReferenceContext {
   referencesFound: number;

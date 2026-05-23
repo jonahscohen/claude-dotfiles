@@ -5,6 +5,7 @@ import { BaseFlowHandler, FlowExecutionContext, FlowExecutionResult } from './fl
 import { SHARED_DESIGN_LAWS } from './design-laws';
 import { FlowMemoryBuilder } from './flow-memory-schema';
 import { ExtendedDomainValidator, DomainCheckContext } from './extended-domain-validator';
+import { EnhancedFlowExecutionContext } from './flow-execution-context-enhanced';
 
 interface MotionIntegrationContext {
   motionDomainRules: string[];
@@ -37,6 +38,7 @@ export class FlowHMotionIntegrationHandler extends BaseFlowHandler {
   }
 
   async execute(context: FlowExecutionContext): Promise<FlowExecutionResult> {
+    const enhancedContext = context as EnhancedFlowExecutionContext;
     const brandPersonality = context.projectContext?.product?.brandPersonality || context.projectContext?.product?.brand_personality;
     const register = context.projectContext?.register || 'product';
 
@@ -104,6 +106,17 @@ export class FlowHMotionIntegrationHandler extends BaseFlowHandler {
           reducedMotionSupport: true, // Will add @media prefers-reduced-motion in implementation
         };
       });
+
+      // Add custom data to enhanced context if available
+      if (enhancedContext?.flowMetadata) {
+        enhancedContext.flowMetadata.tags = ['flowH', 'motion-integration', 'animation-templates'];
+        enhancedContext.flowMetadata.customData = {
+          'motion-intensity': intensity,
+          'animation-templates': animationTemplates.length,
+          'templates-valid': validationResults.filter((r) => r.durationCompliant && r.easingCompliant).length,
+          'motion-register': register,
+        };
+      }
 
       // Cache context for downstream flows
       this.cachedMotionContext = {

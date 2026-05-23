@@ -7,6 +7,7 @@ exports.createFlowHHandler = createFlowHHandler;
 const flow_handler_1 = require("./flow-handler");
 const design_laws_1 = require("./design-laws");
 const flow_memory_schema_1 = require("./flow-memory-schema");
+const extended_domain_validator_1 = require("./extended-domain-validator");
 class FlowHMotionIntegrationHandler extends flow_handler_1.BaseFlowHandler {
     constructor() {
         super('flowH_motion_integration');
@@ -16,6 +17,7 @@ class FlowHMotionIntegrationHandler extends flow_handler_1.BaseFlowHandler {
         return !!(context.projectContext?.product?.brandPersonality || context.projectContext?.product?.brand_personality);
     }
     async execute(context) {
+        const enhancedContext = context;
         const brandPersonality = context.projectContext?.product?.brandPersonality || context.projectContext?.product?.brand_personality;
         const register = context.projectContext?.register || 'product';
         try {
@@ -74,6 +76,16 @@ class FlowHMotionIntegrationHandler extends flow_handler_1.BaseFlowHandler {
                     reducedMotionSupport: true, // Will add @media prefers-reduced-motion in implementation
                 };
             });
+            // Add custom data to enhanced context if available
+            if (enhancedContext?.flowMetadata) {
+                enhancedContext.flowMetadata.tags = ['flowH', 'motion-integration', 'animation-templates'];
+                enhancedContext.flowMetadata.customData = {
+                    'motion-intensity': intensity,
+                    'animation-templates': animationTemplates.length,
+                    'templates-valid': validationResults.filter((r) => r.durationCompliant && r.easingCompliant).length,
+                    'motion-register': register,
+                };
+            }
             // Cache context for downstream flows
             this.cachedMotionContext = {
                 motionDomainRules: motionDomain.rules,
@@ -81,17 +93,36 @@ class FlowHMotionIntegrationHandler extends flow_handler_1.BaseFlowHandler {
                 animationTemplates,
                 validationResults,
             };
+            // Domain validation integration
+            const domainCheckContext = {
+                designTokens: context.metadata?.designTokens || {},
+                componentTree: context.metadata?.componentTree || { motionIntensity: intensity, templates: animationTemplates.length },
+                cssRules: context.metadata?.cssRules || [],
+                motion: context.metadata?.motion,
+                accessibility: context.metadata?.accessibility,
+            };
+            const extendedValidationReport = extended_domain_validator_1.ExtendedDomainValidator.validateAll(domainCheckContext);
+            const motionDomainRules = extended_domain_validator_1.ExtendedDomainValidator.getRulesByDomain('motion');
+            const interactionDomainRules = extended_domain_validator_1.ExtendedDomainValidator.getRulesByDomain('interaction');
+            const motionPassRate = extendedValidationReport.passRateByDomain['motion'] || '0%';
+            const interactionPassRate = extendedValidationReport.passRateByDomain['interaction'] || '0%';
+            const motionPassed = Math.round((parseFloat(motionPassRate) / 100) * motionDomainRules.length);
+            const interactionPassed = Math.round((parseFloat(interactionPassRate) / 100) * interactionDomainRules.length);
             const durationCompliantCount = validationResults.filter((r) => r.durationCompliant).length;
             const easingCompliantCount = validationResults.filter((r) => r.easingCompliant).length;
             const reducedMotionCount = validationResults.filter((r) => r.reducedMotionSupport).length;
             const memoryBuilder = new flow_memory_schema_1.FlowMemoryBuilder(this.flowId, this.getFlowName())
-                .setSummary(`Motion integration: ${animationTemplates.length} templates for ${intensity} intensity, exponential easing validated`)
+                .setSummary(`Motion integration: ${animationTemplates.length} templates for ${intensity} intensity with domain validation (motion: ${motionPassRate}, interaction: ${interactionPassRate})`)
                 .addRule('motion', design_laws_1.SHARED_DESIGN_LAWS.motion.rules)
                 .addDecision(`Motion intensity: ${intensity}`, `${animationTemplates.length} animation templates (entrance/feedback/state-change/scroll/exit) with ${intensity} intensity timing and exponential easing`)
                 .addMetric('animation-templates-created', animationTemplates.length, 'pass', 5)
+                .addMetric('motion-domain-validation', motionPassed, 'pass', motionDomainRules.length)
+                .addMetric('interaction-domain-validation', interactionPassed, 'pass', interactionDomainRules.length)
                 .addMetric('duration-compliant', durationCompliantCount, 'pass', animationTemplates.length)
                 .addMetric('easing-exponential-only', easingCompliantCount, 'pass', animationTemplates.length)
                 .addMetric('reduced-motion-support', reducedMotionCount, 'pass', animationTemplates.length)
+                .addValidation('Motion domain compliance', motionPassed === motionDomainRules.length ? 'pass' : 'warning', `${motionPassed}/${motionDomainRules.length} pass`)
+                .addValidation('Interaction domain compliance', interactionPassed === interactionDomainRules.length ? 'pass' : 'warning', `${interactionPassed}/${interactionDomainRules.length} pass`)
                 .addValidation('Duration compliance (100-500ms)', durationCompliantCount === animationTemplates.length ? 'pass' : 'warning', `${durationCompliantCount}/${animationTemplates.length}`)
                 .addValidation('Exponential-only easing', easingCompliantCount === animationTemplates.length ? 'pass' : 'warning', `${easingCompliantCount}/${animationTemplates.length}`)
                 .addValidation('No layout-property animation', true ? 'pass' : 'warning', 'transform/opacity only, no width/height/margin/padding')
@@ -101,6 +132,8 @@ class FlowHMotionIntegrationHandler extends flow_handler_1.BaseFlowHandler {
             // Build checklist
             const checklist = this.createChecklist([
                 { label: 'Motion intensity determined', required: true, description: intensity },
+                { label: 'Motion domain validation', required: false, description: `${motionPassed}/${motionDomainRules.length} rules passing (${motionPassRate})` },
+                { label: 'Interaction domain validation', required: false, description: `${interactionPassed}/${interactionDomainRules.length} rules passing (${interactionPassRate})` },
                 { label: 'Animation templates selected for register', required: true, description: `${animationTemplates.length} templates` },
                 { label: 'Duration compliance verified', required: true, description: '100-500ms range (50-100ms for feedback)' },
                 { label: 'Easing curves exponential-only (no linear/bounce)', required: true, description: 'cubic-bezier ease-out curves' },
@@ -115,6 +148,10 @@ class FlowHMotionIntegrationHandler extends flow_handler_1.BaseFlowHandler {
                 `Brand Personality: ${brandPersonality || 'Not defined'}`,
                 `Register: ${register}`,
                 `Motion Intensity: ${intensity} (${register === 'brand' ? 'brand encourages ambitious motion' : 'product prefers restrained'})`,
+                '',
+                'Domain Validation Results:',
+                `- Motion domain: ${motionPassed}/${motionDomainRules.length} rules passing (${motionPassRate})`,
+                `- Interaction domain: ${interactionPassed}/${interactionDomainRules.length} rules passing (${interactionPassRate})`,
                 '',
                 'Motion Domain Rules (Duration, Easing, No Layout Animation):',
                 ...motionDomain.rules.map((r) => `- ${r}`),

@@ -5,6 +5,7 @@ import { BaseFlowHandler, FlowExecutionContext, FlowExecutionResult } from './fl
 import { SHARED_DESIGN_LAWS } from './design-laws';
 import { FlowMemoryBuilder } from './flow-memory-schema';
 import { ExtendedDomainValidator, DomainCheckContext } from './extended-domain-validator';
+import { EnhancedFlowExecutionContext } from './flow-execution-context-enhanced';
 
 interface AccessibilityContext {
   wcagLevel: 'AA' | 'AAA';
@@ -33,6 +34,7 @@ export class FlowIAccessibilityHandler extends BaseFlowHandler {
   }
 
   async execute(context: FlowExecutionContext): Promise<FlowExecutionResult> {
+    const enhancedContext = context as EnhancedFlowExecutionContext;
     const register = context.projectContext?.register || 'product';
 
     try {
@@ -162,6 +164,17 @@ export class FlowIAccessibilityHandler extends BaseFlowHandler {
           coverage: 'Commercial screen reader, verify critical flows',
         },
       ];
+
+      // Add custom data to enhanced context if available
+      if (enhancedContext?.flowMetadata) {
+        enhancedContext.flowMetadata.tags = ['flowI', 'accessibility', 'wcag-2.1'];
+        enhancedContext.flowMetadata.customData = {
+          'wcag-level': 'AA',
+          'domains-audited': domainAuditResults.length,
+          'screen-reader-tools': screenReaderTests.length,
+          'domains-needing-testing': domainAuditResults.filter((r) => r.complianceStatus === 'needs_testing').length,
+        };
+      }
 
       // Cache context for downstream flows
       this.cachedA11yContext = {

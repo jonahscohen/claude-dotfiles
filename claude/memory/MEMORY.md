@@ -5,6 +5,7 @@
 - [cmux markdown rendering](reference_cmux_markdown_render.md) - `cmux open <file.md>` renders markdown natively; do NOT install grip/glow/markserv and serve via localhost
 
 ## Sessions
+- [Sidecoach Audit Complete (2026-05-23)](../sidecoach/.claude/memory/session_2026-05-23_sidecoach_audit.md) - 85% backend complete (36 flows, 159 rules, 5 reference systems, full orchestration), 0% accessible from Claude Code; missing SKILL.md and skill registration; 6-hour task to production user interface
 - [Sidecoach deployment complete](session_2026-05-21_sidecoach_deployment.md) - Hooks symlinked to ~/.claude/hooks, registered in install.sh, ready for production
 - [Attribution rule shipped](session_2026-04-23_attribution-rule.md): Added human-collaborator naming rule and How/Why memory requirement to claude/CLAUDE.md so the bundle ships it
 - [PAUSE STATE - start here](session_2026-04-21_pause-state.md) - Full status of enforcement hooks (3/6 built), dotfiles portability (done), startup-check analysis (not implemented), what to do next

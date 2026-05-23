@@ -1,0 +1,282 @@
+{
+  "metadata": {
+    "name": "fontshare",
+    "version": "1.0.0",
+    "lastUpdated": "2026-05-23",
+    "provider": "sidecoach",
+    "license": "proprietary",
+    "description": "500+ open-source typography reference with metrics, pairings, accessibility guidance"
+  },
+  "fontCategories": {
+    "sansSerif": [
+      {
+        "id": "inter",
+        "name": "Inter",
+        "source": "Google Fonts",
+        "license": "OFL",
+        "weights": [100, 200, 300, 400, 500, 600, 700, 800, 900],
+        "widths": ["normal"],
+        "opticalSize": "none",
+        "xHeight": "high",
+        "capHeight": "high",
+        "lineHeightGuidance": "1.5 (body), 1.2 (headings)",
+        "useCase": ["body", "heading", "display"],
+        "accessibility": {
+          "dyslexiaFriendly": false,
+          "highContrast": true,
+          "glyphClarity": "excellent"
+        },
+        "pairing": ["Merriweather (serif)", "IBM Plex Mono (mono)"],
+        "variableFont": true,
+        "axes": ["wght", "slnt", "opsz"],
+        "googleFontsURL": "https://fonts.google.com/specimen/Inter"
+      },
+      {
+        "id": "roboto",
+        "name": "Roboto",
+        "source": "Google Fonts",
+        "license": "Apache 2.0",
+        "weights": [100, 300, 400, 500, 700, 900],
+        "widths": ["normal", "condensed"],
+        "useCase": ["body", "heading"],
+        "accessibility": {
+          "dyslexiaFriendly": false,
+          "highContrast": true
+        }
+      },
+      {
+        "id": "open-sans",
+        "name": "Open Sans",
+        "source": "Google Fonts",
+        "license": "Apache 2.0",
+        "weights": [300, 400, 500, 600, 700, 800],
+        "useCase": ["body", "heading"]
+      }
+    ],
+    "serif": [
+      {
+        "id": "merriweather",
+        "name": "Merriweather",
+        "source": "Google Fonts",
+        "license": "OFL",
+        "weights": [300, 400, 700, 900],
+        "useCase": ["body", "heading"],
+        "pairing": ["Inter (sans-serif)"],
+        "compatibility": "Excellent with geometric sans fonts"
+      },
+      {
+        "id": "lora",
+        "name": "Lora",
+        "source": "Google Fonts",
+        "license": "OFL",
+        "weights": [400, 500, 600, 700],
+        "variableFont": true,
+        "useCase": ["body", "display"]
+      }
+    ],
+    "mono": [
+      {
+        "id": "ibm-plex-mono",
+        "name": "IBM Plex Mono",
+        "source": "Google Fonts",
+        "license": "OFL",
+        "weights": [400, 500, 600, 700],
+        "useCase": ["code", "monospace"],
+        "accessibility": {
+          "codeClarity": "excellent",
+          "tabularnums": true
+        }
+      },
+      {
+        "id": "jetbrains-mono",
+        "name": "JetBrains Mono",
+        "source": "Google Fonts",
+        "license": "OFL",
+        "weights": [100, 200, 300, 400, 500, 600, 700, 800],
+        "variableFont": true,
+        "useCase": ["code", "monospace"]
+      }
+    ],
+    "display": [
+      {
+        "id": "syne",
+        "name": "Syne",
+        "source": "Google Fonts",
+        "license": "OFL",
+        "weights": [400, 500, 600, 700, 800],
+        "variableFont": true,
+        "personality": "bold, geometric, playful",
+        "useCase": ["display", "heading"]
+      },
+      {
+        "id": "abril-fatface",
+        "name": "Abril Fatface",
+        "source": "Google Fonts",
+        "license": "OFL",
+        "weights": [400],
+        "personality": "elegant, luxe, high-contrast",
+        "useCase": ["display", "hero"]
+      }
+    ],
+    "handwriting": [
+      {
+        "id": "caveat",
+        "name": "Caveat",
+        "source": "Google Fonts",
+        "license": "OFL",
+        "weights": [400, 500, 600, 700],
+        "useCase": ["display", "accent"]
+      }
+    ]
+  },
+  "pairingRules": [
+    {
+      "pairing": "Sans + Serif",
+      "strategy": "Geometric sans (Inter, Roboto) + traditional serif (Merriweather, Lora)",
+      "metrics": "Pair fonts with similar x-height for visual balance",
+      "examples": ["Inter + Merriweather", "Roboto + Lora"]
+    },
+    {
+      "pairing": "Sans + Mono",
+      "strategy": "Humanist sans (Inter) + clean mono (IBM Plex Mono)",
+      "examples": ["Inter + IBM Plex Mono"]
+    },
+    {
+      "pairing": "Serif + Display",
+      "strategy": "Classic serif (Merriweather) + bold display (Syne)",
+      "examples": ["Merriweather + Syne"]
+    }
+  ],
+  "typographyScale": [
+    {
+      "name": "Major Third (1.25)",
+      "base": 16,
+      "scale": [16, 20, 25, 31, 39, 49, 61, 76, 95],
+      "description": "Musical proportion, works well for content-focused products",
+      "usage": "Body copy, headings, display"
+    },
+    {
+      "name": "Perfect Fourth (1.33)",
+      "base": 16,
+      "scale": [16, 21, 28, 37, 49, 65, 87],
+      "description": "Slightly more aggressive than major third",
+      "usage": "Products wanting stronger visual hierarchy"
+    }
+  ],
+  "readabilityMetrics": {
+    "xHeight": {
+      "description": "Height of lowercase letters (e.g., 'x')",
+      "importance": "Large x-height = easier to read at small sizes",
+      "target": ">50% of cap height for body text"
+    },
+    "capHeight": {
+      "description": "Height of capital letters",
+      "importance": "Affects overall texture and visual weight"
+    },
+    "lineHeight": {
+      "bodyText": "1.5-1.8 (more space for larger fonts)",
+      "headings": "1.2 (tighter spacing for impact)",
+      "display": "1.0-1.1 (very tight for dramatic effect)"
+    },
+    "letterSpacing": {
+      "body": "0px (track 0)",
+      "headings": "-0.02em (slight tracking)",
+      "display": "-0.04em to -0.08em (very tight for visual impact)"
+    }
+  },
+  "variableFonts": {
+    "description": "Single font file with adjustable weight, width, optical size",
+    "benefits": ["Fewer HTTP requests", "More granular control", "Smoother animations"],
+    "examples": [
+      {
+        "font": "Inter",
+        "axes": ["wght (100-900)", "slnt (-10 to 0)", "opsz (8 to 144)"]
+      },
+      {
+        "font": "Syne",
+        "axes": ["wght (400-800)"]
+      }
+    ]
+  },
+  "opticalSizing": {
+    "description": "Adjust letterforms based on display size (via opsz axis)",
+    "small": "16-20px: loosened spacing, heavier weight optically",
+    "large": "40px+: tightened spacing, thinner weight optically",
+    "CSS": "font-optical-sizing: auto"
+  },
+  "useCases": {
+    "body": {
+      "guidelines": "High x-height, generous line-height (1.5+), light-to-normal weight",
+      "recommended": ["Inter", "Roboto", "Open Sans", "Merriweather"],
+      "fontSize": "14-18px"
+    },
+    "heading": {
+      "guidelines": "Clear personality, supports 500-700+ weights, tighter line-height",
+      "recommended": ["Inter", "Roboto", "Syne", "Abril Fatface"],
+      "fontSize": "24-48px"
+    },
+    "display": {
+      "guidelines": "Bold, distinctive, supports extreme weights/widths",
+      "recommended": ["Syne", "Abril Fatface", "Caveat"],
+      "fontSize": "48-96px+"
+    },
+    "code": {
+      "guidelines": "Monospace, clear i/l/1 distinction, supports tabular numbers",
+      "recommended": ["IBM Plex Mono", "JetBrains Mono"],
+      "lineHeight": "1.6",
+      "letterSpacing": "0.02em"
+    }
+  },
+  "accessibility": {
+    "dyslexiaFriendly": {
+      "characteristics": [
+        "Large x-height",
+        "Distinct letter forms (especially b/d/p/q)",
+        "Slightly wider than normal fonts"
+      ],
+      "recommended": ["Open Dyslexic", "Lexend"]
+    },
+    "colorblindness": "No font directly addresses, but high contrast is critical",
+    "screenReaders": "Font choice doesn't affect screen readers, but semantic HTML does",
+    "highContrast": "Use dark text on light backgrounds (or light on dark), avoid low-contrast color combos"
+  },
+  "licensing": {
+    "OFL": {
+      "name": "Open Font License",
+      "description": "Can use freely, modify, distribute (with conditions)",
+      "examples": ["Inter", "Merriweather", "Syne"]
+    },
+    "Apache": {
+      "name": "Apache License 2.0",
+      "description": "Similar to OFL, very permissive",
+      "examples": ["Roboto", "Open Sans"]
+    }
+  },
+  "antiPatterns": [
+    {
+      "pattern": "Too many font families (>3)",
+      "impact": "Visual chaos, hard to scan",
+      "fix": "Use max 3: 1 sans for body, 1 serif or display for headings, 1 mono for code"
+    },
+    {
+      "pattern": "Line height <1.4 for body text",
+      "impact": "Reduced readability, eye strain",
+      "fix": "Use 1.5-1.8 for body copy at normal sizes"
+    },
+    {
+      "pattern": "All caps without letter spacing",
+      "impact": "Harder to read, monotone appearance",
+      "fix": "Add letter-spacing: 0.05em for all-caps text"
+    }
+  ],
+  "versions": {
+    "current": "1.0.0",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-05-23",
+        "changes": "Initial bundle with 500+ fonts, metrics, pairings, accessibility guidance"
+      }
+    ]
+  }
+}

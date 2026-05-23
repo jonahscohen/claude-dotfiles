@@ -8,6 +8,7 @@ import { ComponentGalleryReferenceImpl } from './component-gallery-reference';
 import { SHARED_DESIGN_LAWS } from './design-laws';
 import { FlowMemoryBuilder } from './flow-memory-schema';
 import { ExtendedDomainValidator, DomainCheckContext, DomainValidationReport } from './extended-domain-validator';
+import { EnhancedFlowExecutionContext } from './flow-execution-context-enhanced';
 
 export interface ComponentResearchContext {
   componentPatterns: string[];
@@ -40,6 +41,7 @@ export class FlowBComponentResearchHandler extends BaseFlowHandler {
   }
 
   async execute(context: FlowExecutionContext): Promise<FlowExecutionResult> {
+    const enhancedContext = context as EnhancedFlowExecutionContext;
     const brandPersonality = context.projectContext?.product?.brandPersonality || context.projectContext?.product?.brand_personality;
     const designApproach = context.projectContext?.design?.components?.approach || 'undefined';
 
@@ -51,6 +53,16 @@ export class FlowBComponentResearchHandler extends BaseFlowHandler {
       // Get writing domain rules (labels, microcopy, copy consistency)
       const writingDomain = SHARED_DESIGN_LAWS.writing;
       const writingRules = writingDomain.rules.map((rule) => `- ${rule}`);
+
+      // Populate enhanced context with Flow B metadata
+      if (enhancedContext?.flowMetadata) {
+        enhancedContext.flowMetadata.tags = ['flowB', 'component-research', 'interaction-domain', 'writing-domain'];
+        enhancedContext.flowMetadata.customData = {
+          'interaction-rules': interactionRules.length,
+          'writing-rules': writingRules.length,
+          'design-approach': designApproach,
+        };
+      }
 
       // Get component patterns from gallery
       const componentPatterns = await this.componentGalleryRef.getComponentPatterns(
