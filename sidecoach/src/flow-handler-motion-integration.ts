@@ -4,6 +4,7 @@
 import { BaseFlowHandler, FlowExecutionContext, FlowExecutionResult } from './flow-handler';
 import { SHARED_DESIGN_LAWS } from './design-laws';
 import { FlowMemoryBuilder } from './flow-memory-schema';
+import { ExtendedDomainValidator, DomainCheckContext } from './extended-domain-validator';
 
 interface MotionIntegrationContext {
   motionDomainRules: string[];
@@ -112,18 +113,41 @@ export class FlowHMotionIntegrationHandler extends BaseFlowHandler {
         validationResults,
       };
 
+      // Domain validation integration
+      const domainCheckContext: DomainCheckContext = {
+        designTokens: context.metadata?.designTokens || {},
+        componentTree: context.metadata?.componentTree || { motionIntensity: intensity, templates: animationTemplates.length },
+        cssRules: context.metadata?.cssRules || [],
+        motion: context.metadata?.motion,
+        accessibility: context.metadata?.accessibility,
+      };
+
+      const extendedValidationReport = ExtendedDomainValidator.validateAll(domainCheckContext);
+      const motionDomainRules = ExtendedDomainValidator.getRulesByDomain('motion');
+      const interactionDomainRules = ExtendedDomainValidator.getRulesByDomain('interaction');
+
+      const motionPassRate = extendedValidationReport.passRateByDomain['motion'] || '0%';
+      const interactionPassRate = extendedValidationReport.passRateByDomain['interaction'] || '0%';
+
+      const motionPassed = Math.round((parseFloat(motionPassRate) / 100) * motionDomainRules.length);
+      const interactionPassed = Math.round((parseFloat(interactionPassRate) / 100) * interactionDomainRules.length);
+
       const durationCompliantCount = validationResults.filter((r) => r.durationCompliant).length;
       const easingCompliantCount = validationResults.filter((r) => r.easingCompliant).length;
       const reducedMotionCount = validationResults.filter((r) => r.reducedMotionSupport).length;
 
       const memoryBuilder = new FlowMemoryBuilder(this.flowId, this.getFlowName())
-        .setSummary(`Motion integration: ${animationTemplates.length} templates for ${intensity} intensity, exponential easing validated`)
+        .setSummary(`Motion integration: ${animationTemplates.length} templates for ${intensity} intensity with domain validation (motion: ${motionPassRate}, interaction: ${interactionPassRate})`)
         .addRule('motion', SHARED_DESIGN_LAWS.motion.rules)
         .addDecision(`Motion intensity: ${intensity}`, `${animationTemplates.length} animation templates (entrance/feedback/state-change/scroll/exit) with ${intensity} intensity timing and exponential easing`)
         .addMetric('animation-templates-created', animationTemplates.length, 'pass', 5)
+        .addMetric('motion-domain-validation', motionPassed, 'pass', motionDomainRules.length)
+        .addMetric('interaction-domain-validation', interactionPassed, 'pass', interactionDomainRules.length)
         .addMetric('duration-compliant', durationCompliantCount, 'pass', animationTemplates.length)
         .addMetric('easing-exponential-only', easingCompliantCount, 'pass', animationTemplates.length)
         .addMetric('reduced-motion-support', reducedMotionCount, 'pass', animationTemplates.length)
+        .addValidation('Motion domain compliance', motionPassed === motionDomainRules.length ? 'pass' : 'warning', `${motionPassed}/${motionDomainRules.length} pass`)
+        .addValidation('Interaction domain compliance', interactionPassed === interactionDomainRules.length ? 'pass' : 'warning', `${interactionPassed}/${interactionDomainRules.length} pass`)
         .addValidation('Duration compliance (100-500ms)', durationCompliantCount === animationTemplates.length ? 'pass' : 'warning', `${durationCompliantCount}/${animationTemplates.length}`)
         .addValidation('Exponential-only easing', easingCompliantCount === animationTemplates.length ? 'pass' : 'warning', `${easingCompliantCount}/${animationTemplates.length}`)
         .addValidation('No layout-property animation', true ? 'pass' : 'warning', 'transform/opacity only, no width/height/margin/padding')
@@ -135,6 +159,8 @@ export class FlowHMotionIntegrationHandler extends BaseFlowHandler {
       // Build checklist
       const checklist = this.createChecklist([
         { label: 'Motion intensity determined', required: true, description: intensity },
+        { label: 'Motion domain validation', required: false, description: `${motionPassed}/${motionDomainRules.length} rules passing (${motionPassRate})` },
+        { label: 'Interaction domain validation', required: false, description: `${interactionPassed}/${interactionDomainRules.length} rules passing (${interactionPassRate})` },
         { label: 'Animation templates selected for register', required: true, description: `${animationTemplates.length} templates` },
         { label: 'Duration compliance verified', required: true, description: '100-500ms range (50-100ms for feedback)' },
         { label: 'Easing curves exponential-only (no linear/bounce)', required: true, description: 'cubic-bezier ease-out curves' },
@@ -150,6 +176,10 @@ export class FlowHMotionIntegrationHandler extends BaseFlowHandler {
         `Brand Personality: ${brandPersonality || 'Not defined'}`,
         `Register: ${register}`,
         `Motion Intensity: ${intensity} (${register === 'brand' ? 'brand encourages ambitious motion' : 'product prefers restrained'})`,
+        '',
+        'Domain Validation Results:',
+        `- Motion domain: ${motionPassed}/${motionDomainRules.length} rules passing (${motionPassRate})`,
+        `- Interaction domain: ${interactionPassed}/${interactionDomainRules.length} rules passing (${interactionPassRate})`,
         '',
         'Motion Domain Rules (Duration, Easing, No Layout Animation):',
         ...motionDomain.rules.map((r) => `- ${r}`),

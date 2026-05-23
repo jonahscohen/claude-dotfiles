@@ -136,12 +136,33 @@ PostResponse hook → Reads result, injects into response
 User sees: Sidecoach results in their response
 ```
 
+## Flow Memory System (Phase 5)
+
+Every flow execution now persists comprehensive design decision audit trails:
+
+- **Applied Rules**: Domain-specific design rules enforced during execution
+- **User Decisions**: Key design choices made with rationale
+- **Metrics**: Measured outcomes (compliance %, coverage, performance)
+- **Validation Results**: Pre/post validation, domain audits, accessibility scans
+
+Session memory files are automatically written at execution end:
+- Location: `~/.claude/projects/<project>/memory/session_YYYY-MM-DD_sidecoach.md`
+- Contains: Flow execution order, detailed memory per flow, summary metrics, design decisions
+- Persistence: Automatic, no user action needed
+
+This enables:
+- Design decision audit trails across projects
+- Cross-session consistency tracking
+- Regression detection at the decision level
+- Evidence-based design reviews
+
 ## Each Flow Returns
 
 - **Guidance**: What you should know about this workflow
 - **Checklists**: 6-14 items (mix of required/optional) to work through
 - **Next Steps**: Concrete actions to take
 - **Artifacts**: Templates, comparison frameworks, etc.
+- **Memory**: Persistent audit trail (applied rules, decisions, metrics, validation)
 
 Example Flow2 result:
 ```

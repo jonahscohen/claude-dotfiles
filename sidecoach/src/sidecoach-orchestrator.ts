@@ -8,8 +8,11 @@ import { SidecoachOrchestrator as IntelligentOrchestrator } from './orchestrator
 import { DeterministicValidator } from './deterministic-validator';
 import { RegressionDetector } from './regression-detector';
 import { DesignDebtTracker } from './design-debt-tracker';
+import { ExtendedDomainValidator, DomainCheckContext, DomainValidationReport } from './extended-domain-validator';
 import { ContextLoader } from './project-context';
 import { persistSessionMemory } from './session-memory-writer';
+import { parseSlashCommand, getAvailableCommands, getCommandsByPhase } from './slash-command-router';
+import { TeachCommandHandler } from './teach-command-handler';
 import { FlowABrandVerifyHandler } from './flow-handler-brand-verify';
 import { FlowBComponentResearchHandler } from './flow-handler-component-research';
 import { FlowCFontResearchHandler } from './flow-handler-font-research';
@@ -151,7 +154,93 @@ export class FlowExecutionEngine {
   }
 
   async process(utterance: string, context: Partial<FlowExecutionContext> = {}): Promise<SidecoachResult> {
-    // Step 1: Detect intent
+    // Step 0: Check for empty input (show interactive menu)
+    if (!utterance || utterance.trim() === '' || utterance === '/sidecoach') {
+      return this.showInteractiveMenu(context);
+    }
+
+    // Step 1: Check for slash commands (deterministic routing)
+    const commandMatch = parseSlashCommand(utterance);
+    if (commandMatch.isCommand) {
+      if (commandMatch.command === 'teach') {
+        const teachHandler = new TeachCommandHandler();
+        const result = await teachHandler.execute({
+          utterance,
+          userId: context.userId,
+          projectPath: context.projectPath || process.cwd(),
+          currentFile: context.currentFile,
+          selectedText: context.selectedText,
+          metadata: context.metadata,
+        });
+        return {
+          success: true,
+          message: result.message,
+          detectedFlow: null,
+          flowResults: [result],
+          guidance: result.guidance,
+          checklist: result.checklist,
+          artifacts: result.artifacts,
+        };
+      }
+
+      if (commandMatch.command === 'list') {
+        const byPhase = getCommandsByPhase();
+        const groupedGuidance: string[] = [];
+
+        // Build grouped output by phase
+        for (const phase of ['Research', 'Implement', 'Review', 'Special']) {
+          const phaseCommands = byPhase[phase]?.commands || [];
+          if (phaseCommands.length > 0) {
+            groupedGuidance.push(`\n## ${phase} Phase (${phaseCommands.length} commands)`);
+            for (const cmd of phaseCommands) {
+              groupedGuidance.push(`  /sidecoach ${cmd.command} - ${cmd.description} (${cmd.flowCount} flows)`);
+            }
+          }
+        }
+
+        return {
+          success: true,
+          message: 'Available Sidecoach Commands (grouped by workflow phase)',
+          detectedFlow: null,
+          flowResults: [],
+          guidance: groupedGuidance,
+        };
+      }
+      // Route to command's flow chain
+      const executionContext: FlowExecutionContext = {
+        utterance,
+        userId: context.userId,
+        projectPath: context.projectPath || process.cwd(),
+        currentFile: context.currentFile,
+        selectedText: context.selectedText,
+        metadata: { ...context.metadata, commandTarget: commandMatch.target },
+      };
+      const flowResults: FlowExecutionResult[] = [];
+      let detectedFlow: { flowId: FlowId; flowName: string; confidence: number } | null = null;
+      for (const flowId of commandMatch.flowIds) {
+        const handler = this.handlers.get(flowId);
+        if (handler && handler.canExecute(executionContext)) {
+          const result = await handler.execute(executionContext);
+          this.recordFlowWithMemory(result);
+          flowResults.push(result);
+          if (!detectedFlow) {
+            detectedFlow = {
+              flowId,
+              flowName: result.flowName || flowId,
+              confidence: 1.0
+            };
+          }
+        }
+      }
+      return {
+        success: true,
+        message: `Executed ${commandMatch.command} flow chain (${flowResults.length} flows)`,
+        detectedFlow,
+        flowResults,
+      };
+    }
+
+    // Step 1: Detect intent (falls back to intent detection if not a slash command)
     const detection = this.intentDetector.detect(utterance);
 
     // Handle no matches
@@ -384,6 +473,40 @@ export class FlowExecutionEngine {
       guidance: flowResults.flatMap((r) => r.guidance || []),
       checklist: flowResults.flatMap((r) => r.checklist || []),
       artifacts: flowResults.flatMap((r) => r.artifacts || []),
+    };
+  }
+
+  private showInteractiveMenu(context: Partial<FlowExecutionContext>): SidecoachResult {
+    const byPhase = getCommandsByPhase();
+    const menuItems: string[] = [];
+    let itemNum = 1;
+    const commandMap: Record<number, string> = {};
+
+    menuItems.push('\n=== Sidecoach Interactive Menu ===\n');
+
+    for (const phase of ['Research', 'Implement', 'Review', 'Special']) {
+      const phaseCommands = byPhase[phase]?.commands || [];
+      if (phaseCommands.length > 0) {
+        menuItems.push(`\n[${phase} Phase]\n`);
+        for (const cmd of phaseCommands) {
+          menuItems.push(`  ${itemNum}. /sidecoach ${cmd.command}`);
+          menuItems.push(`     ${cmd.description}`);
+          commandMap[itemNum] = cmd.command;
+          itemNum++;
+        }
+      }
+    }
+
+    menuItems.push('\n\nEnter a number (1-' + (itemNum - 1) + ') to execute that command.');
+    menuItems.push('Or type: /sidecoach <command> [options]');
+    menuItems.push('Or type: /sidecoach list to see commands grouped by phase');
+
+    return {
+      success: true,
+      message: 'Sidecoach - Interactive Design Flow Engine',
+      detectedFlow: null,
+      flowResults: [],
+      guidance: menuItems,
     };
   }
 

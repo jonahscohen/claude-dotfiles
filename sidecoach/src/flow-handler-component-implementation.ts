@@ -4,6 +4,7 @@
 import { BaseFlowHandler, FlowExecutionContext, FlowExecutionResult } from './flow-handler';
 import { SHARED_DESIGN_LAWS } from './design-laws';
 import { FlowMemoryBuilder } from './flow-memory-schema';
+import { ExtendedDomainValidator, DomainCheckContext } from './extended-domain-validator';
 
 interface ComponentImplementationContext {
   interactionDomainRules: string[];
@@ -66,11 +67,35 @@ export class FlowGComponentImplementationHandler extends BaseFlowHandler {
         validationResults,
       };
 
+      // Domain validation integration
+      const domainCheckContext: DomainCheckContext = {
+        designTokens: context.metadata?.designTokens || {},
+        componentTree: context.metadata?.componentTree || { componentName, states: componentStates.length },
+        cssRules: context.metadata?.cssRules || [],
+        accessibility: context.metadata?.accessibility,
+      };
+
+      const extendedValidationReport = ExtendedDomainValidator.validateAll(domainCheckContext);
+      const interactionDomainRules = ExtendedDomainValidator.getRulesByDomain('interaction');
+      const writingDomainRules = ExtendedDomainValidator.getRulesByDomain('writing');
+      const responsiveDomainRules = ExtendedDomainValidator.getRulesByDomain('responsive');
+
+      const interactionPassRate = extendedValidationReport.passRateByDomain['interaction'] || '0%';
+      const writingPassRate = extendedValidationReport.passRateByDomain['writing'] || '0%';
+      const responsivePassRate = extendedValidationReport.passRateByDomain['responsive'] || '0%';
+
+      const interactionPassed = Math.round((parseFloat(interactionPassRate) / 100) * interactionDomainRules.length);
+      const writingPassed = Math.round((parseFloat(writingPassRate) / 100) * writingDomainRules.length);
+      const responsivePassed = Math.round((parseFloat(responsivePassRate) / 100) * responsiveDomainRules.length);
+
       // Build checklist
       const checklist = this.createChecklist([
         { label: 'Component name identified', required: true, description: componentName },
         { label: 'Extract all states from design (8 total)', required: true, description: componentStates.join(', ') },
         { label: 'Create semantic HTML with BEM naming', required: true, description: 'Follows naming convention' },
+        { label: 'Interaction domain validation', required: false, description: `${interactionPassed}/${interactionDomainRules.length} rules passing (${interactionPassRate})` },
+        { label: 'Writing domain validation', required: false, description: `${writingPassed}/${writingDomainRules.length} rules passing (${writingPassRate})` },
+        { label: 'Responsive domain validation', required: false, description: `${responsivePassed}/${responsiveDomainRules.length} rules passing (${responsivePassRate})` },
         { label: 'Implement ARIA labels for interactive states', required: true, description: '8 states with labels' },
         { label: 'Keyboard navigation support (default, hover, focus, active, disabled)', required: true, description: 'All keyboard-navigable states' },
         { label: 'Copy validation (error, loading, success messages)', required: true, description: 'Verb+object, helpful language' },
@@ -83,6 +108,11 @@ export class FlowGComponentImplementationHandler extends BaseFlowHandler {
       const guidance = [
         `Component: ${componentName}`,
         `Register: ${register}`,
+        '',
+        'Domain Validation Results:',
+        `- Interaction domain: ${interactionPassed}/${interactionDomainRules.length} rules passing (${interactionPassRate})`,
+        `- Writing domain: ${writingPassed}/${writingDomainRules.length} rules passing (${writingPassRate})`,
+        `- Responsive domain: ${responsivePassed}/${responsiveDomainRules.length} rules passing (${responsivePassRate})`,
         '',
         'Interaction Domain (8 States):',
         ...interactionDomain.rules.map((r) => `- ${r}`),
@@ -132,14 +162,20 @@ export class FlowGComponentImplementationHandler extends BaseFlowHandler {
       const semanticCopyCount = validationResults.filter((r) => r.copyAppropriateness).length;
 
       const memoryBuilder = new FlowMemoryBuilder(this.flowId, this.getFlowName())
-        .setSummary(`Component implementation: ${componentName} with 8 interaction states + semantic copy validated`)
+        .setSummary(`Component implementation: ${componentName} with 8 interaction states + semantic copy + domain validation (interaction: ${interactionPassRate}, writing: ${writingPassRate}, responsive: ${responsivePassRate})`)
         .addRule('interaction', SHARED_DESIGN_LAWS.interaction.rules)
         .addRule('writing', SHARED_DESIGN_LAWS.writing.rules)
         .addDecision(`Component semantic HTML structure`, `<${componentName === 'button' ? 'button' : 'div'} role="${componentName}" aria-label="..."> with BEM naming convention`)
         .addMetric('component-states-implemented', componentStates.length, 'pass', 8)
+        .addMetric('interaction-domain-validation', interactionPassed, 'pass', interactionDomainRules.length)
+        .addMetric('writing-domain-validation', writingPassed, 'pass', writingDomainRules.length)
+        .addMetric('responsive-domain-validation', responsivePassed, 'pass', responsiveDomainRules.length)
         .addMetric('aria-labels-count', ariaLabelCount, 'pass', componentStates.length)
         .addMetric('keyboard-nav-count', keyboardNavCount, 'pass', componentStates.length - 1)
         .addMetric('semantic-copy-count', semanticCopyCount, 'pass', 3)
+        .addValidation('Interaction domain compliance', interactionPassed === interactionDomainRules.length ? 'pass' : 'warning', `${interactionPassed}/${interactionDomainRules.length} pass`)
+        .addValidation('Writing domain compliance', writingPassed === writingDomainRules.length ? 'pass' : 'warning', `${writingPassed}/${writingDomainRules.length} pass`)
+        .addValidation('Responsive domain compliance', responsivePassed === responsiveDomainRules.length ? 'pass' : 'warning', `${responsivePassed}/${responsiveDomainRules.length} pass`)
         .addValidation('ARIA labels implemented', ariaLabelCount === componentStates.length ? 'pass' : 'warning', `${ariaLabelCount}/${componentStates.length}`)
         .addValidation('Keyboard navigation enabled', keyboardNavCount >= componentStates.length - 1 ? 'pass' : 'warning', `${keyboardNavCount}/${componentStates.length - 1} navigable`)
         .addValidation('Semantic copy appropriate', semanticCopyCount === 3 ? 'pass' : 'warning', `${semanticCopyCount}/3 states with copy`)
