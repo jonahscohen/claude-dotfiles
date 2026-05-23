@@ -13,14 +13,14 @@ if [[ ! -d "$RESULTS_DIR" ]]; then exit 0; fi
 LATEST=$(ls -t "$RESULTS_DIR"/result-*.json 2>/dev/null | head -1)
 if [[ -z "$LATEST" ]]; then exit 0; fi
 
-node -e "
+LATEST_FILE="$LATEST" node -e "
   const fs = require('fs');
-  const result = JSON.parse(fs.readFileSync('$LATEST', 'utf8'));
+  const result = JSON.parse(fs.readFileSync(process.env.LATEST_FILE, 'utf8'));
   if (result.success && result.message) {
     const guidance = (result.guidance || []).map(g => '  - ' + g).join('\n');
     console.log('\n[Sidecoach: ' + (result.detectedFlow?.flowName || 'flow') + ']\n' + result.message + (guidance ? '\n' + guidance : ''));
   }
-  fs.unlinkSync('$LATEST');
+  fs.unlinkSync(process.env.LATEST_FILE);
 " 2>/dev/null
 
 exit 0

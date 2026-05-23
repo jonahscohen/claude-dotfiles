@@ -14,7 +14,8 @@ SESSION_ID="$(date +%s)-$$"
 PIPE_PATH="/tmp/sidecoach-$USER-$SESSION_ID.pipe"
 
 # Create named pipe for daemon
-mkfifo "$PIPE_PATH" 2>/dev/null || exit 0
+[[ -p "$PIPE_PATH" ]] && rm "$PIPE_PATH"
+mkfifo "$PIPE_PATH" || exit 0
 
 # Start daemon in background (detached, survives hook exit)
 nohup "$SIDECOACH_ROOT/bin/sidecoach-daemon.sh" \
@@ -25,7 +26,7 @@ nohup "$SIDECOACH_ROOT/bin/sidecoach-daemon.sh" \
 DAEMON_PID=$!
 
 # Write state file (persists across hook invocations)
-cat > "$STATE_FILE" <<EOF
+cat > "$STATE_FILE" <<'EOF'
 ACTIVE=1
 SESSION_ID=$SESSION_ID
 PIPE_PATH=$PIPE_PATH
