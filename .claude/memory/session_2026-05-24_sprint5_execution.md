@@ -26,3 +26,15 @@ Human collaborator: Jonah.
 Files touched:
 - sidecoach/src/sidecoach-orchestrator.ts: added private getAllKnownFlowIds() helper after getHandlers() at ~L1178; replaced single-line `let detection = ...` with forceFlowId-guarded if/else at L787-810.
 - sidecoach/src/__tests__/sprint5-force-flowid-bypass.test.ts: new test file.
+
+## T4: prompt-path test (DONE)
+
+- Created sprint5-disambiguation-prompt-path.test.ts with 9 assertions covering the prompt-shape return: needsDisambiguation=true, success=false, detectedFlow=null, flowResults=[], ambiguousCandidates has the 2 candidates, disambiguationPrompt mentions the utterance and "multiple flows".
+- Synthetic DisambiguationResult uses an alphabetical-fallback tieBreak reason (not the recommendation prefix) so the orchestrator takes the prompt branch.
+- Fixture utterance: 'validate tokens against DESIGN.md' (plausible real-world ambiguity between flowF design tokens and flowJ tactical polish).
+- Mirrors T2 test pattern: patch (engine as any).intentDetector.detect, drive engine.process, restore. Imports DisambiguationResult/MatchResult/FlowId from '../types' (same as T2).
+- All 9 assertions PASS on first run after writing test (T2 orchestrator code already implements the prompt branch).
+- tsc clean. Regression: sprint5-disambiguation-silent-tiebreak PASS, sprint5-force-flowid-bypass PASS.
+
+Files touched:
+- sidecoach/src/__tests__/sprint5-disambiguation-prompt-path.test.ts: new test file.
