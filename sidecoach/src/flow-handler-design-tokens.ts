@@ -6,6 +6,7 @@ import { SHARED_DESIGN_LAWS } from './design-laws';
 import { FlowMemoryBuilder } from './flow-memory-schema';
 import { ExtendedDomainValidator, DomainCheckContext } from './extended-domain-validator';
 import { EnhancedFlowExecutionContext } from './flow-execution-context-enhanced';
+import { findTokenLine } from './design-md-parser';
 import fs from 'fs';
 import path from 'path';
 
@@ -43,6 +44,14 @@ export class FlowFDesignTokensHandler extends BaseFlowHandler {
     const hasDesignMd = fs.existsSync(designMdPath);
 
     try {
+      // Citation helper: resolves a dotted YAML key path to a DESIGN.md line number
+      const designContent = (context.metadata?.designContent as string) || '';
+      const designTokens = (context.metadata?.designTokens as any) || {};
+      const cite = (dottedPath: string): string => {
+        const ln = designContent ? findTokenLine(designContent, dottedPath) : -1;
+        return ln > 0 ? ` (Source: DESIGN.md L${ln})` : '';
+      };
+
       // Load token definitions from DESIGN.md
       const tokenSections: string[] = [];
       const tokenDefinitions: { section: string; tokenCount: number; examples: string[] }[] = [];
@@ -221,19 +230,30 @@ export class FlowFDesignTokensHandler extends BaseFlowHandler {
         { label: 'npx @google/design.md lint run successfully', required: true, description: 'Resolve all errors/warnings' },
       ]);
 
+      // Resolve token values for cited guidance lines
+      const brandRed = designTokens.colors?.brand?.red || '(undefined in DESIGN.md)';
+      const brandInk = designTokens.colors?.brand?.ink || '(undefined in DESIGN.md)';
+      const brandCream = designTokens.colors?.brand?.cream || '(undefined in DESIGN.md)';
+      const roundedSm = designTokens.rounded?.sm || '(undefined in DESIGN.md)';
+      const roundedMd = designTokens.rounded?.md || '(undefined in DESIGN.md)';
+      const motionEaseOut = designTokens.motion?.ease?.out || '(undefined in DESIGN.md)';
+      const typographyDisplay = designTokens.typography?.display?.family || '(undefined in DESIGN.md)';
+
       // Build guidance
       const guidance = [
         `DESIGN.md Status: ${hasDesignMd ? 'Found' : 'Missing at ' + designMdPath}`,
         `Token Sections: ${tokenSections.length > 0 ? tokenSections.join(', ') : 'None found'}`,
         '',
+        'Design Token Values (sourced from DESIGN.md):',
+        `- Brand red: ${brandRed}${cite('colors.brand.red')}`,
+        `- Brand ink: ${brandInk}${cite('colors.brand.ink')}`,
+        `- Brand cream: ${brandCream}${cite('colors.brand.cream')}`,
+        `- Border radius sm: ${roundedSm}${cite('rounded.sm')}`,
+        `- Border radius md: ${roundedMd}${cite('rounded.md')}`,
+        `- Motion ease out: ${motionEaseOut}${cite('motion.ease.out')}`,
+        `- Display font family: ${typographyDisplay}${cite('typography.display')}`,
+        '',
         'Domain Validation Results:',
-        `- Color domain: ${colorPassed}/${colorDomainRules.length} rules passing (${colorPassRate})`,
-        `- Typography domain: ${typographyPassed}/${typographyDomainRules.length} rules passing (${typographyPassRate})`,
-        `- Spatial domain: ${spatialPassed}/${spatialDomainRules.length} rules passing (${spatialPassRate})`,
-        `- Motion domain: ${motionPassed}/${motionDomainRules.length} rules passing (${motionPassRate})`,
-        `- Interaction domain: ${interactionPassed}/${interactionDomainRules.length} rules passing (${interactionPassRate})`,
-        `- Responsive domain: ${responsivePassed}/${responsiveDomainRules.length} rules passing (${responsivePassRate})`,
-        `- Writing domain: ${writingPassed}/${writingDomainRules.length} rules passing (${writingPassRate})`,
         '',
         'Color Domain Rules:',
         ...SHARED_DESIGN_LAWS.color.rules.map((r) => `- ${r}`),
