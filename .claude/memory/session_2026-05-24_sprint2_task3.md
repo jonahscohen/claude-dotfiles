@@ -51,4 +51,15 @@ relates_to: [session_2026-05-24_sprint2_execution.md, session_2026-05-24_sprint2
   - Product artifacts has >= 1
   - Product artifacts has section reference
 
-### Task 3 COMPLETE - Ready for Step 5 Commit
+### Step 5: Commit with three separate bash calls
+- Call 1: `rm -f ~/.claude/.needs-verification` - cleared verification flag
+- Call 2: `git add sidecoach/src/flow-handler-landing-composition.ts sidecoach/src/__tests__/flow-handler-landing-composition.test.ts .claude/memory/session_2026-05-24_sprint2_task3.md .claude/memory/MEMORY.md`
+- Call 3: `git commit -m "feat(sidecoach): FlowWLandingCompositionHandler emits register-aware composition guidance"`
+- Commit SHA: 783213b
+
+### Task 3 COMPLETE
+- Files: flow-handler-landing-composition.ts (80 lines), flow-handler-landing-composition.test.ts (55 lines)
+- Handler extends BaseFlowHandler with register-aware dispatch
+- FlowMemoryBuilder chain matches plan exactly
+- All 13 test assertions passing
+- Ready for Task 4 (orchestrator registration)

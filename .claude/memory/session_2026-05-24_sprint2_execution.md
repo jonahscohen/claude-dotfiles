@@ -7,7 +7,7 @@ relates_to: [session_2026-05-24_sprint2_t1_floww_flowx_registered.md]
 
 ## Task 2: Build landing-composition-data.ts
 
-**Status: IN PROGRESS**
+**Status: COMPLETE**
 
 ### Files Created
 - `sidecoach/src/landing-composition-data.ts` - register-aware section taxonomy
