@@ -221,8 +221,12 @@ export class FlowExecutionEngine {
     const flowHistory = getFlowHistory();
     const historyEntries = flowHistory.getFlowSequence();
     const startTime = Date.now();
-    // utterance is reserved for the resume path (T5) where the original prompt is replayed.
-    void utterance;
+
+    // Phase 6 part 2: stable run-start timestamp so the same file is overwritten in place across steps.
+    const runStartIso = new Date().toISOString().replace(/[:.]/g, '');
+    const runCheckpointId = `sidecoach-${compositeFlow.id}-${runStartIso}`;
+    let lastCheckpointId: string | undefined;
+    let checkpointDisabled = false;
 
     for (let stepIndex = startIndex; stepIndex < compositeFlow.steps.length; stepIndex++) {
       const step = compositeFlow.steps[stepIndex];
@@ -325,6 +329,28 @@ export class FlowExecutionEngine {
 
           flowResults.push(result);
 
+          // Phase 6 part 2: persist a checkpoint after each successful step.
+          if (result.status === 'success' && this.checkpointStore && !checkpointDisabled) {
+            const checkpoint: SidecoachCheckpoint = {
+              schemaVersion: 1,
+              checkpointId: runCheckpointId,
+              compositeFlowId: compositeFlow.id as any,
+              createdAt: new Date().toISOString(),
+              cursor: stepIndex + 1,
+              completedStepIds: flowResults.map((r) => r.flowId as any),
+              flowResults,
+              executionContext,
+              utterance,
+            };
+            try {
+              this.checkpointStore.writeCheckpoint(checkpoint);
+              lastCheckpointId = runCheckpointId;
+            } catch (err) {
+              process.stderr.write(`[sidecoach] checkpoint write failed at step ${stepIndex} (continuing without resume capability): ${(err as Error).message}\n`);
+              checkpointDisabled = true;
+            }
+          }
+
           // Apply context transformation if defined
           if (step.transformContext) {
             Object.assign(executionContext, step.transformContext(executionContext, result));
@@ -390,6 +416,15 @@ export class FlowExecutionEngine {
       content: buildReportMarkdown,
       description: `Build Report for ${compositeFlow.name}: verdict=${buildReport.verdict}, grade=${buildReport.overallGrade}`,
     };
+
+    // Phase 6 part 2: composite finished naturally - delete the checkpoint.
+    if (lastCheckpointId && this.checkpointStore) {
+      try {
+        this.checkpointStore.deleteCheckpoint(lastCheckpointId);
+      } catch (err) {
+        process.stderr.write(`[sidecoach] checkpoint cleanup failed (will be GC'd later): ${(err as Error).message}\n`);
+      }
+    }
 
     return {
       success: flowResults.some(r => r.status === 'success'),
@@ -622,6 +657,18 @@ export class FlowExecutionEngine {
       return this.showInteractiveMenu(enrichedContext);
     }
 
+    // Phase 6 part 2: lazy CheckpointStore boot + 7-day GC sweep (runs once per engine instance).
+    // Must run BEFORE the slash-command branch so the composite-flow path can write checkpoints.
+    if (!this.checkpointStore || !this.gcRan) {
+      this.checkpointStore = new CheckpointStore(context.projectPath || process.cwd());
+      try {
+        this.checkpointStore.gcOldCheckpoints(7);
+      } catch (err) {
+        process.stderr.write(`[sidecoach] checkpoint GC failed (continuing): ${(err as Error).message}\n`);
+      }
+      this.gcRan = true;
+    }
+
     // Step 2: Check for slash commands (deterministic routing)
     const commandMatch = parseSlashCommand(utterance);
     if (commandMatch.isCommand) {
@@ -802,17 +849,6 @@ export class FlowExecutionEngine {
         detectedFlow,
         flowResults,
       };
-    }
-
-    // Phase 6 part 2: lazy CheckpointStore boot + 7-day GC sweep (runs once per engine instance).
-    if (!this.checkpointStore || !this.gcRan) {
-      this.checkpointStore = new CheckpointStore(context.projectPath || process.cwd());
-      try {
-        this.checkpointStore.gcOldCheckpoints(7);
-      } catch (err) {
-        process.stderr.write(`[sidecoach] checkpoint GC failed (continuing): ${(err as Error).message}\n`);
-      }
-      this.gcRan = true;
     }
 
     // Step 1: Detect intent (falls back to intent detection if not a slash command).
