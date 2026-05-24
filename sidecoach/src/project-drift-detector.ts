@@ -27,15 +27,15 @@ function flattenColorValues(colors: any): string[] {
 }
 
 function isColorToken(name: string): boolean {
-  return /^--c[-_]|^--color/.test(name);
+  return /^--c-|^--color/.test(name);
 }
 
 function isRadiusToken(name: string): boolean {
-  return /^--r[-_]|^--radius|^--rounded/.test(name);
+  return /^--r-|^--radius|^--rounded/.test(name);
 }
 
 function isSpacingToken(name: string): boolean {
-  return /^--s[-_]\d|^--space|^--spacing/.test(name);
+  return /^--s-|^--space|^--spacing/.test(name);
 }
 
 function isEasingToken(name: string): boolean {
@@ -43,7 +43,7 @@ function isEasingToken(name: string): boolean {
 }
 
 function isDurationToken(name: string): boolean {
-  return /^--d[-_]|^--duration/.test(name);
+  return /^--d-|^--duration/.test(name);
 }
 
 export function detectTokenDrift(css: string, designTokens: any): DriftReport {
@@ -61,12 +61,13 @@ export function detectTokenDrift(css: string, designTokens: any): DriftReport {
   }
   const dtColors = flattenColorValues(tokens.colors).map(s => s.toLowerCase());
   const dtRadius = Object.values(tokens.rounded || {}).map(s => String(s).toLowerCase());
-  const dtSpacing = Object.values(tokens.spacing?.sizes || tokens.spacing || {}).map(s => String(s).toLowerCase());
+  const dtSpacing = Object.values(tokens.spacing?.sizes || tokens.spacing || {}).filter(s => typeof s === 'string').map(s => String(s).toLowerCase());
   const dtEasing = Object.values(tokens.motion?.ease || {}).map(s => String(s).toLowerCase());
   const dtDuration = Object.values(tokens.motion?.duration || {}).map(s => String(s).toLowerCase());
 
   for (const p of props) {
     const v = propValues[p];
+    if (v && v.startsWith('var(')) continue;
     if (isColorToken(p) && !dtColors.includes(v)) newColorTokens.push(p);
     else if (isRadiusToken(p) && !dtRadius.includes(v)) newRadiusTokens.push(p);
     else if (isSpacingToken(p) && !dtSpacing.includes(v)) newSpacingTokens.push(p);

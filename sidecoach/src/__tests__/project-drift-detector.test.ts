@@ -27,3 +27,18 @@ assertEq(drift.newRadiusTokens.includes('--r-tiny'), true, 'detects new radius t
 assertEq(drift.newColorTokens.includes('--c-brand-red'), false, 'does not flag matching color');
 
 console.log('project-drift-detector test PASS');
+
+// Regression: var() references not flagged as drift
+const cssWithVarRef = `:root { --c-brand-primary: var(--c-brand-red); --c-brand-red: #DC2618; }`;
+const tokensWithRed = { colors: { brand: { red: '#DC2618' } } };
+const driftVar = detectTokenDrift(cssWithVarRef, tokensWithRed);
+assertEq(driftVar.newColorTokens.includes('--c-brand-primary'), false, 'var() ref not flagged as drift');
+
+// Regression: named spacing tokens (no digit) categorized correctly
+const cssNamedSpacing = `:root { --s-large: 24px; --s-xl: 32px; }`;
+const tokensWithSpacing = { spacing: { sizes: { '6': '24px' } } };
+const driftSpacing = detectTokenDrift(cssNamedSpacing, tokensWithSpacing);
+assertEq(driftSpacing.newSpacingTokens.includes('--s-large'), false, 'named spacing matches');
+assertEq(driftSpacing.newSpacingTokens.includes('--s-xl'), true, 'unmatched named spacing flagged');
+
+console.log('project-drift-detector regression test PASS');
