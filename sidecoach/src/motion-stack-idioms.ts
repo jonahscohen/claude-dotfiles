@@ -317,6 +317,12 @@ window.addEventListener('pagehide', () => ctx.revert(), { once: true });`,
       'gsap.context() is optional for a single one-shot animation - it shines when multiple animations share lifecycle',
     ],
   },
+  // 'unknown' record satisfies the Record<TechStack['framework'], MotionIdiom>
+  // completeness check. It intentionally shares snippet content with 'vanilla'
+  // (via VANILLA_SNIPPET) but keeps its own scopeBoundary + notes that name
+  // the fallback explicitly. The accessor's ?? IDIOMS.vanilla fallback is a
+  // SEPARATE defensive guard for 'as any' paths that bypass the union type;
+  // both layers serve different purposes.
   unknown: {
     framework: 'unknown',
     loadingPattern: '<script src=...> tag for GSAP from CDN, then DOMContentLoaded listener for the animation code',
@@ -330,6 +336,15 @@ window.addEventListener('pagehide', () => ctx.revert(), { once: true });`,
   },
 };
 
+/**
+ * Look up the motion idiom for a given framework.
+ *
+ * The Record type guarantees every TechStack['framework'] value has a record,
+ * so the `??` fallback is defensive against runtime `as any` paths where a
+ * caller might pass a stale or malformed framework string. For known framework
+ * values the IDIOMS lookup always succeeds; for unknown/malformed values the
+ * vanilla idiom is the safe default.
+ */
 export function getMotionIdiom(framework: TechStack['framework']): MotionIdiom {
   return IDIOMS[framework] ?? IDIOMS.vanilla;
 }
