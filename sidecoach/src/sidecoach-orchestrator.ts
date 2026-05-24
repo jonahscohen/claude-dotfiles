@@ -1074,6 +1074,15 @@ export class FlowExecutionEngine {
     // Persist session memory for all executed flows
     persistSessionMemory(executionContext.projectPath);
 
+    // Phase 5 (Surface B): opt-in build report for natural-language / single-flow execution.
+    let buildReportSingle: BuildReport | undefined;
+    if ((context.metadata as any)?.emitBuildReport === true && flowResults.length > 0) {
+      buildReportSingle = generateBuildReport({
+        source: 'flow-results',
+        flowResults,
+      });
+    }
+
     return {
       success: flowResults.some((r) => r.status === 'success'),
       message: finalMessage,
@@ -1082,6 +1091,7 @@ export class FlowExecutionEngine {
       guidance: flowResults.flatMap((r) => r.guidance || []),
       checklist: flowResults.flatMap((r) => r.checklist || []),
       artifacts: flowResults.flatMap((r) => r.artifacts || []),
+      buildReport: buildReportSingle,
     };
   }
 

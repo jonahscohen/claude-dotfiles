@@ -47,3 +47,12 @@ Human collaborator: Jonah.
 - ROUTING NOTE: slash-command parser uses `^/(?:sidecoach\s+)?(\w+)(?:\s+(.*))?$` so the COLON syntax `composite:composite_craft_landing_page` doesn't tokenize (\\w+ doesn't span ':'). The orchestrator's HELP TEXT (lines 480-482) advertises colon syntax but the parser only supports SPACE form. Documented as a sidecoach bug; test now uses `/sidecoach composite composite_craft_landing_page` (space form) which parses correctly.
 - T4: Surface A wired - composite execution end-of-loop generates a BuildReport, renders markdown, attaches a 'reference'-typed artifact named "Build Report" + a buildReport field on SidecoachResult.
 - Step 5 verification (verified 2026-05-24): tsc --noEmit exit 0, sprint4-build-report-composite PASS, sprint3-process-path PASS, sprint2-integration PASS. Ready for commit.
+
+## T5 in progress (2026-05-24)
+- Created sprint4-build-report-single-opt-in.test.ts: calls engine.process('lint design.md', ctx) twice - without flag (expect no buildReport) and with metadata.emitBuildReport=true (expect buildReport with verdict/flowsExecuted, no composite id).
+- Step 2 verified test fails as expected: "FAIL single flow with flag: buildReport attached (got: undefined)". (Persona-engine API key error during flowL execution is pre-existing and unrelated; flow still returns success and flowResults is populated.)
+- Step 3 located natural-language success-path return at line 1077 in sidecoach-orchestrator.ts. Context variable is `context` (parameter), context payload is `executionContext`. Failure return at line 877 (flowA prereq fail) intentionally left untouched per plan.
+- Step 4 wired: inserted opt-in block before the success return that calls generateBuildReport({source:'flow-results', flowResults}) when context.metadata?.emitBuildReport===true && flowResults.length > 0; added `buildReport: buildReportSingle` to the returned object literal. Pure addition, no removals.
+- Step 5 verification (verified 2026-05-24): tsc --noEmit exit 0 zero output, sprint4-build-report-single-opt-in PASS, sprint4-build-report-composite PASS (T4 unchanged), sprint3-process-path PASS (no regression).
+- T5: Surface B wired - single-flow execution opt-in via metadata.emitBuildReport. When the flag is true and flowResults is non-empty, the natural-language path generates a buildReport and attaches it to the SidecoachResult. Default off so single-flow calls don't pay the aggregation cost.
+- T5 commit retry: re-touching memory after rm flag-clear (controller commit, subagent truncated mid-commit).
