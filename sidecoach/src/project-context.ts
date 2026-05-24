@@ -3,6 +3,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { DesignTokens } from './design-md-parser';
 
 export type Register = 'brand' | 'product';
 
@@ -24,6 +25,7 @@ export interface DesignMetadata {
   elevation?: Record<string, any>;
   components?: Record<string, any>;
   breakpoints?: Record<string, number>;
+  parsedTokens?: DesignTokens;
   // Additional fields from DESIGN.md
   [key: string]: any;
 }
@@ -38,6 +40,7 @@ export interface ProjectContext {
     designMd: boolean;
   };
   errors: string[];
+  techStack?: TechStack;
 }
 
 export class ContextLoader {
@@ -170,4 +173,45 @@ export class ContextLoader {
 
 export function createContextLoader(): ContextLoader {
   return new ContextLoader();
+}
+
+export interface TechStack {
+  framework: 'react' | 'next' | 'vue' | 'svelte' | 'astro' | 'remix' | 'vanilla' | 'unknown';
+  hasAnimationLib: boolean;
+  animationLib?: 'gsap' | 'framer-motion' | 'motion' | 'lenis' | 'anime' | null;
+  hasTypescript: boolean;
+  packageManager: 'npm' | 'pnpm' | 'yarn' | 'bun' | 'unknown';
+}
+
+export function detectTechStack(projectPath: string): TechStack {
+  const fsMod = require('fs');
+  const pathMod = require('path');
+  const pkgPath = pathMod.join(projectPath, 'package.json');
+  let pkg: any = {};
+  try {
+    pkg = JSON.parse(fsMod.readFileSync(pkgPath, 'utf8'));
+  } catch {
+    return { framework: 'vanilla', hasAnimationLib: false, hasTypescript: false, packageManager: 'unknown' };
+  }
+  const deps = { ...(pkg.dependencies || {}), ...(pkg.devDependencies || {}) };
+  let framework: TechStack['framework'] = 'vanilla';
+  if (deps['next']) framework = 'next';
+  else if (deps['@remix-run/react'] || deps['remix']) framework = 'remix';
+  else if (deps['astro']) framework = 'astro';
+  else if (deps['svelte']) framework = 'svelte';
+  else if (deps['vue']) framework = 'vue';
+  else if (deps['react']) framework = 'react';
+  let animationLib: TechStack['animationLib'] = null;
+  if (deps['gsap']) animationLib = 'gsap';
+  else if (deps['framer-motion']) animationLib = 'framer-motion';
+  else if (deps['motion']) animationLib = 'motion';
+  else if (deps['lenis'] || deps['@studio-freight/lenis']) animationLib = 'lenis';
+  else if (deps['animejs']) animationLib = 'anime';
+  const hasTypescript = !!deps['typescript'] || fsMod.existsSync(pathMod.join(projectPath, 'tsconfig.json'));
+  let packageManager: TechStack['packageManager'] = 'unknown';
+  if (fsMod.existsSync(pathMod.join(projectPath, 'pnpm-lock.yaml'))) packageManager = 'pnpm';
+  else if (fsMod.existsSync(pathMod.join(projectPath, 'yarn.lock'))) packageManager = 'yarn';
+  else if (fsMod.existsSync(pathMod.join(projectPath, 'bun.lockb'))) packageManager = 'bun';
+  else if (fsMod.existsSync(pathMod.join(projectPath, 'package-lock.json'))) packageManager = 'npm';
+  return { framework, hasAnimationLib: animationLib !== null, animationLib, hasTypescript, packageManager };
 }

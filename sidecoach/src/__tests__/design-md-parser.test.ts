@@ -44,3 +44,12 @@ assertEqual(findTokenLine(collisionYaml, 'colors.brand.red'), 4, 'finds nested b
 assertEqual(findTokenLine(collisionYaml, 'colors.text.red'), 6, 'finds nested text.red, not brand.red');
 
 console.log('design-md-parser regression test PASS');
+
+import { detectTechStack } from '../project-context';
+import * as path2 from 'path';
+
+const dotfilesRoot = path2.resolve(__dirname, '../../..');
+const stack = detectTechStack(dotfilesRoot);
+assertEqual(typeof stack.framework, 'string', 'framework string');
+assertEqual('hasAnimationLib' in stack, true, 'hasAnimationLib field');
+console.log('detectTechStack test PASS');
