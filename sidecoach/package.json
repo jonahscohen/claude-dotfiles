@@ -18,11 +18,13 @@
   "author": "Jonah",
   "license": "MIT",
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.98.0"
+    "@anthropic-ai/sdk": "^0.98.0",
+    "js-yaml": "^4.1.1"
   }
 }
