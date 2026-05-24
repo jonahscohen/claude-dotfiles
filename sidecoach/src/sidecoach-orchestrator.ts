@@ -64,6 +64,7 @@ import {
   FlowTAmbitiousMotionHandler,
 } from './flow-handlers-tier5-specialized';
 import { FlowUCurateHandler, FlowVAllSevenQAHandler } from './flow-handlers-curate-qa';
+import { FlowWLandingCompositionHandler } from './flow-handler-landing-composition';
 // Phase III: Performance, Validation, Metrics
 import { FlowHandlerCache, globalPerformanceCache } from './flow-performance-cache';
 import { FlowSpecificValidator } from './flow-specific-validators';
@@ -144,6 +145,8 @@ export class FlowExecutionEngine {
       // Special: Curate + All-Seven QA (addresses two concrete gaps)
       ['flowU_curate', () => new FlowUCurateHandler()],
       ['flowV_all_seven_qa', () => new FlowVAllSevenQAHandler()],
+      // Tier 6: Composition & Copy
+      ['flowW_landing_composition', () => new FlowWLandingCompositionHandler()],
       // Legacy flows
       ['flow1_clone_match', () => new Flow1CloneHandler()],
       ['flow2_polish_enhance', () => new Flow2PolishHandler()],
@@ -1125,6 +1128,8 @@ export class FlowExecutionEngine {
       // Special: Curate & QA
       'flowU_curate',
       'flowV_all_seven_qa',
+      // Tier 6: Composition & Copy
+      'flowW_landing_composition',
       // Legacy flows
       'flow1_clone_match',
       'flow2_polish_enhance',
