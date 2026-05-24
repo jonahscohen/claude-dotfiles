@@ -19,6 +19,56 @@ import {
   computeVerdict,
 } from './build-report-types';
 
+// Parse FlowMemoryEntry JSON blocks from session memory files.
+// Convention: a session memory file may contain one or more fenced code blocks
+// tagged json that decode to a valid FlowMemoryEntry shape (flowId, status,
+// validationResults array). All matching blocks become skeleton
+// FlowExecutionResult objects. Files that cannot be read or contain no valid
+// FlowMemoryEntry JSON are silently skipped (logged to stderr).
+function readFlowResultsFromMemory(paths: string[]): FlowExecutionResult[] {
+  const results: FlowExecutionResult[] = [];
+  const jsonBlockRe = /```json\s*\n([\s\S]*?)\n```/g;
+
+  for (const p of paths) {
+    let content: string;
+    try {
+      content = fs.readFileSync(p, 'utf8');
+    } catch (err) {
+      process.stderr.write(`build-report-aggregator: skip unreadable path ${p}: ${(err as Error).message}\n`);
+      continue;
+    }
+
+    let match: RegExpExecArray | null;
+    while ((match = jsonBlockRe.exec(content)) !== null) {
+      let parsed: any;
+      try {
+        parsed = JSON.parse(match[1]);
+      } catch {
+        continue;
+      }
+
+      if (
+        !parsed ||
+        typeof parsed.flowId !== 'string' ||
+        typeof parsed.status !== 'string' ||
+        !Array.isArray(parsed.validationResults)
+      ) {
+        continue;
+      }
+
+      results.push({
+        flowId: parsed.flowId as any,
+        flowName: parsed.flowName || parsed.flowId,
+        status: parsed.status,
+        message: parsed.summary || '(from memory)',
+        memory: parsed,
+      });
+    }
+  }
+
+  return results;
+}
+
 export interface AggregatorInput {
   source: 'flow-results' | 'memory';
   flowResults?: FlowExecutionResult[];
@@ -158,7 +208,7 @@ export function generateBuildReport(
   if (input.source === 'flow-results') {
     flowResults = input.flowResults || [];
   } else if (input.source === 'memory') {
-    throw new Error('memory-input mode not yet implemented (Sprint 4 T7)');
+    flowResults = readFlowResultsFromMemory(input.memoryPaths || []);
   }
 
   const allFindings: FindingEntry[] = [];

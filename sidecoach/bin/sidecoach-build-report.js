@@ -57,8 +57,30 @@ async function readStdin() {
       process.exit(1);
     }
   } else {
-    // Memory-input mode - T7 wires this fully.
-    input = { source: 'memory', memoryPaths: [], composite: args.composite || undefined };
+    // Memory-input mode: scan .claude/memory/session_*.md filtered by --since mtime.
+    const fsLocal = require('fs');
+    const pathLocal = require('path');
+    const memoryDir = pathLocal.join(process.cwd(), '.claude', 'memory');
+    let memoryPaths = [];
+    try {
+      const entries = fsLocal.readdirSync(memoryDir);
+      const sinceMs = args.since ? Date.parse(args.since) : 0;
+      memoryPaths = entries
+        .filter((f) => /^session_.*\.md$/.test(f))
+        .map((f) => pathLocal.join(memoryDir, f))
+        .filter((p) => {
+          if (!sinceMs) return true;
+          try {
+            return fsLocal.statSync(p).mtimeMs >= sinceMs;
+          } catch {
+            return false;
+          }
+        });
+    } catch (err) {
+      console.error(`cannot read memory dir ${memoryDir}: ${err.message}`);
+      process.exit(1);
+    }
+    input = { source: 'memory', memoryPaths, composite: args.composite || undefined };
   }
 
   let report;
