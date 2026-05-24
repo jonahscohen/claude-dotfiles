@@ -255,7 +255,7 @@ export class FlowExecutionEngine {
 
   private cachedProjectCtx: { path: string; ctx: any } | null = null;
 
-  enrichContextForHandler(
+  private enrichContextForHandler(
     context: FlowExecutionContext,
     _flowId: string
   ): FlowExecutionContext {

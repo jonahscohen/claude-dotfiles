@@ -13,39 +13,44 @@ function assertTrue(cond: any, label: string): void {
   process.env.SIDECOACH_PROJECT_PATH = refRoot;
   const engine = new FlowExecutionEngine();
 
-  // Test that enrichContextForHandler is called BEFORE canExecute in the natural-language path.
-  // Strategy: use the brand-verify flow (flowA) which has a canExecute that checks for register.
-  // Pass context without projectContext set, ensuring it's loaded via enrichment.
-
-  // FlowA is special - it runs before the main intent detection flow.
-  // Instead, test by verifying that a handler's canExecute receives enriched context.
-
-  // Get the handler directly to verify canExecute logic:
-  const handlers = engine.getHandlers();
-  const flowGHandler = handlers.get('flowG_component_implementation');
-  assertTrue(flowGHandler != null, 'FlowG handler exists');
-
-  // Create a minimal context WITHOUT projectContext (the test condition).
-  const unenrichedCtx = {
-    utterance: 'test',
+  // Drive a flow that has a register-aware canExecute through the natural-language
+  // path of engine.process(). FlowF's canExecute returns true ONLY when
+  // projectContext.register is populated. We deliberately do NOT pass register
+  // in the caller context - it must come from PRODUCT.md via
+  // enrichContextForHandler. If enrichment runs BEFORE canExecute (the T11
+  // carryover fix), register will be loaded from reference/PRODUCT.md and
+  // flowF's canExecute will return true. Without the fix, canExecute would
+  // see undefined register and the orchestrator would skip flowF with the
+  // specific canExecute-skip message below.
+  //
+  // Utterance: 'lint design.md' is unique to flowF among the registered
+  // detectors (flowW/flowX were added in Sprint 2 trigger registry but
+  // never wired into intent-detector.ts - that's a separate Sprint 3 gap).
+  const result = await engine.process('lint design.md', {
     projectPath: refRoot,
-    metadata: {},
-  } as any;
+    // intentionally no projectContext.register
+  });
 
-  // canExecute should FAIL without projectContext.
-  const canExecWithoutEnrichment = flowGHandler!.canExecute(unenrichedCtx);
-  console.log(`canExecute WITHOUT enrichment: ${canExecWithoutEnrichment}`);
-
-  // Now call enrichContextForHandler (which the orchestrator calls before canExecute in T11 fix).
-  const enrichedCtx = engine.enrichContextForHandler(unenrichedCtx, 'flowG_component_implementation');
-  const canExecWithEnrichment = flowGHandler!.canExecute(enrichedCtx);
-  console.log(`canExecute WITH enrichment: ${canExecWithEnrichment}`);
-
-  // The T11 fix ensures enriched context is used, so canExecute should return true after enrichment.
+  const fResult = (result.flowResults || []).find(
+    (fr: any) => fr.flowId === 'flowF_design_tokens'
+  );
   assertTrue(
-    canExecWithEnrichment === true,
-    `enriched context passes canExecute (got ${canExecWithEnrichment}, enriched register: ${enrichedCtx.projectContext?.register})`
+    fResult != null,
+    `flowF appears in flowResults (got: ${(result.flowResults || []).map((fr: any) => fr.flowId).join(', ')})`
   );
 
-  console.log('sprint3-orchestrator-enrich-before-canexecute PASS');
+  // The canExecute-skip message comes from the orchestrator's natural-language
+  // execution path (sidecoach-orchestrator.ts, the if-not-canExecute block).
+  // It looks like: 'Flow cannot execute: prerequisites not met for <flowId>'.
+  // If we see THAT specific message, the T11 fix isn't holding.
+  // Any other status (success, error, or a different skip message from a
+  // downstream validator) is acceptable - it proves canExecute saw enriched
+  // context and returned true.
+  const canExecuteSkipMessage = `Flow cannot execute: prerequisites not met for flowF_design_tokens`;
+  assertTrue(
+    fResult!.message !== canExecuteSkipMessage,
+    `flowF was NOT canExecute-skipped (got status=${fResult!.status}, message=${JSON.stringify(fResult!.message)}). The T11 fix should make canExecute see enriched register and return true.`
+  );
+
+  console.log(`sprint3-orchestrator-enrich-before-canexecute PASS (flowF reached its handler with status=${fResult!.status})`);
 })();
