@@ -785,7 +785,7 @@ export class FlowExecutionEngine {
     }
 
     // Step 1: Detect intent (falls back to intent detection if not a slash command)
-    const detection = this.intentDetector.detect(utterance);
+    let detection: MatchResult | DisambiguationResult = this.intentDetector.detect(utterance);
 
     // Handle no matches
     if (Array.isArray((detection as DisambiguationResult).candidates) && (detection as DisambiguationResult).candidates.length === 0) {
@@ -797,20 +797,54 @@ export class FlowExecutionEngine {
       };
     }
 
-    // Handle ambiguous matches
+    // Handle ambiguous matches with tiered resolution.
     if ((detection as DisambiguationResult).isAmbiguous && !(detection as MatchResult).flowId) {
-      const candidates = (detection as DisambiguationResult).candidates || [];
-      return {
-        success: false,
-        message: 'Your request could match multiple flows. Please clarify.',
-        detectedFlow: null,
-        flowResults: [],
-        ambiguousCandidates: candidates.map((c) => ({
-          flowId: c.flowId,
-          flowName: c.flowName,
-          confidence: c.confidence,
-        })),
-      };
+      const disambig = detection as DisambiguationResult;
+      const candidates = disambig.candidates || [];
+
+      // Silent path: if the intent-detector resolved the tie via a programmer-set
+      // recommendation (not alphabetical fallback), promote the winner to a
+      // MatchResult and let the normal execution path take over.
+      if (
+        disambig.tieBreak &&
+        typeof disambig.tieBreak.reason === 'string' &&
+        disambig.tieBreak.reason.startsWith('Used recommendation field')
+      ) {
+        const winnerFlow = candidates.find((c) => c.flowId === disambig.tieBreak!.chosenFlowId);
+        if (winnerFlow) {
+          detection = winnerFlow as MatchResult;
+        } else {
+          // Defensive: chosenFlowId doesn't match any candidate - fall through to prompt.
+          return {
+            success: false,
+            message: 'Multiple flows match - user input needed.',
+            detectedFlow: null,
+            flowResults: [],
+            ambiguousCandidates: candidates.map((c) => ({
+              flowId: c.flowId,
+              flowName: c.flowName,
+              confidence: c.confidence,
+            })),
+            needsDisambiguation: true,
+            disambiguationPrompt: `Your request "${utterance}" could match multiple flows. Which best matches your intent?`,
+          };
+        }
+      } else {
+        // User-prompt path: alphabetical fallback or no chosenFlowId.
+        return {
+          success: false,
+          message: 'Multiple flows match - user input needed.',
+          detectedFlow: null,
+          flowResults: [],
+          ambiguousCandidates: candidates.map((c) => ({
+            flowId: c.flowId,
+            flowName: c.flowName,
+            confidence: c.confidence,
+          })),
+          needsDisambiguation: true,
+          disambiguationPrompt: `Your request "${utterance}" could match multiple flows. Which best matches your intent?`,
+        };
+      }
     }
 
     // Get the matched flow (either from MatchResult or DisambiguationResult.recommendation)
