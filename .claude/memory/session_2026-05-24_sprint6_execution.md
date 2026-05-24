@@ -87,3 +87,12 @@ Human collaborator: Jonah.
 - tsc --noEmit: clean (exit 0).
 - Regression: sprint6-checkpoint-store-isolated PASS, sprint6-checkpoint-engine-gc PASS, sprint6-checkpoint-write-on-step PASS, sprint5-disambiguation-silent-tiebreak PASS, sprint5-force-flowid-bypass PASS, sprint4-build-report-composite PASS.
 - T6 will add the end-to-end test that exercises the round-trip.
+
+## T6: end-to-end resume test (DONE)
+
+- Created sprint6-checkpoint-resume.test.ts with 10 assertions.
+- Positive case: round-1 halts via monkey-patched step-1 throw + composite_qa_workflow flag override (failOnFirstError=true, steps[1].skipOnError=false). Asserts round1.success=false, exactly 1 checkpoint file on disk, cursor=1. Round-2 invokes process() with metadata.resumeFromCheckpoint, asserts round2.success=true, flowResults length >= total steps, no checkpoint files remain.
+- Composite flags + monkey-patched handler all restored after the test.
+- Negative case 1: nonexistent resume id returns success=false with actionable message.
+- Negative case 2: forged schemaVersion=2 checkpoint returns success=false with message mentioning "schemaVersion".
+- All 10 assertions PASS. Regression: 5 prior sprint6 + sprint4/5 tests all PASS. tsc clean.
