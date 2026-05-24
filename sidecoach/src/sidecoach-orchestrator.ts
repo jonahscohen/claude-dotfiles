@@ -206,6 +206,207 @@ export class FlowExecutionEngine {
     flowHistory.recordFlow(entry as FlowHistoryEntry);
   }
 
+  /**
+   * Run the composite-flow execution loop. Extracted from `process()` so both the
+   * new-run path and the (forthcoming T5) resume path can share it.
+   * Pure refactor in T3 - no new behavior, no checkpoint writes (those come in T4).
+   */
+  private async runCompositeLoop(
+    compositeFlow: CompositeFlowDefinition,
+    executionContext: FlowExecutionContext,
+    flowResults: FlowExecutionResult[],
+    startIndex: number,
+    utterance: string,
+  ): Promise<SidecoachResult> {
+    const flowHistory = getFlowHistory();
+    const historyEntries = flowHistory.getFlowSequence();
+    const startTime = Date.now();
+    // utterance is reserved for the resume path (T5) where the original prompt is replayed.
+    void utterance;
+
+    for (let stepIndex = startIndex; stepIndex < compositeFlow.steps.length; stepIndex++) {
+      const step = compositeFlow.steps[stepIndex];
+      const handler = this.handlers.get(step.flowId);
+      if (!handler) continue;
+
+      // Check prerequisites
+      const prerequisiteCheck = FlowPrerequisiteValidator.canExecute(step.flowId, historyEntries);
+      if (!prerequisiteCheck.canExecute) {
+        if (step.skipOnError) {
+          flowResults.push({
+            flowId: step.flowId,
+            flowName: step.flowId,
+            status: 'skipped',
+            message: `Prerequisites not met: ${prerequisiteCheck.reason}`,
+            guidance: [],
+            checklist: [],
+          } as FlowExecutionResult);
+          continue;
+        } else if (compositeFlow.failOnFirstError) {
+          return {
+            success: false,
+            message: `Composite flow halted: ${step.flowId} failed prerequisites`,
+            detectedFlow: null,
+            flowResults,
+          };
+        }
+        flowResults.push({
+          flowId: step.flowId,
+          flowName: step.flowId,
+          status: 'error',
+          message: `Prerequisites not met: ${prerequisiteCheck.reason}`,
+          guidance: [],
+          checklist: [],
+        } as FlowExecutionResult);
+        continue;
+      }
+
+      // Enrich context FIRST so canExecute sees the same data as execute (T11 carryover fix).
+      const enrichedCtx = this.enrichContextForHandler(executionContext, step.flowId);
+      if (handler.canExecute(enrichedCtx)) {
+        try {
+          // Track flow entry in execution chain
+          this.contextManager.addToExecutionChain(step.flowId, step.flowId);
+
+          // Execute the handler
+          const result = await handler.execute(enrichedCtx);
+
+          // Track flow completion in execution chain
+          this.contextManager.completeInChain(
+            step.flowId,
+            result.status === 'success' ? 'completed' : 'error',
+            result.message
+          );
+
+          // Store execution metadata in result
+          result.executionMetadata = {
+            executionChain: this.contextManager.getExecutionChain(),
+            executionDuration: this.contextManager.getExecutionDuration(step.flowId),
+          };
+
+          this.runTasteValidationGate(step.flowId, executionContext, result);
+          this.recordFlowWithMemory(result);
+
+          // Apply automatic domain validators based on flow type (soft-fail)
+          if (result.status === 'success') {
+            const validatorsForFlow = getValidatorsForFlow(step.flowId);
+            if (validatorsForFlow.length > 0) {
+              const validations = this.compositionEngine.validateMultipleDomains(validatorsForFlow, result);
+              result.validationResults = validations;
+
+              // Log validation failures as warnings (soft-fail mode)
+              const failedValidations = validations.filter(v => v.status !== 'pass');
+              if (failedValidations.length > 0) {
+                const warningMsg = failedValidations
+                  .map(v => `[${v.domain}] ${v.failedRules.join(', ')}`)
+                  .join('; ');
+                result.message = `${result.message}\n\nValidation warnings: ${warningMsg}`;
+              }
+            }
+          }
+
+          // Also support explicit domain validation if configured in the step
+          if (step.domainValidation?.domains && step.domainValidation.domains.length > 0) {
+            const validations = this.compositionEngine.validateMultipleDomains(step.domainValidation.domains, result);
+            result.validationResults = validations;
+
+            // Check if any validation failed
+            const allPassed = FlowCompositionEngine.allValidationsPassed(validations);
+            if (!allPassed && step.domainValidation.failOnError) {
+              // Halt composition on validation failure
+              return {
+                success: false,
+                message: `Composite flow halted: ${step.flowId} failed domain validation`,
+                detectedFlow: null,
+                flowResults: [...flowResults, result],
+              };
+            }
+          }
+
+          flowResults.push(result);
+
+          // Apply context transformation if defined
+          if (step.transformContext) {
+            Object.assign(executionContext, step.transformContext(executionContext, result));
+          } else {
+            // Default: propagate context
+            Object.assign(executionContext,
+              FlowCompositionEngine.propagateContext(executionContext, result)
+            );
+          }
+        } catch (err) {
+          const errorResult: FlowExecutionResult = {
+            flowId: step.flowId,
+            flowName: step.flowId,
+            status: 'error',
+            message: `Flow execution failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
+            guidance: [],
+            checklist: [],
+            error: err instanceof Error ? err.message : 'Unknown error',
+          };
+
+          // Track error in execution chain
+          this.contextManager.completeInChain(step.flowId, 'error', errorResult.message);
+          errorResult.executionMetadata = {
+            executionChain: this.contextManager.getExecutionChain(),
+            executionDuration: this.contextManager.getExecutionDuration(step.flowId),
+          };
+
+          flowResults.push(errorResult);
+
+          if (!step.skipOnError && compositeFlow.failOnFirstError) {
+            return {
+              success: false,
+              message: `Composite flow halted: ${step.flowId} failed`,
+              detectedFlow: null,
+              flowResults,
+            };
+          }
+        }
+      }
+    }
+
+    const totalTime = Date.now() - startTime;
+
+    // Aggregate results if requested
+    let aggregatedGuidance: string[] = [];
+    let aggregatedChecklist: any[] = [];
+    if (compositeFlow.aggregateResults) {
+      const aggregated = FlowCompositionEngine.aggregateResults(flowResults);
+      aggregatedGuidance = aggregated.guidance;
+      aggregatedChecklist = aggregated.checklist;
+    }
+
+    // Phase 5 (Surface A): generate a Build Report aggregating validator findings.
+    const buildReport = generateBuildReport({
+      source: 'flow-results',
+      flowResults,
+      composite: compositeFlow.id,
+    });
+    const buildReportMarkdown = renderBuildReportMarkdown(buildReport);
+    const buildReportArtifact = {
+      type: 'reference',
+      name: 'Build Report',
+      content: buildReportMarkdown,
+      description: `Build Report for ${compositeFlow.name}: verdict=${buildReport.verdict}, grade=${buildReport.overallGrade}`,
+    };
+
+    return {
+      success: flowResults.some(r => r.status === 'success'),
+      message: `Composite flow complete: ${compositeFlow.name} (${flowResults.filter(r => r.status === 'success').length}/${flowResults.length} flows successful, ${totalTime}ms)`,
+      detectedFlow: {
+        flowId: compositeFlow.id as FlowId,
+        flowName: compositeFlow.name,
+        confidence: 1.0,
+      },
+      flowResults,
+      guidance: aggregatedGuidance.length > 0 ? aggregatedGuidance : undefined,
+      checklist: aggregatedChecklist.length > 0 ? aggregatedChecklist : undefined,
+      artifacts: [buildReportArtifact],
+      buildReport,
+    };
+  }
+
   // Taste validator gate: run validateTaste against the produced HTML for craft/clone-match/layout/polish flows.
   // Mutates result -> status: 'error' with violations summary when target file fails taste checks.
   // Soft-skips when no target file is in context (metadata.targetFile or currentFile ending in .html/.htm).
@@ -508,191 +709,7 @@ export class FlowExecutionEngine {
           metadata: { ...context.metadata, compositeFlowId },
         };
 
-        const flowResults: FlowExecutionResult[] = [];
-        const flowHistory = getFlowHistory();
-        const historyEntries = flowHistory.getFlowSequence();
-        const startTime = Date.now();
-
-        for (const step of compositeFlow.steps) {
-          const handler = this.handlers.get(step.flowId);
-          if (!handler) continue;
-
-          // Check prerequisites
-          const prerequisiteCheck = FlowPrerequisiteValidator.canExecute(step.flowId, historyEntries);
-          if (!prerequisiteCheck.canExecute) {
-            if (step.skipOnError) {
-              flowResults.push({
-                flowId: step.flowId,
-                flowName: step.flowId,
-                status: 'skipped',
-                message: `Prerequisites not met: ${prerequisiteCheck.reason}`,
-                guidance: [],
-                checklist: [],
-              } as FlowExecutionResult);
-              continue;
-            } else if (compositeFlow.failOnFirstError) {
-              return {
-                success: false,
-                message: `Composite flow halted: ${step.flowId} failed prerequisites`,
-                detectedFlow: null,
-                flowResults,
-              };
-            }
-            flowResults.push({
-              flowId: step.flowId,
-              flowName: step.flowId,
-              status: 'error',
-              message: `Prerequisites not met: ${prerequisiteCheck.reason}`,
-              guidance: [],
-              checklist: [],
-            } as FlowExecutionResult);
-            continue;
-          }
-
-          // Enrich context FIRST so canExecute sees the same data as execute (T11 carryover fix).
-          const enrichedCtx = this.enrichContextForHandler(executionContext, step.flowId);
-          if (handler.canExecute(enrichedCtx)) {
-            try {
-              // Track flow entry in execution chain
-              this.contextManager.addToExecutionChain(step.flowId, step.flowId);
-
-              // Execute the handler
-              const result = await handler.execute(enrichedCtx);
-
-              // Track flow completion in execution chain
-              this.contextManager.completeInChain(
-                step.flowId,
-                result.status === 'success' ? 'completed' : 'error',
-                result.message
-              );
-
-              // Store execution metadata in result
-              result.executionMetadata = {
-                executionChain: this.contextManager.getExecutionChain(),
-                executionDuration: this.contextManager.getExecutionDuration(step.flowId),
-              };
-
-              this.runTasteValidationGate(step.flowId, executionContext, result);
-              this.recordFlowWithMemory(result);
-
-              // Apply automatic domain validators based on flow type (soft-fail)
-              if (result.status === 'success') {
-                const validatorsForFlow = getValidatorsForFlow(step.flowId);
-                if (validatorsForFlow.length > 0) {
-                  const validations = this.compositionEngine.validateMultipleDomains(validatorsForFlow, result);
-                  result.validationResults = validations;
-
-                  // Log validation failures as warnings (soft-fail mode)
-                  const failedValidations = validations.filter(v => v.status !== 'pass');
-                  if (failedValidations.length > 0) {
-                    const warningMsg = failedValidations
-                      .map(v => `[${v.domain}] ${v.failedRules.join(', ')}`)
-                      .join('; ');
-                    result.message = `${result.message}\n\nValidation warnings: ${warningMsg}`;
-                  }
-                }
-              }
-
-              // Also support explicit domain validation if configured in the step
-              if (step.domainValidation?.domains && step.domainValidation.domains.length > 0) {
-                const validations = this.compositionEngine.validateMultipleDomains(step.domainValidation.domains, result);
-                result.validationResults = validations;
-
-                // Check if any validation failed
-                const allPassed = FlowCompositionEngine.allValidationsPassed(validations);
-                if (!allPassed && step.domainValidation.failOnError) {
-                  // Halt composition on validation failure
-                  return {
-                    success: false,
-                    message: `Composite flow halted: ${step.flowId} failed domain validation`,
-                    detectedFlow: null,
-                    flowResults: [...flowResults, result],
-                  };
-                }
-              }
-
-              flowResults.push(result);
-
-              // Apply context transformation if defined
-              if (step.transformContext) {
-                Object.assign(executionContext, step.transformContext(executionContext, result));
-              } else {
-                // Default: propagate context
-                Object.assign(executionContext,
-                  FlowCompositionEngine.propagateContext(executionContext, result)
-                );
-              }
-            } catch (err) {
-              const errorResult: FlowExecutionResult = {
-                flowId: step.flowId,
-                flowName: step.flowId,
-                status: 'error',
-                message: `Flow execution failed: ${err instanceof Error ? err.message : 'Unknown error'}`,
-                guidance: [],
-                checklist: [],
-                error: err instanceof Error ? err.message : 'Unknown error',
-              };
-
-              // Track error in execution chain
-              this.contextManager.completeInChain(step.flowId, 'error', errorResult.message);
-              errorResult.executionMetadata = {
-                executionChain: this.contextManager.getExecutionChain(),
-                executionDuration: this.contextManager.getExecutionDuration(step.flowId),
-              };
-
-              flowResults.push(errorResult);
-
-              if (!step.skipOnError && compositeFlow.failOnFirstError) {
-                return {
-                  success: false,
-                  message: `Composite flow halted: ${step.flowId} failed`,
-                  detectedFlow: null,
-                  flowResults,
-                };
-              }
-            }
-          }
-        }
-
-        const totalTime = Date.now() - startTime;
-
-        // Aggregate results if requested
-        let aggregatedGuidance: string[] = [];
-        let aggregatedChecklist: any[] = [];
-        if (compositeFlow.aggregateResults) {
-          const aggregated = FlowCompositionEngine.aggregateResults(flowResults);
-          aggregatedGuidance = aggregated.guidance;
-          aggregatedChecklist = aggregated.checklist;
-        }
-
-        // Phase 5 (Surface A): generate a Build Report aggregating validator findings.
-        const buildReport = generateBuildReport({
-          source: 'flow-results',
-          flowResults,
-          composite: compositeFlowId,
-        });
-        const buildReportMarkdown = renderBuildReportMarkdown(buildReport);
-        const buildReportArtifact = {
-          type: 'reference',
-          name: 'Build Report',
-          content: buildReportMarkdown,
-          description: `Build Report for ${compositeFlow.name}: verdict=${buildReport.verdict}, grade=${buildReport.overallGrade}`,
-        };
-
-        return {
-          success: flowResults.some(r => r.status === 'success'),
-          message: `Composite flow complete: ${compositeFlow.name} (${flowResults.filter(r => r.status === 'success').length}/${flowResults.length} flows successful, ${totalTime}ms)`,
-          detectedFlow: {
-            flowId: compositeFlowId as FlowId,
-            flowName: compositeFlow.name,
-            confidence: 1.0,
-          },
-          flowResults,
-          guidance: aggregatedGuidance.length > 0 ? aggregatedGuidance : undefined,
-          checklist: aggregatedChecklist.length > 0 ? aggregatedChecklist : undefined,
-          artifacts: [buildReportArtifact],
-          buildReport,
-        };
+        return this.runCompositeLoop(compositeFlow, executionContext, [], 0, utterance);
       }
 
       // Route to command's flow chain

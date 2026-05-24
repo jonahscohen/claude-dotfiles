@@ -26,3 +26,15 @@ Human collaborator: Jonah.
 - Inserted lazy-init block at the top of `engine.process()` BEFORE the Sprint 5 forceFlowId block. Block creates the store (using context.projectPath || process.cwd()), runs gcOldCheckpoints(7), sets gcRan=true. Soft-fail wrapped in try/catch with stderr breadcrumb.
 - Test sprint6-checkpoint-engine-gc.test.ts asserts: stale file exists before boot, removed after first process() call, second process() call does NOT re-fire GC.
 - All 3 assertions PASS. tsc clean. T1 isolated test still PASS.
+
+## T3: composite-loop body extracted into runCompositeLoop (DONE)
+
+- Extracted ~155 lines of composite-loop body from `engine.process()` into new private method `runCompositeLoop(compositeFlow, executionContext, flowResults, startIndex, utterance)`.
+- New helper sits between `recordFlowWithMemory` and `runTasteValidationGate` in FlowExecutionEngine.
+- Original call site at the bottom of the composite branch now reads: `return this.runCompositeLoop(compositeFlow, executionContext, [], 0, utterance);`
+- Loop converted from `for (const step of compositeFlow.steps)` to `for (let stepIndex = startIndex; stepIndex < compositeFlow.steps.length; stepIndex++) { const step = compositeFlow.steps[stepIndex]; ... }`.
+- All two mid-loop early-return paths (prerequisite halt, domain-validation halt) stay as direct returns from the helper.
+- aggregation + build-report + final return moved into the helper. Build report still uses `compositeFlow.id` (was `compositeFlowId` closure var in the caller, same string value).
+- `utterance` parameter is reserved for T5 resume path - flagged with `void utterance;` to suppress unused-arg lint without changing behavior.
+- No new locals introduced (no checkpointId, no checkpoint state - that comes in T4).
+- Regression: sprint4-build-report-composite PASS, sprint2-integration PASS, sprint5-disambiguation-silent-tiebreak PASS, sprint6-checkpoint-engine-gc PASS (3/3 GC assertions), sprint6-checkpoint-store-isolated PASS, tsc --noEmit clean (exit 0).
