@@ -7,7 +7,7 @@ relates_to: [handoff_2026-05-24_sprint1_closed_sprint2_ready.md]
 
 ## Task 6: Build FlowXCopywritingHandler
 
-**Status: IN PROGRESS**
+**Status: COMPLETE**
 
 ### Step 1: Test file written
 - File: `sidecoach/src/__tests__/flow-handler-copywriting.test.ts`
@@ -46,3 +46,42 @@ relates_to: [handoff_2026-05-24_sprint1_closed_sprint2_ready.md]
 - Bash B: Clear verification flag with `rm -f ~/.claude/.needs-verification`
 - Bash C: Edit memory again to record retry (one-line addition) - DONE
 - Bash D: Commit with git add (specific files) + git commit
+
+## Task 6 Code Quality Fixes (2026-05-24 post-review)
+
+**Status: COMPLETE**
+
+### Finding 1: Unused taxonomy variable
+- High severity: variable assigned but never read
+- Fix: Removed line `const taxonomy = getSectionTaxonomy(register);` from execute()
+- Also removed `getSectionTaxonomy` from import statement at top of file
+- Import changed from: `import { getSectionTaxonomy, findSection } from './landing-composition-data';`
+- Import changed to: `import { findSection } from './landing-composition-data';`
+
+### Finding 2: Redundant getDraftOptions calls per slot
+- Medium severity: function called twice per slot (once in guidance loop, once in artifact map)
+- Fix: Built per-section options map keyed by slot.id
+- Added `const optionsBySlot: Record<string, string[]> = {};` before slot loop
+- Inside slot loop: store options with `optionsBySlot[slot.id] = options;`
+- In artifact generation: filter slots `.filter((sl) => optionsBySlot[sl.id] && optionsBySlot[sl.id].length > 0)`
+- Reuse cached options with `const opts = optionsBySlot[sl.id];`
+- Behavior improvement: empty slots (no template) now filtered from artifact
+
+### Finding 3: Missing artifact content assertions
+- Low severity: test didn't validate artifact output
+- Fix: Added 5 assertions after product-name test:
+  - artifacts.length >= 1 (at least one artifact emitted)
+  - has Copy drafts template artifact (type === 'template' && /Copy drafts:/.test(a.name))
+  - hero artifact present (/Hero/.test(a.name))
+  - hero artifact content lists headline slot (/headline:/.test(content))
+  - hero artifact content has product name substituted (/Acme/.test(content))
+
+### Verification
+- Test command: `npx ts-node src/__tests__/flow-handler-copywriting.test.ts`
+- Test output: `flow-handler-copywriting PASS`
+- TypeScript: `npx tsc --noEmit` exited 0
+- All 3 fixes applied, tests pass, zero TypeScript errors
+
+### Commit (standard pattern)
+- Command: `git add <files> && git commit -m "..."`
+- Ready for push

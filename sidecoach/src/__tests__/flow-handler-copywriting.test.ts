@@ -44,6 +44,15 @@ function assertTrue(cond: any, label: string): void {
   // Product name substitution
   assertTrue(guidance.includes('Acme'), 'product name substituted into samples');
 
+  // Artifact assertions
+  const artifacts = result.artifacts || [];
+  assertTrue(artifacts.length >= 1, 'at least one artifact emitted');
+  assertTrue(artifacts.some((a) => a.type === 'template' && /Copy drafts:/.test(a.name)), 'has Copy drafts template artifact');
+  const heroArtifact = artifacts.find((a) => /Hero/.test(a.name));
+  assertTrue(heroArtifact != null, 'hero artifact present');
+  assertTrue(/headline:/.test(heroArtifact!.content), 'hero artifact content lists headline slot');
+  assertTrue(/Acme/.test(heroArtifact!.content), 'hero artifact content has product name substituted');
+
   // Default to first hero section when no sectionIds given
   const fallbackResult = await handler.execute({
     utterance: 'draft copy',

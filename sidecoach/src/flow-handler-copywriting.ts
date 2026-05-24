@@ -4,7 +4,7 @@
 
 import { BaseFlowHandler, FlowExecutionContext, FlowExecutionResult } from './flow-handler';
 import { Register } from './project-context';
-import { getSectionTaxonomy, findSection } from './landing-composition-data';
+import { findSection } from './landing-composition-data';
 import { getDraftOptions, listSlotsFor, DraftContext } from './copywriting-templates';
 import { FlowMemoryBuilder } from './flow-memory-schema';
 
@@ -28,7 +28,6 @@ export class FlowXCopywritingHandler extends BaseFlowHandler {
 
     // If no sectionIds were passed in, default to the hero (the first section every register has)
     const sectionIds = explicitSectionIds.length > 0 ? explicitSectionIds : ['hero'];
-    const taxonomy = getSectionTaxonomy(register);
 
     const draftCtx: DraftContext = {
       productName,
@@ -52,6 +51,9 @@ export class FlowXCopywritingHandler extends BaseFlowHandler {
       guidance.push(`Purpose: ${section.purpose}`);
       guidance.push('');
 
+      // Build per-section options map keyed by slot.id, used by both guidance and the artifact below.
+      const optionsBySlot: Record<string, string[]> = {};
+
       for (const slot of section.slots) {
         const tmpl = slotTemplates.find((t) => t.slotId === slot.id);
         if (!tmpl) {
@@ -63,6 +65,7 @@ export class FlowXCopywritingHandler extends BaseFlowHandler {
         guidance.push(`    Voice: ${tmpl.voicePrompt}`);
         guidance.push(`    Word count: ${tmpl.wordCountMin}-${tmpl.wordCountMax}`);
         const options = getDraftOptions(register, sectionId, slot.id, draftCtx);
+        optionsBySlot[slot.id] = options;
         totalOptions += options.length;
         options.forEach((opt, idx) => {
           guidance.push(`    Option ${idx + 1}: ${opt}`);
@@ -75,8 +78,9 @@ export class FlowXCopywritingHandler extends BaseFlowHandler {
           'template',
           `Copy drafts: ${section.name}`,
           section.slots
+            .filter((sl) => optionsBySlot[sl.id] && optionsBySlot[sl.id].length > 0)
             .map((sl) => {
-              const opts = getDraftOptions(register, sectionId, sl.id, draftCtx);
+              const opts = optionsBySlot[sl.id];
               return `${sl.id}:\n${opts.map((o, i) => `  ${i + 1}. ${o}`).join('\n')}`;
             })
             .join('\n\n'),
