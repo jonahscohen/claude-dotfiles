@@ -1100,6 +1100,14 @@ export class FlowExecutionEngine {
     this.handlers.set(handler.flowId, handler);
   }
 
+  /**
+   * Read-only view of the registered handler map. Used by CLI tools that need to
+   * enumerate or dispatch by FlowId. Caller must not mutate.
+   */
+  getHandlers(): ReadonlyMap<FlowId, FlowHandler> {
+    return this.handlers;
+  }
+
   getAvailableFlows(): FlowInfo[] {
     const flowIds: FlowId[] = [
       // Tier 1: Strategy/Research

@@ -38,7 +38,7 @@ function usage() {
   }
 
   const engine = new FlowExecutionEngine();
-  const handlers = engine.handlers || new Map();
+  const handlers = engine.getHandlers();
 
   if (args[0] === '--list') {
     console.log('Registered flow IDs:');
