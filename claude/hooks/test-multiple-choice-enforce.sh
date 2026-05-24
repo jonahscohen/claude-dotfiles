@@ -8,6 +8,8 @@
 HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
 MC_HOOK="$HOOK_DIR/multiple-choice-enforce.sh"
 QE_HOOK="$HOOK_DIR/question-enforcement.sh"
+STOP_HOOK="$HOOK_DIR/multiple-choice-detect-stop.sh"
+INJECT_HOOK="$HOOK_DIR/multiple-choice-inject-prompt.sh"
 
 PASS=0
 FAIL=0
@@ -234,6 +236,223 @@ I called AskUserQuestion above.
 
 Want to proceed?"
 qe_assert_allows "QE with AskUserQuestion in body" "$QE_WITH_AQ"
+
+# =============================================================================
+# multiple-choice-detect-stop.sh tests (Stop event, real pipeline)
+# Builds synthetic transcript jsonl files + stdin JSON, runs the Stop hook,
+# verifies whether the violation flag was written. This is the FIRST set of
+# tests that exercise the actual wiring (vs the prior tests which just
+# called the detection function with phantom RESPONSE_TEXT env vars).
+# =============================================================================
+
+# Use a sandboxed violation flag location so tests cannot interfere with the
+# live system flag. Override the global location via env var read inside the
+# script... but the script hard-codes $HOME/.claude/.multiple-choice-violation.
+# So we point HOME at a tmp dir per test instead.
+
+run_stop_hook() {
+  local transcript="$1"
+  local fake_home
+  fake_home=$(mktemp -d)
+  mkdir -p "$fake_home/.claude"
+  printf '{"transcript_path":"%s"}' "$transcript" | HOME="$fake_home" bash "$STOP_HOOK" >/dev/null 2>&1
+  # Check whether the violation flag was written.
+  if [[ -f "$fake_home/.claude/.multiple-choice-violation" ]]; then
+    cat "$fake_home/.claude/.multiple-choice-violation"
+    rm -rf "$fake_home"
+    return 0  # flag written
+  fi
+  rm -rf "$fake_home"
+  return 1  # no flag
+}
+
+# Build a fixture transcript jsonl with a single assistant message containing
+# the given text.
+build_transcript_simple() {
+  local out="$1"
+  local text="$2"
+  python3 - "$out" "$text" <<'PYEOF'
+import json, sys
+out_path, text = sys.argv[1], sys.argv[2]
+event = {
+    "type": "assistant",
+    "message": {"content": [{"type": "text", "text": text}]}
+}
+with open(out_path, "w") as f:
+    f.write(json.dumps(event) + "\n")
+PYEOF
+}
+
+# Build a transcript where the assistant USED AskUserQuestion in the same turn
+# (text block + tool_use block).
+build_transcript_with_aq() {
+  local out="$1"
+  local text="$2"
+  python3 - "$out" "$text" <<'PYEOF'
+import json, sys
+out_path, text = sys.argv[1], sys.argv[2]
+event = {
+    "type": "assistant",
+    "message": {"content": [
+        {"type": "text", "text": text},
+        {"type": "tool_use", "name": "AskUserQuestion", "input": {}}
+    ]}
+}
+with open(out_path, "w") as f:
+    f.write(json.dumps(event) + "\n")
+PYEOF
+}
+
+stop_assert_blocks() {
+  local label="$1"
+  local transcript="$2"
+  if run_stop_hook "$transcript" >/dev/null; then
+    echo "PASS [stop]: $label"
+    ((PASS++))
+  else
+    echo "FAIL [stop]: $label  (expected violation flag, none written)"
+    FAIL_LABELS+=("[stop] $label")
+    ((FAIL++))
+  fi
+}
+
+stop_assert_allows() {
+  local label="$1"
+  local transcript="$2"
+  if run_stop_hook "$transcript" >/dev/null; then
+    echo "FAIL [stop]: $label  (expected NO flag, but one was written)"
+    FAIL_LABELS+=("[stop] $label")
+    ((FAIL++))
+  else
+    echo "PASS [stop]: $label"
+    ((PASS++))
+  fi
+}
+
+# T17: today's third-failure pattern - bold-labeled paragraphs + trailing question.
+THIRD_FAILURE_TEXT="## Three implementation approaches
+
+**Approach A: CheckpointStore as a separate module (Recommended).** New file owns disk I/O.
+
+**Approach B: Inline checkpoint persistence in the orchestrator.** Less ceremony.
+
+**Approach C: Extend session-memory-writer to also write checkpoints.** Reuse infrastructure.
+
+Does this approach land for you, or would you prefer one of the others?"
+T17_FIX=$(mktemp --suffix=.jsonl 2>/dev/null || mktemp /tmp/sidecoach-test-XXXXXX.jsonl)
+build_transcript_simple "$T17_FIX" "$THIRD_FAILURE_TEXT"
+stop_assert_blocks "third-failure - **Approach A/B/C** + 'Does this approach land' trailing question" "$T17_FIX"
+rm -f "$T17_FIX"
+
+# T18: bold-labeled options without trailing question (still a deflection).
+NO_TRAILING_Q="**Plan 1 - move fast.** Ship now.
+
+**Plan 2 - move carefully.** Wait for sign-off."
+T18_FIX=$(mktemp /tmp/sidecoach-test-XXXXXX.jsonl)
+build_transcript_simple "$T18_FIX" "$NO_TRAILING_Q"
+stop_assert_blocks "bold-labeled plans without trailing question (structural heuristic only)" "$T18_FIX"
+rm -f "$T18_FIX"
+
+# T19: legitimate response with NO options - must not flag.
+LEGIT_TEXT="Here is the work summary:
+
+- T1 complete.
+- T2 complete.
+- T3 complete.
+
+All tests pass."
+T19_FIX=$(mktemp /tmp/sidecoach-test-XXXXXX.jsonl)
+build_transcript_simple "$T19_FIX" "$LEGIT_TEXT"
+stop_assert_allows "legitimate work-summary response (no options, no trailing q)" "$T19_FIX"
+rm -f "$T19_FIX"
+
+# T20: assistant USED AskUserQuestion in the same turn - even if option-like prose
+# appears, the hook should NOT write a violation flag.
+SAME_TURN_AQ="I called AskUserQuestion below.
+
+**Option A:** First.
+**Option B:** Second."
+T20_FIX=$(mktemp /tmp/sidecoach-test-XXXXXX.jsonl)
+build_transcript_with_aq "$T20_FIX" "$SAME_TURN_AQ"
+stop_assert_allows "assistant used AskUserQuestion in same turn (allowed even with option prose)" "$T20_FIX"
+rm -f "$T20_FIX"
+
+# T21: numbered options as prose (Failure 1 pattern) - must flag.
+NUMBERED_OPTIONS="Would you like me to:
+1. Commit the change.
+2. Stage it for review.
+3. Leave it alone."
+T21_FIX=$(mktemp /tmp/sidecoach-test-XXXXXX.jsonl)
+build_transcript_simple "$T21_FIX" "$NUMBERED_OPTIONS"
+stop_assert_blocks "numbered-options prose (Failure 1 pattern)" "$T21_FIX"
+rm -f "$T21_FIX"
+
+# T22: trailing question alone is NOT enough to flag without option signals.
+QUESTION_ONLY="The build is green. Ready to move on?"
+T22_FIX=$(mktemp /tmp/sidecoach-test-XXXXXX.jsonl)
+build_transcript_simple "$T22_FIX" "$QUESTION_ONLY"
+stop_assert_allows "simple trailing question with no options (allowed; covered by inject-on-fail loop)" "$T22_FIX"
+rm -f "$T22_FIX"
+
+# =============================================================================
+# multiple-choice-inject-prompt.sh tests (UserPromptSubmit injector)
+# Verify that when a violation flag is present, the injector emits valid JSON
+# with hookSpecificOutput.additionalContext containing the violation details,
+# then clears the flag. When no flag exists, it emits nothing.
+# =============================================================================
+
+# T23: flag present -> JSON with additionalContext emitted, flag cleared.
+inj_dir=$(mktemp -d)
+mkdir -p "$inj_dir/.claude"
+cat > "$inj_dir/.claude/.multiple-choice-violation" <<'EOF'
+reason=opt=3 bold=3 trailing_q=1 trailing_deflection=1
+timestamp=2026-05-24 17:55:00
+matched_lines<<MATCHEOF
+**Approach A: First option.**
+**Approach B: Second option.**
+**Approach C: Third option.**
+MATCHEOF
+EOF
+inj_output=$(HOME="$inj_dir" bash "$INJECT_HOOK" 2>/dev/null)
+inj_exit=$?
+inj_flag_cleared=0
+[[ ! -f "$inj_dir/.claude/.multiple-choice-violation" ]] && inj_flag_cleared=1
+# Validate JSON parse + look for the key field.
+inj_valid_json=$(printf '%s' "$inj_output" | python3 -c "
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    has_ctx = 'hookSpecificOutput' in d and 'additionalContext' in d.get('hookSpecificOutput', {})
+    has_violation = 'MULTIPLE-CHOICE VIOLATION DETECTED' in d.get('hookSpecificOutput', {}).get('additionalContext', '')
+    print('yes' if has_ctx and has_violation else 'no')
+except Exception:
+    print('no')
+" 2>/dev/null)
+rm -rf "$inj_dir"
+if [[ "$inj_valid_json" == "yes" ]] && [[ $inj_flag_cleared -eq 1 ]] && [[ $inj_exit -eq 0 ]]; then
+  echo "PASS [inj]: violation flag present -> valid JSON injection emitted, flag cleared"
+  ((PASS++))
+else
+  echo "FAIL [inj]: violation flag present -> json_valid=$inj_valid_json flag_cleared=$inj_flag_cleared exit=$inj_exit"
+  echo "  injector output was: $inj_output"
+  FAIL_LABELS+=("[inj] violation flag injection")
+  ((FAIL++))
+fi
+
+# T24: no flag -> injector emits nothing and exits 0.
+noflag_dir=$(mktemp -d)
+mkdir -p "$noflag_dir/.claude"
+noflag_output=$(HOME="$noflag_dir" bash "$INJECT_HOOK" 2>/dev/null)
+noflag_exit=$?
+rm -rf "$noflag_dir"
+if [[ -z "$noflag_output" ]] && [[ $noflag_exit -eq 0 ]]; then
+  echo "PASS [inj]: no flag -> injector emits nothing, exits 0"
+  ((PASS++))
+else
+  echo "FAIL [inj]: no flag -> output=\"$noflag_output\" exit=$noflag_exit"
+  FAIL_LABELS+=("[inj] no flag silent")
+  ((FAIL++))
+fi
 
 # =============================================================================
 # Summary
