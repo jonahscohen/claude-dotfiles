@@ -255,11 +255,11 @@ export function detectStackFromFilesystem(
   if (fs.existsSync(themePath)) {
     try {
       const theme = JSON.parse(fs.readFileSync(themePath, 'utf8'));
-      if (
-        theme.cms === 'hubspot' ||
-        Array.isArray(theme.template_types) ||
-        theme.label !== undefined
-      ) {
+      // Tightened: only `cms === 'hubspot'` is unambiguous. `template_types` and
+      // `label` over-match on non-HubSpot theme.json files (Next.js, WordPress
+      // block themes, etc.). The hubl_modules/ and hs-config* markers below
+      // catch HubSpot projects that don't set `cms` explicitly.
+      if (theme.cms === 'hubspot') {
         return 'hubspot';
       }
     } catch {
