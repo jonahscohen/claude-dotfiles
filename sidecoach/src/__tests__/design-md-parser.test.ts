@@ -1,5 +1,6 @@
 import { parseDesignMd, findTokenLine } from '../design-md-parser';
 import { detectTechStack } from '../project-context';
+import { buildProjectContext } from '../context-loader';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -51,3 +52,10 @@ const stack = detectTechStack(dotfilesRoot);
 assertEqual(typeof stack.framework, 'string', 'framework string');
 assertEqual('hasAnimationLib' in stack, true, 'hasAnimationLib field');
 console.log('detectTechStack test PASS');
+
+const refRoot = path.resolve(__dirname, '../../../reference');
+const ctx = buildProjectContext(refRoot);
+assertEqual(ctx.designContent && ctx.designContent.length > 0, true, 'designContent loaded');
+assertEqual((ctx as any).parsedDesignTokens?.colors?.brand?.red, '#DC2618', 'parsed token surfaced via context-loader');
+assertEqual(typeof (ctx as any).techStack?.framework, 'string', 'techStack on context');
+console.log('context-loader integration test PASS');

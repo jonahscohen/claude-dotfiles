@@ -1,5 +1,7 @@
 import fs from 'fs';
 import path from 'path';
+import { parseDesignMd } from './design-md-parser';
+import { detectTechStack } from './project-context';
 
 export interface ContextLoadResult {
   hasProduct: boolean;
@@ -19,6 +21,8 @@ export interface ProjectContext {
   designContent: string | null;
   register: 'brand' | 'product' | null;
   hasFullContext: boolean;
+  parsedDesignTokens?: any;
+  techStack?: { framework: string; hasAnimationLib: boolean; animationLib?: string | null; hasTypescript: boolean; packageManager: string };
 }
 
 const PRODUCT_NAMES = ['PRODUCT.md', 'Product.md', 'product.md'];
@@ -136,6 +140,16 @@ export function buildProjectContext(cwd: string = process.cwd()): ProjectContext
   const loaded = loadContext(cwd);
   const register = detectRegister(loaded.product);
 
+  let parsedDesignTokens: any = null;
+  if (loaded.design && loaded.design.startsWith('---')) {
+    try {
+      parsedDesignTokens = parseDesignMd(loaded.design);
+    } catch (err) {
+      // Parser failure: leave null, downstream gracefully handles
+    }
+  }
+  const techStack = detectTechStack(cwd);
+
   return {
     cwd,
     contextDir: loaded.contextDir,
@@ -143,6 +157,8 @@ export function buildProjectContext(cwd: string = process.cwd()): ProjectContext
     designContent: loaded.design,
     register,
     hasFullContext: loaded.hasProduct && loaded.hasDesign,
+    parsedDesignTokens,
+    techStack,
   };
 }
 
