@@ -7,6 +7,21 @@ relates_to: [handoff_2026-05-24_sprint1_closed_sprint2_ready.md, session_2026-05
 
 Human collaborator: Jonah.
 
+## RESOLVED 2026-05-24 (Sprint 3 prep)
+
+T11 has been closed via Sprint 3 prep. Four commits land the bug fixes + the original test:
+
+- `ea00400` - T1: brand-verify null-check on REGISTER_SPECIFIC_LAWS lookup
+- `1836023` - T2: orchestrator enriches context before canExecute in 3 call sites
+- `b956add` - T2 follow-up: revert visibility leak from 1836023 + refine test to actually use engine.process()
+- `eb22588` - T3: deterministic-validator degrades tool-internal `@google/design.md` lint crashes to warning + ports the verbatim T11 process()-path test as `sprint3-process-path.test.ts`
+
+The final T3 test passes with 11 DESIGN.md citations reaching `result.flowResults[].guidance` via `engine.process('lint design.md', ...)`. The T5 gap from Sprint 1's holistic review is closed end-to-end.
+
+A third bug was uncovered along the way (a Sprint 3 follow-up): `intent-detector.ts` hand-codes detectors for flowA through flowV only, so flowW (landing-composition) and flowX (copywriting) added in Sprint 2 have no natural-language routing. That's tracked for Sprint 3 (proper).
+
+The deferral notes below are kept as historical record of why the original Sprint 2 T11 attempt blocked.
+
 ## What T11 was supposed to do
 
 Add `sidecoach/src/__tests__/sprint2-process-path.test.ts` that calls `engine.process(utterance, ctx)` (the public API) and asserts a DESIGN.md citation (`Source: DESIGN.md L<n>`) appears in `result.flowResults[].guidance`. This was the "T5 gap" carryover from Sprint 1's holistic review - Sprint 1's `sprint1-integration.test.ts` exercises `(engine as any).enrichContextForHandler(...)` directly, missing a regression mode where one of three `handler.execute(...)` call sites inside `engine.process()` gets unwired.

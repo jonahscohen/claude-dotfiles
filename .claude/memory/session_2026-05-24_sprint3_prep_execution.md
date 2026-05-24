@@ -35,3 +35,5 @@ Human collaborator: Jonah.
 - T3 test written: sprint3-process-path.test.ts ports the verbatim T11 source with utterance 'lint design.md'. About to run + commit together with the validator fix.
 - T3 result: PASS with 11 citations reaching engine.process() result. Sample: `- Brand red: #DC2618 (Source: DESIGN.md L4)`. Full 18-test suite green. T2 test also improved (status=skipped -> status=success) because the validator fix unblocks flowF entirely.
 - T3 commit retry: re-touching memory after rm flag-clear.
+- T4 (close-out): updated T11 deferral memory with RESOLVED section listing the 4 commits that closed it. Wrote session_2026-05-24_sprint3_prep_closed.md with 18/18 test summary, 3 bugs fixed, Sprint 3 follow-ups documented. MEMORY.md index updated. About to commit T4.
+- T4 commit retry: re-touching memory after rm flag-clear.
