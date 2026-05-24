@@ -1,4 +1,5 @@
 import { parseDesignMd, findTokenLine } from '../design-md-parser';
+import { detectTechStack } from '../project-context';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -45,10 +46,7 @@ assertEqual(findTokenLine(collisionYaml, 'colors.text.red'), 6, 'finds nested te
 
 console.log('design-md-parser regression test PASS');
 
-import { detectTechStack } from '../project-context';
-import * as path2 from 'path';
-
-const dotfilesRoot = path2.resolve(__dirname, '../../..');
+const dotfilesRoot = path.resolve(__dirname, '../../..');
 const stack = detectTechStack(dotfilesRoot);
 assertEqual(typeof stack.framework, 'string', 'framework string');
 assertEqual('hasAnimationLib' in stack, true, 'hasAnimationLib field');

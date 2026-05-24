@@ -184,12 +184,10 @@ export interface TechStack {
 }
 
 export function detectTechStack(projectPath: string): TechStack {
-  const fsMod = require('fs');
-  const pathMod = require('path');
-  const pkgPath = pathMod.join(projectPath, 'package.json');
+  const pkgPath = path.join(projectPath, 'package.json');
   let pkg: any = {};
   try {
-    pkg = JSON.parse(fsMod.readFileSync(pkgPath, 'utf8'));
+    pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
   } catch {
     return { framework: 'vanilla', hasAnimationLib: false, hasTypescript: false, packageManager: 'unknown' };
   }
@@ -207,11 +205,11 @@ export function detectTechStack(projectPath: string): TechStack {
   else if (deps['motion']) animationLib = 'motion';
   else if (deps['lenis'] || deps['@studio-freight/lenis']) animationLib = 'lenis';
   else if (deps['animejs']) animationLib = 'anime';
-  const hasTypescript = !!deps['typescript'] || fsMod.existsSync(pathMod.join(projectPath, 'tsconfig.json'));
+  const hasTypescript = !!deps['typescript'] || fs.existsSync(path.join(projectPath, 'tsconfig.json'));
   let packageManager: TechStack['packageManager'] = 'unknown';
-  if (fsMod.existsSync(pathMod.join(projectPath, 'pnpm-lock.yaml'))) packageManager = 'pnpm';
-  else if (fsMod.existsSync(pathMod.join(projectPath, 'yarn.lock'))) packageManager = 'yarn';
-  else if (fsMod.existsSync(pathMod.join(projectPath, 'bun.lockb'))) packageManager = 'bun';
-  else if (fsMod.existsSync(pathMod.join(projectPath, 'package-lock.json'))) packageManager = 'npm';
+  if (fs.existsSync(path.join(projectPath, 'pnpm-lock.yaml'))) packageManager = 'pnpm';
+  else if (fs.existsSync(path.join(projectPath, 'yarn.lock'))) packageManager = 'yarn';
+  else if (fs.existsSync(path.join(projectPath, 'bun.lockb'))) packageManager = 'bun';
+  else if (fs.existsSync(path.join(projectPath, 'package-lock.json'))) packageManager = 'npm';
   return { framework, hasAnimationLib: animationLib !== null, animationLib, hasTypescript, packageManager };
 }
