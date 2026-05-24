@@ -28,3 +28,5 @@ Human collaborator: Jonah.
 - T3 step 3c: prepended new 'template' artifact named `Motion code template: ${framework}` as FIRST element of the existing artifacts array, ahead of the existing Motion Domain Rules / Animation Templates / Motion Validation Results entries. Content = idiom.exampleSnippet; description = `${framework} idiom for GSAP loading + cleanup`.
 - T3: FlowHMotionIntegrationHandler now emits a Stack-specific implementation block in its guidance + a 'template' artifact named "Motion code template: <framework>". Reads framework from context.metadata.techStack.framework; falls back to unknown -> vanilla via getMotionIdiom. All 21 tests across Sprint 1 + 2 + 3-prep + 3-proper-so-far green.
 - T3 commit retry: re-touching memory after rm flag-clear.
+- T4 (close-out): full 21-test suite green, tsc clean. Wrote session_2026-05-24_sprint3_proper_closed.md summarizing 5 commits (3 task commits + 2 quality fixes) plus out-of-scope follow-ups. Added MEMORY.md index entry. Sprint 3 proper (Phase 4) is now closed.
+- T4 commit retry: re-touching memory after rm flag-clear per Sprint 1 hook workaround.
