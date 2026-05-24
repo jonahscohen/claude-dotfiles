@@ -22,7 +22,7 @@ export function parseDesignMd(src: string): DesignTokens {
   const data = (yaml.load(yamlText) as Record<string, any>) || {};
   const before = src.slice(0, m.index ?? 0);
   const frontmatterStart = before.split('\n').length;
-  const frontmatterEnd = frontmatterStart + yamlText.split('\n').length - 1;
+  const frontmatterEnd = frontmatterStart + yamlText.split('\n').length + 1;
   return {
     colors: data.colors || {},
     typography: data.typography || {},
@@ -40,12 +40,33 @@ export function parseDesignMd(src: string): DesignTokens {
 }
 
 export function findTokenLine(src: string, dottedPath: string): number {
-  const last = dottedPath.split('.').pop() || dottedPath;
+  const segments = dottedPath.split('.').filter(Boolean);
+  if (segments.length === 0) return -1;
   const lines = src.split('\n');
+  let segIdx = 0;
+  let expectedIndent = 0;
+
   for (let i = 0; i < lines.length; i++) {
-    const t = lines[i].trim();
-    if (t.startsWith(`${last}:`) || t.startsWith(`"${last}":`) || t.startsWith(`'${last}':`)) {
-      return i + 1;
+    const line = lines[i];
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    const indent = line.length - line.trimStart().length;
+    if (segIdx > 0 && indent < expectedIndent) {
+      // walked out of the parent block before finding the next segment
+      return -1;
+    }
+    if (indent !== expectedIndent) continue;
+
+    const target = segments[segIdx];
+    const matches =
+      trimmed.startsWith(`${target}:`) ||
+      trimmed.startsWith(`"${target}":`) ||
+      trimmed.startsWith(`'${target}':`);
+    if (matches) {
+      segIdx++;
+      if (segIdx === segments.length) return i + 1;
+      expectedIndent += 2;
     }
   }
   return -1;

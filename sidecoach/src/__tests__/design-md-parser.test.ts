@@ -1,4 +1,4 @@
-import { parseDesignMd } from '../design-md-parser';
+import { parseDesignMd, findTokenLine } from '../design-md-parser';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -22,3 +22,25 @@ assertEqual(parsed.motion.ease.out, 'cubic-bezier(0.2, 0, 0, 1)', 'easing out');
 assertEqual(typeof parsed.bodyLineNumbers.bodyStart === 'number', true, 'body line numbers');
 
 console.log('design-md-parser test PASS');
+
+// Regression: bodyLineNumbers
+const synth = `---\ncolors:\n  red: "#FF0000"\n---\n\nLine 6`;
+const parsedSynth = parseDesignMd(synth);
+assertEqual(parsedSynth.bodyLineNumbers.frontmatterStart, 1, 'frontmatterStart for synth');
+assertEqual(parsedSynth.bodyLineNumbers.frontmatterEnd, 4, 'frontmatterEnd for synth');
+assertEqual(parsedSynth.bodyLineNumbers.bodyStart, 5, 'bodyStart for synth');
+
+// Regression: findTokenLine path traversal (no leaf collision)
+const collisionYaml = [
+  '---',
+  'colors:',
+  '  brand:',
+  '    red: "#FF0000"',
+  '  text:',
+  '    red: "#00FF00"',
+  '---',
+].join('\n');
+assertEqual(findTokenLine(collisionYaml, 'colors.brand.red'), 4, 'finds nested brand.red');
+assertEqual(findTokenLine(collisionYaml, 'colors.text.red'), 6, 'finds nested text.red, not brand.red');
+
+console.log('design-md-parser regression test PASS');
