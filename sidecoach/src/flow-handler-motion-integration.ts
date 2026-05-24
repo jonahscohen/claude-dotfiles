@@ -7,6 +7,7 @@ import { FlowMemoryBuilder } from './flow-memory-schema';
 import { ExtendedDomainValidator, DomainCheckContext } from './extended-domain-validator';
 import { EnhancedFlowExecutionContext } from './flow-execution-context-enhanced';
 import { findTokenLine } from './design-md-parser';
+import { getMotionIdiom } from './motion-stack-idioms';
 
 interface MotionIntegrationContext {
   motionDomainRules: string[];
@@ -249,6 +250,30 @@ export class FlowHMotionIntegrationHandler extends BaseFlowHandler {
         '- Make animations interruptible (allow user to cancel/skip)',
       ];
 
+      // Phase 4: Stack-specific GSAP loading + cleanup idiom.
+      // Reads detected framework from enriched context (techStack injected by
+      // enrichContextForHandler in the orchestrator). Falls back to 'unknown'
+      // which the accessor resolves to the vanilla idiom - so this block
+      // always emits something useful even when techStack is missing.
+      const framework =
+        ((context.metadata as any)?.techStack?.framework as
+          | 'react' | 'next' | 'vue' | 'svelte' | 'astro' | 'remix'
+          | 'angular' | 'wordpress' | 'drupal' | 'hubspot'
+          | 'vanilla' | 'unknown'
+          | undefined) ?? 'unknown';
+      const idiom = getMotionIdiom(framework);
+      guidance.push(
+        '',
+        `Stack-specific implementation (framework=${framework}):`,
+        `- Loading: ${idiom.loadingPattern}`,
+        `- Cleanup: ${idiom.cleanupPattern}`,
+        `- Scope boundary: ${idiom.scopeBoundary}`,
+        '',
+        'Example:',
+        ...idiom.exampleSnippet.split('\n').map((l) => '  ' + l)
+      );
+      idiom.notes.forEach((n) => guidance.push(`- Note: ${n}`));
+
       return {
         flowId: this.flowId,
         flowName: this.getFlowName(),
@@ -257,6 +282,12 @@ export class FlowHMotionIntegrationHandler extends BaseFlowHandler {
         guidance,
         checklist,
         artifacts: [
+          this.createArtifact(
+            'template',
+            `Motion code template: ${framework}`,
+            idiom.exampleSnippet,
+            `${framework} idiom for GSAP loading + cleanup`
+          ),
           this.createArtifact(
             'reference',
             'Motion Domain Rules',
