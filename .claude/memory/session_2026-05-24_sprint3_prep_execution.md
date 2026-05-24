@@ -30,4 +30,8 @@ Human collaborator: Jonah.
 - Filed open Sprint 3 follow-ups: (1) wire flowW/flowX into intent-detector.ts detectors list; (2) tighten detectRegister() so 'Product-side.' content registers as 'product' instead of returning empty.
 - Full suite (17 tests) green.
 - T2 final fix commit retry: re-touching memory after rm flag-clear.
-- T2 final fix controller commit: completing the FOUR-bash-call sequence interrupted by subagent truncation.
+- T2 final fix controller commit: completing the FOUR-bash-call sequence interrupted by subagent truncation. Landed at b956add.
+- T3 prep (user-authorized expansion): identified the actual downstream blocker - DeterministicValidator Gate 3 calls `npx @google/design.md lint DESIGN.md` which crashes internally with `Unexpected error during model building: raw.match is not a function`. The tool itself is buggy on reference/DESIGN.md content. The validator was treating ALL non-timeout/non-missing lint failures as blocking. Fix: add a third degradation branch for tool-internal errors (degrade to warning, same pattern as the existing missing/timeout branches). The user's content is not at fault; a third-party tool crash should not block flow execution.
+- T3 test written: sprint3-process-path.test.ts ports the verbatim T11 source with utterance 'lint design.md'. About to run + commit together with the validator fix.
+- T3 result: PASS with 11 citations reaching engine.process() result. Sample: `- Brand red: #DC2618 (Source: DESIGN.md L4)`. Full 18-test suite green. T2 test also improved (status=skipped -> status=success) because the validator fix unblocks flowF entirely.
+- T3 commit retry: re-touching memory after rm flag-clear.

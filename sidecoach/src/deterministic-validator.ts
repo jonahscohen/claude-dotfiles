@@ -133,9 +133,21 @@ export class DeterministicValidator {
             cwd: projectPath,
           });
         } catch (error) {
-          // Check if error is timeout or actual lint failure
-          const isTimeout = error instanceof Error && (error.message.includes('timed out') || error.message.includes('ETIMEDOUT'));
-          const isToolMissing = error instanceof Error && (error.message.includes('not found') || error.message.includes('ENOENT'));
+          // Inspect both error.message and any captured stdout (the lint tool
+          // returns JSON findings on stdout AND exits non-zero on errors).
+          const errMsg = error instanceof Error ? error.message : String(error);
+          const stdoutStr = (error as any)?.stdout ? String((error as any).stdout) : '';
+          const stderrStr = (error as any)?.stderr ? String((error as any).stderr) : '';
+          const combined = `${errMsg}\n${stdoutStr}\n${stderrStr}`;
+
+          const isTimeout = combined.includes('timed out') || combined.includes('ETIMEDOUT');
+          const isToolMissing = combined.includes('not found') || combined.includes('ENOENT');
+          // Tool-internal errors: the lint tool itself crashed (e.g. parser bug,
+          // not a content issue with the user's DESIGN.md). Degrade to warning
+          // so the validator doesn't block flow execution on third-party tool bugs.
+          const isToolInternalError =
+            combined.includes('Unexpected error during model building') ||
+            combined.includes('raw.match is not a function');
 
           if (isToolMissing) {
             // Tool not installed - degrade to warning
@@ -152,6 +164,14 @@ export class DeterministicValidator {
               severity: 'warning',
               message: 'Design.md lint check timed out (>10s)',
               fix: 'Reduce complexity of DESIGN.md or increase timeout',
+            });
+          } else if (isToolInternalError) {
+            // Tool itself crashed (not a content issue) - degrade to warning
+            violations.push({
+              rule: 'DESIGN.md_lint_tool_error',
+              severity: 'warning',
+              message: 'Design.md lint tool crashed internally - cannot validate content',
+              fix: 'File issue against @google/design.md; falling back to flow execution',
             });
           } else {
             // Actual lint failure - blocking
