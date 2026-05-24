@@ -72,6 +72,8 @@ import { FlowSpecificValidator } from './flow-specific-validators';
 import { FlowMetricsTracker, globalMetricsTracker } from './flow-metrics-tracker';
 import { FlowConditionalRouter } from './flow-conditional-router';
 import { ClaudemdMandateValidator } from './clausemd-mandate-validator';
+import { BuildReport } from './build-report-types';
+import { generateBuildReport, renderBuildReportMarkdown } from './build-report-aggregator';
 
 // Flows that produce HTML output and must clear the taste gate before declaring success.
 // craft / clone-match / layout / polish families (both modern flowX_* and legacy flowN_* IDs).
@@ -660,6 +662,20 @@ export class FlowExecutionEngine {
           aggregatedChecklist = aggregated.checklist;
         }
 
+        // Phase 5 (Surface A): generate a Build Report aggregating validator findings.
+        const buildReport = generateBuildReport({
+          source: 'flow-results',
+          flowResults,
+          composite: compositeFlowId,
+        });
+        const buildReportMarkdown = renderBuildReportMarkdown(buildReport);
+        const buildReportArtifact = {
+          type: 'reference',
+          name: 'Build Report',
+          content: buildReportMarkdown,
+          description: `Build Report for ${compositeFlow.name}: verdict=${buildReport.verdict}, grade=${buildReport.overallGrade}`,
+        };
+
         return {
           success: flowResults.some(r => r.status === 'success'),
           message: `Composite flow complete: ${compositeFlow.name} (${flowResults.filter(r => r.status === 'success').length}/${flowResults.length} flows successful, ${totalTime}ms)`,
@@ -671,6 +687,8 @@ export class FlowExecutionEngine {
           flowResults,
           guidance: aggregatedGuidance.length > 0 ? aggregatedGuidance : undefined,
           checklist: aggregatedChecklist.length > 0 ? aggregatedChecklist : undefined,
+          artifacts: [buildReportArtifact],
+          buildReport,
         };
       }
 
@@ -1193,6 +1211,7 @@ export interface SidecoachResult {
   checklist?: any[];
   artifacts?: any[];
   ambiguousCandidates?: Array<{ flowId: FlowId; flowName: string; confidence: number }>;
+  buildReport?: BuildReport;
 }
 
 export function createExecutionEngine(): FlowExecutionEngine {
