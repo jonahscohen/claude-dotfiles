@@ -140,3 +140,9 @@ Trajectory: F → C → B → A across:
 Remaining polish gaps require runtime DOM (rules 20 contrast and 21 8-states), which is a separate browser-render integration not in scope for this remediation.
 
 The proof point: every catcher finding had actionable remediation prose. The site went from F-blocked to A-warnings-only by following sidecoach's own surfaced fixes.
+
+## Shipped
+
+Commit `128a9c1` pushed to origin/main. 22 files changed, +593/-120.
+
+Awaiting visual verification of the remediated marketing-site.

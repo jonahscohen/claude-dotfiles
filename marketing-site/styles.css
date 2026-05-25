@@ -45,8 +45,8 @@
   --size-xl: 1.5rem;
   --size-2xl: 2rem;
   --size-3xl: 3rem;
-  --size-4xl: 4.5rem;
-  --size-5xl: clamp(4rem, 8vw + 1rem, 7rem);
+  --size-4xl: clamp(2.25rem, 5.5vw + 0.75rem, 4.5rem);
+  --size-5xl: clamp(2.5rem, 8vw + 0.5rem, 7rem);
 
   /* weights */
   --weight-regular: 400;
@@ -263,6 +263,187 @@ p {
 .topbar nav a:hover {
   background: var(--accent-red-subtle);
   color: var(--text-primary);
+}
+
+/* Mobile nav toggle (hamburger). Hidden at >= 768px. */
+.nav-toggle {
+  display: none;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  border-radius: var(--radius-md);
+  transition: background-color var(--duration-fast) var(--ease-out),
+              transform var(--duration-medium) var(--ease-spring-quick);
+}
+
+.nav-toggle:hover {
+  background: var(--accent-red-subtle);
+}
+
+.nav-toggle:focus-visible {
+  outline: 2px solid var(--color-red);
+  outline-offset: 3px;
+}
+
+.nav-toggle:active {
+  transform: scale(0.96);
+}
+
+.nav-toggle__icon,
+.nav-toggle__icon::before,
+.nav-toggle__icon::after {
+  position: absolute;
+  left: 50%;
+  width: 22px;
+  height: 2px;
+  background: var(--text-primary);
+  border-radius: 2px;
+  transform: translateX(-50%);
+  transition: transform var(--duration-medium) var(--ease-out),
+              opacity var(--duration-fast) var(--ease-out),
+              top var(--duration-medium) var(--ease-out);
+}
+
+.nav-toggle__icon {
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.nav-toggle__icon::before {
+  content: '';
+  top: -7px;
+}
+
+.nav-toggle__icon::after {
+  content: '';
+  top: 7px;
+}
+
+.nav-toggle[aria-expanded="true"] .nav-toggle__icon {
+  background: transparent;
+}
+
+.nav-toggle[aria-expanded="true"] .nav-toggle__icon::before {
+  top: 0;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.nav-toggle[aria-expanded="true"] .nav-toggle__icon::after {
+  top: 0;
+  transform: translateX(-50%) rotate(-45deg);
+}
+
+/* Narrow-viewport tuning: hero padding + page-hero padding scale down so
+   content doesn't sit below 200px of dead space on a phone. Container
+   padding shrinks slightly too. */
+@media (max-width: 767px) {
+  .hero {
+    padding-block: var(--space-16) var(--space-12);
+  }
+  .page-hero {
+    padding-block: var(--space-12) var(--space-10);
+  }
+  .section {
+    padding-block: var(--space-16);
+  }
+  .container,
+  .container-text {
+    padding: 0 var(--space-5);
+  }
+  .hero__title {
+    max-width: none;
+  }
+  .page-hero__title {
+    max-width: none;
+  }
+  .install-block {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+  .install-block__cmd {
+    word-break: break-all;
+  }
+}
+
+/* Mobile drawer - shown at < 768px when .topbar nav has data-mobile-open */
+@media (max-width: 767px) {
+  .nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .topbar nav {
+    /* Full-screen panel BELOW the topbar - top offset clears the fixed
+       topbar so the logo + hamburger stay visible above the drawer. */
+    position: fixed;
+    top: 68px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-6);
+    background: var(--surface-canvas);
+    font-size: var(--size-lg);
+    z-index: 90;
+    overflow-y: auto;
+
+    /* Hidden by default; slide in when [data-mobile-open] */
+    transform: translateY(-100%);
+    visibility: hidden;
+    opacity: 0;
+    transition: transform var(--duration-medium) var(--ease-out),
+                opacity var(--duration-fast) var(--ease-out),
+                visibility 0s linear var(--duration-medium);
+  }
+
+  .topbar nav[data-mobile-open] {
+    transform: translateY(0);
+    visibility: visible;
+    opacity: 1;
+    transition: transform var(--duration-medium) var(--ease-out),
+                opacity var(--duration-fast) var(--ease-out),
+                visibility 0s linear 0s;
+  }
+
+  .topbar nav a {
+    width: 100%;
+    padding: var(--space-4) var(--space-3);
+    min-height: 56px;
+    font-family: var(--font-display);
+    font-size: var(--size-xl);
+    color: var(--text-primary);
+    border-radius: var(--radius-md);
+  }
+
+  .topbar nav a[aria-current="page"] {
+    background: var(--accent-red-subtle);
+    color: var(--text-primary);
+  }
+
+  /* Keep the topbar itself above the drawer + ensure the toggle is clickable.
+     Fixed (not sticky) because body { overflow: hidden } breaks sticky's
+     scroll-container requirement when the drawer is open. */
+  .topbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: var(--surface-canvas);
+    padding: var(--space-4) var(--space-5);
+    box-shadow: 0 1px 0 var(--border-soft);
+  }
+
+  /* Compensate for the now-fixed topbar so content doesn't slide under it */
+  body {
+    padding-top: 68px;
+  }
 }
 
 /* Hero */
