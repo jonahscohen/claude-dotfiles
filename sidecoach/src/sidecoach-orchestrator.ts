@@ -902,15 +902,23 @@ export class FlowExecutionEngine {
       }
 
       // Route to command's flow chain
-      // Sprint 10 Bug 1: ensure projectContext is populated for flows that need it
-      let projectContextForChain: any = (context as any).projectContext;
-      if (!projectContextForChain) {
-        try {
-          projectContextForChain = buildProjectContext(context.projectPath || process.cwd());
-        } catch (err) {
-          // Soft-fail - flows that need projectContext will report missing
-        }
+      // Sprint 10 Bug 1 + Sprint 12 T5: always auto-build projectContext from
+      // PRODUCT.md / DESIGN.md on the project root, then overlay any caller-passed
+      // projectContext on top. Pre-T5 the auto-build was skipped entirely when
+      // the caller supplied ANY partial projectContext (e.g. just `{ register }`),
+      // which left handlers without product.brandPersonality and caused flowB/E
+      // to reject in canExecute.
+      let autoBuiltProjectContext: any = {};
+      try {
+        autoBuiltProjectContext = buildProjectContext(context.projectPath || process.cwd()) || {};
+      } catch (err) {
+        // Soft-fail - autoBuiltProjectContext stays empty
       }
+      const userPassedProjectContext: any = (context as any).projectContext || {};
+      const projectContextForChain: any = {
+        ...autoBuiltProjectContext,
+        ...userPassedProjectContext,
+      };
       const executionContext: FlowExecutionContext = {
         utterance,
         userId: context.userId,
@@ -923,13 +931,19 @@ export class FlowExecutionEngine {
       const flowResults: FlowExecutionResult[] = [];
       let detectedFlow: { flowId: FlowId; flowName: string; confidence: number } | null = null;
       const flowHistory = getFlowHistory();
-      const historyEntries = flowHistory.getFlowSequence();
 
       for (const flowId of commandMatch.flowIds) {
         const handler = this.handlers.get(flowId);
         if (!handler) continue;
 
         try {
+          // Sprint 12 T4: refresh history snapshot each iteration so chain-mates
+          // that just finished (recorded by recordFlowWithMemory) are visible to
+          // the next prereq check. The pre-Sprint-12 single-snapshot version
+          // caused every chain dependent (F needs A, G needs B, ...) to fail
+          // even though the prior step had just succeeded.
+          const historyEntries = flowHistory.getFlowSequence();
+
           // Check prerequisites before executing
           const prerequisiteCheck = FlowPrerequisiteValidator.canExecute(flowId, historyEntries);
           if (!prerequisiteCheck.canExecute) {

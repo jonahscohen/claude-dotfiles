@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { parseDesignMd, DesignTokens } from './design-md-parser';
-import { detectTechStack } from './project-context';
+import { detectTechStack, ContextLoader as StructuredContextLoader, ProductMetadata, DesignMetadata } from './project-context';
 
 export interface ContextLoadResult {
   hasProduct: boolean;
@@ -23,6 +23,11 @@ export interface ProjectContext {
   hasFullContext: boolean;
   parsedDesignTokens: DesignTokens | null;
   techStack?: { framework: string; hasAnimationLib: boolean; animationLib?: string | null; hasTypescript: boolean; packageManager: string };
+  // Sprint 12 T6: parsed product/design from project-context.ts so handlers
+  // (flowB, flowE, etc.) can read product.brandPersonality and design.colors
+  // directly off the projectContext that the orchestrator threads through.
+  product?: ProductMetadata;
+  design?: DesignMetadata;
 }
 
 const PRODUCT_NAMES = ['PRODUCT.md', 'Product.md', 'product.md'];
@@ -138,7 +143,7 @@ export function detectRegister(productContent: string | null): 'brand' | 'produc
 
 export function buildProjectContext(cwd: string = process.cwd()): ProjectContext {
   const loaded = loadContext(cwd);
-  const register = detectRegister(loaded.product);
+  let register = detectRegister(loaded.product);
 
   let parsedDesignTokens: DesignTokens | null = null;
   if (loaded.design && loaded.design.startsWith('---')) {
@@ -150,6 +155,27 @@ export function buildProjectContext(cwd: string = process.cwd()): ProjectContext
   }
   const techStack = detectTechStack(cwd);
 
+  // Sprint 12 T6: also delegate to the structured ContextLoader (project-context.ts)
+  // so handlers see parsed `product` (with brandPersonality, antiReferences, ...)
+  // and `design` (with colors, typography, ...) on the same object the orchestrator
+  // threads through. Pre-T6 the two loaders produced different shapes and handlers
+  // checking `product.brandPersonality` always saw undefined.
+  let parsedProduct: ProductMetadata | undefined;
+  let parsedDesign: DesignMetadata | undefined;
+  try {
+    const structured = new StructuredContextLoader().load(loaded.contextDir);
+    parsedProduct = structured.product;
+    parsedDesign = structured.design;
+    // Structured loader's section-header register detection (teach v2 ## Register
+    // / **Brand**) is more accurate than the heuristic detectRegister - prefer it
+    // when set.
+    if (structured.register && structured.product?.register) {
+      register = structured.register;
+    }
+  } catch (err) {
+    // Soft-fail - leave parsedProduct/parsedDesign undefined; handlers will skip.
+  }
+
   return {
     cwd,
     contextDir: loaded.contextDir,
@@ -159,6 +185,8 @@ export function buildProjectContext(cwd: string = process.cwd()): ProjectContext
     hasFullContext: loaded.hasProduct && loaded.hasDesign,
     parsedDesignTokens,
     techStack,
+    product: parsedProduct,
+    design: parsedDesign,
   };
 }
 
