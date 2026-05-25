@@ -65,3 +65,20 @@ SKILL.md written at claude/skills/task-list/SKILL.md (123 lines). Verification p
 - Fix 5 (Nit): `edit` step 3 - appended fallback "runs to end-of-line" when no trailing tags present.
 
 All 5 fixes applied and verified. Committed as part of "fix(task-list): tighten SKILL.md per review".
+
+## Task 3 in progress
+
+Wiring install.sh. Key anchor findings:
+- Array names are DESCS (not DESCRIPTIONS) and DIRS (not SOURCES) and FILES (not FILES_LISTED).
+- PICKS=(1 1 1 1 1 1 1 1 1 1 1 1 1) - 13 entries; must become 14.
+- sidecoach has no status-check case (falls to default) and no deactivate case - task-list gets both.
+- Post-install summary (line 2298) ends at reflect; sidecoach has no summary line either.
+- Usage doc string at line 234 lists only up to reflect (not sidecoach).
+- All 11 edits done. bash -n passes. task-list appears at lines: 19, 56, 71, 87, 116-117, 133, 240, 563, 903, 920, 2225-2233, 2323.
+- install.sh: 29 insertions, 4 deletions. Zero emdashes introduced.
+- --only task-list installs successfully; diff between source and installed is clean.
+- Skill appears in session skill list immediately after install (task-list entry visible in system-reminder).
+
+## Task 3 complete
+
+install.sh modified at lines 19, 56, 71, 87, 116-117, 133, 240, 563, 903, 920, 2225-2233, 2323. bash -n passes with no errors. --only task-list installs cleanly. Source/installed diff is empty.

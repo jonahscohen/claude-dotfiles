@@ -16,6 +16,7 @@ set -euo pipefail
 #   voice-input  - whisper.cpp + ffmpeg + transcribe CLI for voice-message input
 #   voice-output - OpenAI TTS MCP server for spoken responses
 #   reflect      - Memory corpus analysis (reflect skill + nudge hook)
+#   task-list    - Global /task-list slash command + TASKS.md at dotfiles root
 #
 # Flags:
 #   --yes              non-interactive, pick all components
@@ -52,7 +53,7 @@ err()   { printf "${RED}[error]${NC} %s\n" "$1"; }
 # ============================================================
 
 # Public components - shipped to all users.
-KEYS=(brain config memory skills statusline cmux nvm ampersand discord voice-input voice-output reflect sidecoach)
+KEYS=(brain config memory skills statusline cmux nvm ampersand discord voice-input voice-output reflect sidecoach task-list)
 TITLES=(
   "Team rules + workflow (appended to CLAUDE.md)"
   "Hooks, plugins, permissions (merged into settings.json)"
@@ -67,6 +68,7 @@ TITLES=(
   "Voice output (OpenAI TTS)"
   "Memory corpus analysis (reflect)"
   "Sidecoach workflow automation (14 design/dev flows)"
+  "Dotfiles task list (/task-list + TASKS.md)"
 )
 DESCS=(
   "ADDITIVE: appends team rules (from RULES.md) and shared workflow (from CLAUDE.md) to your ~/.claude/CLAUDE.md between marker comments. Your existing CLAUDE.md content is preserved above and below the markers. If you have a claude/CLAUDE.local.md for personal overrides, those are appended in their own marker block too. Re-runs detect the markers and skip. Deactivation removes only the marked blocks."
@@ -82,6 +84,7 @@ DESCS=(
   "Gives Claude a voice via OpenAI text-to-speech API. Claude speaks short verbal summaries while keeping code and technical detail as text. Requires your own OpenAI API key stored in macOS Keychain (see docs). Starts muted - enable with voice-on in any terminal. Three mute controls: in-session (mute yourself), terminal alias (voice-on/voice-off), or manual file toggle. Does NOT work without an API key - this is not optional, it is required."
   "Adds the reflect skill and nudge hook. The reflect skill spawns 5 parallel analysis agents against your accumulated .claude/memory/ files to surface patterns, tensions, and gaps nobody explicitly noticed. Triggers naturally from conversation ('what patterns are you seeing?') or via /reflect. A SessionStart hook nudges you when enough new memories have accumulated since the last reflection. No external dependencies."
   "Sidecoach: invisible workflow automation triggered by natural conversation. No slash commands. Instead of /impeccable or /make-interfaces-feel-better, simply write naturally about your work ('make this feel better', 'design a component', 'review this') and Sidecoach detects your intent and guides you through the appropriate workflow. Daemon launches at session start and monitors messages silently. Provides 14 design/development flows covering polish, review, design, implementation, accessibility, refactoring, and iteration. Each flow returns tailored guidance, checklists (6-14 items), and next steps. Built via SessionStart hook (daemon launcher), PostUserPrompt hook (message intake), and PostResponse hook (result injection). Symlinks hooks into ~/.claude/hooks/ and compiles TypeScript orchestrator + 14 handlers."
+  "Adds the /task-list slash-command skill at ~/.claude/skills/task-list/. Manages a single TASKS.md at the dotfiles repo root, organized by area (sidecoach, improv, marketing-site, test-site-1, dotfiles) with Active/Blocked/Done sub-sections. Verbs: add, list, done, edit, remove, block, unblock, show. Area inferred from cwd; IDs monotonic T-NNNN. Always operates on the dotfiles TASKS.md regardless of where you invoke it from. No hooks, no external deps."
 )
 FILES=(
   # brain
@@ -110,6 +113,8 @@ FILES=(
   "~/.claude/skills/reflect/SKILL.md\n~/.claude/hooks/reflect-nudge.sh\n~/.claude/last-reflect-timestamp"
   # sidecoach
   "~/.claude/hooks/sidecoach-sessionstart.sh\n~/.claude/hooks/sidecoach-postuserp.sh\n~/.claude/hooks/sidecoach-postresponse.sh\n~/.claude/sidecoach/ (compiled handlers + daemon)"
+  # task-list
+  "~/.claude/skills/task-list/SKILL.md"
 )
 DIRS=(
   "$REPO_DIR/claude"           # brain
@@ -125,8 +130,9 @@ DIRS=(
   "$REPO_DIR/claude/voice-output"  # voice-output
   "$REPO_DIR/claude"           # reflect
   "$REPO_DIR"                  # sidecoach
+  "$REPO_DIR/claude"           # task-list
 )
-PICKS=(1 1 1 1 1 1 1 1 1 1 1 1 1)
+PICKS=(1 1 1 1 1 1 1 1 1 1 1 1 1 1)
 
 # Personal components - hidden from public TUI and --help. Surfaced only when
 # the maintainer passes --personal (undocumented, undocumented-on-purpose).
@@ -231,7 +237,7 @@ Usage:
   ./install.sh --yes            Non-interactive, install everything
   ./install.sh --preset NAME    Non-interactive preset: all | minimal | none
   ./install.sh --only KEYS      Non-interactive, comma-separated keys
-                                (brain, config, memory, skills, statusline, cmux, nvm, ampersand, discord, voice-input, voice-output, reflect)
+                                (brain, config, memory, skills, statusline, cmux, nvm, ampersand, discord, voice-input, voice-output, reflect, sidecoach, task-list)
   ./install.sh --dry-run        Print resolved picks and exit
   ./install.sh --help           Show this help
 EOF
@@ -554,6 +560,7 @@ detect_component() {
     voice-input) [ -L "$CLAUDE_DIR/transcribe" ] && echo active || echo not-installed ;;
     voice-output) [ -d "$CLAUDE_DIR/voice-output" ] && echo active || echo not-installed ;;
     reflect)    [ -f "$CLAUDE_DIR/skills/reflect/SKILL.md" ] && echo active || echo not-installed ;;
+    task-list)  [ -f "$CLAUDE_DIR/skills/task-list/SKILL.md" ] && echo active || echo not-installed ;;
     improv)     [ -d "$CLAUDE_DIR/improv" ] && echo active || echo not-installed ;;
     *)          echo not-installed ;;
   esac
@@ -892,6 +899,10 @@ deactivate_reflect() {
   [ -f "$CLAUDE_DIR/last-reflect-timestamp" ] && rm -f "$CLAUDE_DIR/last-reflect-timestamp"
 }
 
+deactivate_task_list() {
+  [ -d "$CLAUDE_DIR/skills/task-list" ] && rm -rf "$CLAUDE_DIR/skills/task-list"
+}
+
 deactivate_component() {
   case "$1" in
     brain)      deactivate_brain ;;
@@ -906,6 +917,7 @@ deactivate_component() {
     voice-input) deactivate_voice ;;
     voice-output) deactivate_voice_output ;;
     reflect)    deactivate_reflect ;;
+    task-list)  deactivate_task_list ;;
     improv) deactivate_improv ;;
   esac
 }
@@ -2210,7 +2222,19 @@ if picked reflect; then
 fi
 
 # ============================================================
-# 15. Improv (visual micro-adjustment MCP tool)
+# 15. Task list (/task-list slash-command skill)
+# ============================================================
+
+if picked task-list; then
+  info "Installing /task-list skill..."
+  mkdir -p "$CLAUDE_DIR/skills/task-list"
+  cp "$REPO_DIR/claude/skills/task-list/SKILL.md" \
+     "$CLAUDE_DIR/skills/task-list/SKILL.md"
+  ok "/task-list skill installed"
+fi
+
+# ============================================================
+# 16. Improv (visual micro-adjustment MCP tool)
 # ============================================================
 
 if picked improv; then
@@ -2296,6 +2320,7 @@ picked ampersand && echo "  - .zshrc: 'ampersand' shortcut (type 'ampersand' to 
 picked voice-input && echo "  - Voice input: whisper-cpp + ffmpeg + ggml-base.en model + ~/.claude/transcribe symlink (run '~/.claude/transcribe path/to/audio.ogg')"
 picked voice-output && echo "  - Voice output: OpenAI TTS MCP server + ~/.claude/tts-generate (run '~/.claude/tts-generate \"text\" [out.ogg]')"
 picked reflect     && echo "  - Reflect: memory corpus analysis skill + reflect-nudge SessionStart hook"
+picked task-list   && echo "  - Task list: /task-list slash command + TASKS.md at dotfiles root"
 echo ""
 # Resolve which post-install guidance is actually relevant based on picks.
 NEED_CC=0; NEED_PLUGINS=0; NEED_FONT=0
