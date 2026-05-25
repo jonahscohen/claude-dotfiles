@@ -122,6 +122,10 @@ Smoke test outcomes (all verbs PASS): add (cwd-inferred + explicit area + explic
 
 Skill is loaded in this and future sessions via the dotfiles skill loader.
 
+## First real use (2026-05-25)
+
+Jonah invoked `/task-list add research QuiverAI implementation methods` via the live skill loader. First token `research` is not a known area or existing section -> treated as description. cwd at repo root -> area inferred `dotfiles`. No priority arg -> default P2. Last ID T-0000 -> next T-0001. Created `## dotfiles > ### Active` and appended the task line. End-to-end the way it's supposed to work.
+
 **Finding:** every TASKS.md write triggers the project-file-dirty memory hook. In real `/task-list add` use, every invocation will require a follow-up memory write or the user will hit the hook. Worth noting for post-smoke-test followup.
 
 ## Task 3 verified, Task 4 inline path unlocked

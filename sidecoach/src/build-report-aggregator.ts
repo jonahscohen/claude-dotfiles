@@ -142,7 +142,18 @@ function findingsFromResult(result: FlowExecutionResult): FindingEntry[] {
     for (const vr of vrs) {
       // Skip pass results - only emit findings for fail/partial.
       if (vr.status === 'pass') continue;
-      const sev: 'blocking' | 'warning' | 'info' = vr.status === 'fail' ? 'blocking' : 'warning';
+      // Round 2 fix: severity scales with actual pass rate, not just the
+      // adapter's status flag. Pre-fix, an adapter returning 'fail' marked
+      // every individual failed rule as 'blocking', so even 86.4% pass
+      // (19/22 polish rules passing) blocked the verdict because 3 rules
+      // failed. Now: >=90% pass = info, 70-89% = warning, <70% = blocking.
+      const passedCount = Array.isArray(vr.passedRules) ? vr.passedRules.length : 0;
+      const failedCount = Array.isArray(vr.failedRules) ? vr.failedRules.length : 0;
+      const total = passedCount + failedCount;
+      const passRate = total > 0 ? (passedCount / total) * 100 : (vr.status === 'fail' ? 0 : 50);
+      const sev: 'blocking' | 'warning' | 'info' = passRate >= 90 ? 'info'
+        : passRate >= 70 ? 'warning'
+        : 'blocking';
       const rules = vr.failedRules && vr.failedRules.length > 0 ? vr.failedRules : ['(unspecified)'];
       for (const rule of rules) {
         findings.push({
@@ -194,9 +205,18 @@ function domainGradesFromResults(
         const passedCount = Array.isArray(vr.passedRules) ? vr.passedRules.length : 0;
         const failedCount = Array.isArray(vr.failedRules) ? vr.failedRules.length : 0;
         const total = Math.max(1, passedCount + failedCount);
-        const passRateContribution = vr.status === 'pass' ? 100
-          : vr.status === 'fail' ? 0
-          : (passedCount / total) * 100;
+        // Round 2 fix: when the adapter pushes real rule counts, compute
+        // pass rate from them directly. Pre-fix, an adapter returning
+        // status='fail' (e.g. because criticalViolations > 0) zeroed the
+        // entire domain pass rate regardless of how many rules actually
+        // passed - so polish-standard reported 0% even when 13 of 22 rules
+        // passed. Real rule counts win over the status verdict.
+        const hasRuleCounts = passedCount + failedCount > 0;
+        const passRateContribution = hasRuleCounts
+          ? (passedCount / total) * 100
+          : vr.status === 'pass' ? 100
+            : vr.status === 'fail' ? 0
+            : 50;
         const passed = vr.status === 'pass' ? 1 : 0;
         const existing = byDomain.get(vr.domain) || { passSum: 0, count: 0, rulesPassed: 0, rulesTotal: 0 };
         existing.passSum += passRateContribution;

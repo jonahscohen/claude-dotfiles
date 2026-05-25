@@ -313,14 +313,19 @@ p {
   align-items: center;
 }
 
-/* Curl install card - the special component */
+/* Curl install card - the special component.
+   Anti-ban refactor: removed the 3px red side-stripe (caught by
+   sidecoach absolute-ban-detector as a side-stripe-borders violation).
+   Replaced with a full subtle red-tinted border for the brand anchor,
+   so the brand color still touches the component but as a full surround,
+   not a stripe. */
 .install-block {
   display: inline-flex;
   align-items: center;
   gap: var(--space-3);
   background: var(--surface-inverse);
   color: var(--text-inverse);
-  border-left: 3px solid var(--color-red);
+  border: 1px solid var(--accent-red-border);
   border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-5);
   font-family: var(--font-mono);

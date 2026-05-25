@@ -12,6 +12,75 @@ import { scanForLinguisticBans, findingsToGuidance, linguisticBanToValidationRes
 import { scanForAbsoluteBans, banFindingsToGuidance, absoluteBanToValidationResult, AbsoluteBanReport } from './absolute-ban-detector';
 
 /**
+ * Read CSS files in a project directory and return each rule as a string.
+ * Used to feed PolishStandardValidator + ExtendedDomainValidator with real
+ * data. Pre-wiring these validators received `cssRules: []` (empty), so 16
+ * of 22 polish rules failed for lack of input - not because the project
+ * actually missed scale(0.96) or font-smoothing, but because the validator
+ * had nothing to check.
+ *
+ * Walks the project root one level deep (no recursion into node_modules
+ * or dot-prefixed dirs). Splits each CSS file on `}` to produce one rule
+ * string per declaration block. Simple but adequate for the substring-
+ * includes() checks the validators use.
+ */
+function collectProjectCssRules(projectPath: string): string[] {
+  const rules: string[] = [];
+  let candidates: string[] = [];
+  try {
+    const entries = fs.readdirSync(projectPath, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'dist') continue;
+        try {
+          const subEntries = fs.readdirSync(path.join(projectPath, entry.name), { withFileTypes: true });
+          for (const sub of subEntries) {
+            if (sub.isFile() && /\.(css|scss|sass|less)$/i.test(sub.name)) {
+              candidates.push(path.join(projectPath, entry.name, sub.name));
+            }
+          }
+        } catch { /* skip */ }
+      } else if (entry.isFile() && /\.(css|scss|sass|less)$/i.test(entry.name)) {
+        candidates.push(path.join(projectPath, entry.name));
+      }
+    }
+  } catch {
+    return rules;
+  }
+
+  for (const file of candidates) {
+    try {
+      const stat = fs.statSync(file);
+      if (stat.size > 2 * 1024 * 1024) continue;
+      const content = fs.readFileSync(file, 'utf-8');
+      // Split into rules at each `}` boundary. Keep each block as the
+      // selector + body so validators can substring-match against either.
+      const blocks = content.split('}').map((b) => b.trim()).filter(Boolean);
+      for (const block of blocks) rules.push(block + ' }');
+    } catch { /* skip unreadable */ }
+  }
+
+  // Also scan inline <style> in HTML files for any embedded rules.
+  try {
+    const htmlEntries = fs.readdirSync(projectPath, { withFileTypes: true });
+    for (const entry of htmlEntries) {
+      if (entry.isFile() && /\.html?$/i.test(entry.name)) {
+        try {
+          const content = fs.readFileSync(path.join(projectPath, entry.name), 'utf-8');
+          const styleBlocks = Array.from(content.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi));
+          for (const sb of styleBlocks) {
+            const blocks = sb[1].split('}').map((b) => b.trim()).filter(Boolean);
+            for (const block of blocks) rules.push(block + ' }');
+          }
+        } catch { /* skip */ }
+      }
+    }
+  } catch { /* skip */ }
+
+  return rules;
+}
+
+/**
  * Scan all HTML files in a project directory for linguistic bans. Returns
  * a per-file map of reports plus an aggregate.
  *
@@ -97,12 +166,19 @@ export class FlowJTacticalPolishHandler extends BaseFlowHandler {
   async execute(context: FlowExecutionContext): Promise<FlowExecutionResult> {
     try {
       // Build DomainCheckContext from execution context
-      // Extract available data from metadata or use defaults
+      // Extract available data from metadata or use defaults.
+      // Round 2 (R4): if metadata.cssRules is not provided, read the
+      // project's actual CSS files. Pre-wiring this defaulted to [] which
+      // caused 16 of 22 polish rules to fail purely for lack of input,
+      // making polish-standard grade always 0% regardless of project state.
       const metadata = context.metadata || {};
+      const projectCssRules = (metadata.cssRules && metadata.cssRules.length > 0)
+        ? metadata.cssRules
+        : collectProjectCssRules(context.projectPath || process.cwd());
       const domainCheckContext: DomainCheckContext = {
         designTokens: metadata.designTokens || {},
         componentTree: metadata.componentTree || {},
-        cssRules: metadata.cssRules || [],
+        cssRules: projectCssRules,
         accessibility: metadata.accessibility,
         contrast: metadata.contrast,
       };
