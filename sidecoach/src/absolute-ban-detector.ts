@@ -1,0 +1,316 @@
+/**
+ * Absolute Ban Detector
+ *
+ * Operationalizes the 6 absolute bans from the absorbed legacy-design-skill
+ * reference (now exposed by reference-loader as loadAbsoluteBans). Pre-wiring
+ * these bans existed as descriptive strings in design-laws.ts but no validator
+ * actually scanned project files for the patterns. This module scans CSS +
+ * HTML in a project directory and produces findings.
+ *
+ * Coverage by ban:
+ *
+ * - side-stripe-borders: CSS scan for `border-left|border-right > 1px solid <colored>` on cards/lists/callouts/alerts
+ * - gradient-text: CSS scan for `background-clip: text` combined with `linear-gradient` or `radial-gradient`
+ * - glassmorphism-default: CSS scan for `backdrop-filter: blur(...)` combined with low-alpha rgba/hsla background
+ * - identical-card-grids: HTML scan for grid container with >=3 children of the same class containing the same structural triplet (icon/svg + heading + paragraph)
+ * - hero-metric-template: HTML scan for a parent with >=3 children each containing a large-numeric child + small-label child
+ * - modal-as-first-thought: HTML scan for <dialog> or [role="dialog"] containing forms/menus that could be inline
+ *
+ * The CSS-side detectors are precise. The HTML-structural detectors are
+ * heuristic - they flag pattern shapes, not certainties. P1 by default
+ * because false positives are possible.
+ */
+
+import * as fs from 'fs';
+import * as path from 'path';
+import { loadAbsoluteBans, AbsoluteBan } from './reference-loader';
+
+export type BanFindingSeverity = 'P0' | 'P1' | 'P2';
+
+export interface AbsoluteBanFinding {
+  severity: BanFindingSeverity;
+  banName: string;
+  file: string;
+  line?: number;
+  matchedText: string;
+  reason: string;
+  rewriteOptions: string[];
+}
+
+export interface AbsoluteBanReport {
+  scannedFiles: number;
+  findings: AbsoluteBanFinding[];
+  summary: string;
+}
+
+const BAN_LOOKUP_BY_NAME: Map<string, AbsoluteBan> = (() => {
+  const map = new Map<string, AbsoluteBan>();
+  for (const ban of loadAbsoluteBans()) map.set(ban.name, ban);
+  return map;
+})();
+
+function getBan(name: string): AbsoluteBan | undefined {
+  return BAN_LOOKUP_BY_NAME.get(name);
+}
+
+function lineNumberAt(content: string, offset: number): number {
+  if (offset <= 0) return 1;
+  let line = 1;
+  for (let i = 0; i < offset && i < content.length; i++) {
+    if (content[i] === '\n') line++;
+  }
+  return line;
+}
+
+function findingFromBan(banName: string, file: string, line: number, matchedText: string, severity: BanFindingSeverity = 'P1'): AbsoluteBanFinding {
+  const ban = getBan(banName);
+  return {
+    severity,
+    banName,
+    file,
+    line,
+    matchedText: matchedText.length > 280 ? matchedText.slice(0, 280) + '...' : matchedText,
+    reason: ban?.description ?? `Named anti-pattern: ${banName}`,
+    rewriteOptions: ban?.rewriteOptions ?? [],
+  };
+}
+
+function scanSideStripeBorders(content: string, file: string): AbsoluteBanFinding[] {
+  const findings: AbsoluteBanFinding[] = [];
+  // Look for border-left or border-right with N>1 px solid <colored value>
+  // on selectors that look like cards/alerts/callouts/list items.
+  // Pattern: a CSS rule whose body contains `border-(?:left|right):\s*([2-9]|[1-9][0-9]+)px\s+solid\s+(?!transparent|inherit)([^\n;]+)`
+  // and whose selector appears card-like.
+  const ruleRegex = /([^{}]+)\{([^}]*)\}/g;
+  const matches = Array.from(content.matchAll(ruleRegex));
+  for (const m of matches) {
+    if (m.index === undefined) continue;
+    const selector = m[1].trim();
+    const body = m[2];
+    const borderMatch = body.match(/border-(?:left|right)\s*:\s*([2-9]|[1-9][0-9]+)\s*px\s+(?:solid|dashed|dotted|double)\s+(?!transparent|inherit|currentColor)([^\n;]+);?/i);
+    if (!borderMatch) continue;
+    // Filter to ban targets: card / list / alert / callout / install / banner / notice
+    const targetable = /\.(?:card|alert|callout|notice|banner|install|tile|list-item|message|toast|tip)\b|aside\b|blockquote\b/i.test(selector);
+    if (!targetable) continue;
+    findings.push(findingFromBan('side-stripe-borders', file, lineNumberAt(content, m.index), `${selector} { ${borderMatch[0].trim()} }`, 'P1'));
+  }
+  return findings;
+}
+
+function scanGradientText(content: string, file: string): AbsoluteBanFinding[] {
+  const findings: AbsoluteBanFinding[] = [];
+  const ruleRegex = /([^{}]+)\{([^}]*)\}/g;
+  for (const m of Array.from(content.matchAll(ruleRegex))) {
+    if (m.index === undefined) continue;
+    const selector = m[1].trim();
+    const body = m[2];
+    const hasClip = /background-clip\s*:\s*text|-webkit-background-clip\s*:\s*text/i.test(body);
+    const hasGradient = /(?:linear|radial|conic)-gradient\s*\(/i.test(body);
+    if (hasClip && hasGradient) {
+      findings.push(findingFromBan('gradient-text', file, lineNumberAt(content, m.index), `${selector} { ... background-clip: text + gradient }`, 'P1'));
+    }
+  }
+  return findings;
+}
+
+function scanGlassmorphism(content: string, file: string): AbsoluteBanFinding[] {
+  const findings: AbsoluteBanFinding[] = [];
+  const ruleRegex = /([^{}]+)\{([^}]*)\}/g;
+  for (const m of Array.from(content.matchAll(ruleRegex))) {
+    if (m.index === undefined) continue;
+    const selector = m[1].trim();
+    const body = m[2];
+    const hasBlur = /backdrop-filter\s*:\s*[^;]*\bblur\s*\(/i.test(body);
+    // Low-alpha background: rgba(...) or hsla(...) with last component <= 0.4
+    const lowAlphaMatch = body.match(/(?:rgba|hsla)\s*\(\s*[\d.,%\s]+,\s*(0?\.\d+|0|1)\s*\)/gi);
+    let hasLowAlpha = false;
+    if (lowAlphaMatch) {
+      for (const value of lowAlphaMatch) {
+        const alphaMatch = value.match(/,\s*(0?\.\d+|0|1)\s*\)$/);
+        if (alphaMatch) {
+          const alpha = parseFloat(alphaMatch[1]);
+          if (alpha <= 0.4) {
+            hasLowAlpha = true;
+            break;
+          }
+        }
+      }
+    }
+    if (hasBlur && hasLowAlpha) {
+      findings.push(findingFromBan('glassmorphism-default', file, lineNumberAt(content, m.index), `${selector} { backdrop-filter: blur(...) + low-alpha background }`, 'P1'));
+    }
+  }
+  return findings;
+}
+
+function scanIdenticalCardGrids(content: string, file: string): AbsoluteBanFinding[] {
+  const findings: AbsoluteBanFinding[] = [];
+  // Heuristic: find a parent with grid-template-columns: repeat(N, 1fr) where N>=3,
+  // then verify the source has multiple sibling elements with the same class
+  // containing icon/heading/text triplet structure.
+  const repeatGridRegex = /grid-template-columns\s*:\s*repeat\s*\(\s*(\d+)\s*,\s*(?:minmax\([^)]+\)|1fr)\s*\)/gi;
+  const repeats = Array.from(content.matchAll(repeatGridRegex));
+  if (repeats.length === 0) return findings;
+  // Look for HTML patterns: three+ same-class siblings each containing a heading
+  // and a paragraph - the "icon + heading + text" structure. This is a heuristic.
+  const cardTripletRegex = /(<(?:a|div|article|li)\s+[^>]*class\s*=\s*["']([^"']*\b(?:tool-card|card|tile|feature|item|service|capability)\b[^"']*)["'][^>]*>[\s\S]*?<h[1-6][^>]*>[\s\S]*?<\/h[1-6]>[\s\S]*?<p[^>]*>[\s\S]*?<\/p>[\s\S]*?<\/(?:a|div|article|li)>\s*){3,}/gi;
+  for (const m of Array.from(content.matchAll(cardTripletRegex))) {
+    if (m.index === undefined) continue;
+    findings.push(findingFromBan('identical-card-grids', file, lineNumberAt(content, m.index), `Repeated <${m[1].slice(1, 12).split(/[^a-zA-Z]/)[0]}> with same card-style class containing heading + paragraph triplet`, 'P1'));
+  }
+  return findings;
+}
+
+function scanHeroMetricTemplate(content: string, file: string): AbsoluteBanFinding[] {
+  const findings: AbsoluteBanFinding[] = [];
+  // Heuristic: look for HTML with three or more sibling blocks each containing
+  // a large numeric content + smaller label. Detect via CSS classes commonly used.
+  const heroMetricRegex = /(<(?:div|article|section|li)\s+[^>]*class\s*=\s*["'][^"']*\b(?:stat|metric|kpi|number|count)\b[^"']*["'][^>]*>[\s\S]*?<\/(?:div|article|section|li)>\s*){3,}/gi;
+  for (const m of Array.from(content.matchAll(heroMetricRegex))) {
+    if (m.index === undefined) continue;
+    findings.push(findingFromBan('hero-metric-template', file, lineNumberAt(content, m.index), `Three+ stat/metric/kpi blocks in sequence - SaaS hero-metric template shape`, 'P1'));
+  }
+  return findings;
+}
+
+function scanModalAsFirstThought(content: string, file: string): AbsoluteBanFinding[] {
+  const findings: AbsoluteBanFinding[] = [];
+  // Heuristic: any <dialog> or [role="dialog"] for content that includes a
+  // <form> with a single submit, or a simple confirmation pattern. P2 because
+  // most modals are legitimate.
+  const dialogRegex = /<(?:dialog|div)\s+[^>]*(?:role\s*=\s*["']dialog["']|class\s*=\s*["'][^"']*\b(?:modal|dialog|popup)\b[^"']*["'])[^>]*>[\s\S]*?<form\b[\s\S]*?<\/form>[\s\S]*?<\/(?:dialog|div)>/gi;
+  for (const m of Array.from(content.matchAll(dialogRegex))) {
+    if (m.index === undefined) continue;
+    findings.push(findingFromBan('modal-as-first-thought', file, lineNumberAt(content, m.index), `<dialog>/modal containing <form> - consider inline editing or progressive disclosure first`, 'P2'));
+  }
+  return findings;
+}
+
+function collectScanCandidates(projectPath: string): { cssFiles: string[]; htmlFiles: string[] } {
+  const cssFiles: string[] = [];
+  const htmlFiles: string[] = [];
+  try {
+    const entries = fs.readdirSync(projectPath, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name === 'dist') continue;
+        try {
+          const subEntries = fs.readdirSync(path.join(projectPath, entry.name), { withFileTypes: true });
+          for (const sub of subEntries) {
+            if (sub.isFile()) {
+              const full = path.join(projectPath, entry.name, sub.name);
+              if (/\.(?:css|scss|sass|less)$/i.test(sub.name)) cssFiles.push(full);
+              else if (/\.(?:html?|jsx|tsx|vue|svelte)$/i.test(sub.name)) htmlFiles.push(full);
+            }
+          }
+        } catch { /* skip unreadable subdir */ }
+      } else if (entry.isFile()) {
+        const full = path.join(projectPath, entry.name);
+        if (/\.(?:css|scss|sass|less)$/i.test(entry.name)) cssFiles.push(full);
+        else if (/\.(?:html?|jsx|tsx|vue|svelte)$/i.test(entry.name)) htmlFiles.push(full);
+      }
+    }
+  } catch { /* projectPath unreadable - return empty */ }
+  return { cssFiles, htmlFiles };
+}
+
+export function scanForAbsoluteBans(projectPath: string): AbsoluteBanReport {
+  const { cssFiles, htmlFiles } = collectScanCandidates(projectPath);
+  const findings: AbsoluteBanFinding[] = [];
+  const scannedFiles = cssFiles.length + htmlFiles.length;
+
+  for (const file of cssFiles) {
+    try {
+      const stat = fs.statSync(file);
+      if (stat.size > 2 * 1024 * 1024) continue;
+      const content = fs.readFileSync(file, 'utf-8');
+      const rel = path.relative(projectPath, file);
+      findings.push(...scanSideStripeBorders(content, rel));
+      findings.push(...scanGradientText(content, rel));
+      findings.push(...scanGlassmorphism(content, rel));
+    } catch { /* skip unreadable */ }
+  }
+
+  for (const file of htmlFiles) {
+    try {
+      const stat = fs.statSync(file);
+      if (stat.size > 2 * 1024 * 1024) continue;
+      const content = fs.readFileSync(file, 'utf-8');
+      const rel = path.relative(projectPath, file);
+      // CSS-style scans on inline <style> blocks
+      findings.push(...scanSideStripeBorders(content, rel));
+      findings.push(...scanGradientText(content, rel));
+      findings.push(...scanGlassmorphism(content, rel));
+      // HTML-structural scans
+      findings.push(...scanIdenticalCardGrids(content, rel));
+      findings.push(...scanHeroMetricTemplate(content, rel));
+      findings.push(...scanModalAsFirstThought(content, rel));
+    } catch { /* skip unreadable */ }
+  }
+
+  const p0 = findings.filter((f) => f.severity === 'P0').length;
+  const p1 = findings.filter((f) => f.severity === 'P1').length;
+  const p2 = findings.filter((f) => f.severity === 'P2').length;
+  const summary =
+    findings.length === 0
+      ? `Absolute ban scan: 0 findings across ${scannedFiles} files. The 6 named bans (side-stripe borders, gradient text, glassmorphism default, identical card grids, hero-metric template, modal-as-first-thought) are clean.`
+      : `Absolute ban scan: ${findings.length} findings across ${scannedFiles} files (P0 ${p0}, P1 ${p1}, P2 ${p2}). Each finding is a named anti-pattern with prescribed rewrites.`;
+  return { scannedFiles, findings, summary };
+}
+
+/**
+ * Adapter: convert an AbsoluteBanReport into the BuildReport's ValidationResult
+ * shape so the BuildReport aggregator produces an "anti-patterns" domain
+ * letter grade. Mirrors PolishStandardValidator.toValidationResult().
+ */
+export function absoluteBanToValidationResult(report: AbsoluteBanReport): {
+  domain: 'anti-patterns';
+  status: 'pass' | 'fail' | 'partial';
+  passedRules: string[];
+  failedRules: string[];
+  message: string;
+} {
+  const p0 = report.findings.filter((f) => f.severity === 'P0');
+  const p1 = report.findings.filter((f) => f.severity === 'P1');
+  const status: 'pass' | 'fail' | 'partial' = p0.length > 0 ? 'fail' : p1.length > 0 ? 'partial' : 'pass';
+  // Per-ban pass/fail
+  const allBans = loadAbsoluteBans();
+  const failedBanNames = new Set(report.findings.map((f) => f.banName));
+  const failedRules: string[] = [];
+  const passedRules: string[] = [];
+  for (const ban of allBans) {
+    if (failedBanNames.has(ban.name)) failedRules.push(`ban-${ban.name}`);
+    else passedRules.push(`ban-${ban.name}`);
+  }
+  return {
+    domain: 'anti-patterns',
+    status,
+    passedRules,
+    failedRules,
+    message: report.summary,
+  };
+}
+
+export function banFindingsToGuidance(report: AbsoluteBanReport): string[] {
+  if (report.findings.length === 0) return [report.summary];
+  const lines: string[] = [report.summary, ''];
+  // Group by ban name for readability
+  const byBan = new Map<string, AbsoluteBanFinding[]>();
+  for (const f of report.findings) {
+    if (!byBan.has(f.banName)) byBan.set(f.banName, []);
+    byBan.get(f.banName)!.push(f);
+  }
+  for (const [banName, group] of byBan) {
+    lines.push(`BAN: ${banName} (${group.length} match${group.length === 1 ? '' : 'es'})`);
+    lines.push(`  Why: ${group[0].reason}`);
+    if (group[0].rewriteOptions.length > 0) {
+      lines.push(`  Rewrite options:`);
+      for (const opt of group[0].rewriteOptions) lines.push(`    - ${opt}`);
+    }
+    for (const f of group) {
+      lines.push(`  [${f.severity}] ${f.file}${f.line ? `:${f.line}` : ''}: ${f.matchedText}`);
+    }
+    lines.push('');
+  }
+  return lines;
+}

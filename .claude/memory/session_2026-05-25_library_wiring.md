@@ -84,3 +84,23 @@ flow-handler-motion-patterns.ts imports loadPrescribedEasings + loadBannedEasing
 - FREQUENCY-FIRST DECISION (Emil's matrix: 100+/day = no animation, ever)
 
 This addresses three of the forensic gaps in one pass: the loose easing acceptance, the missing prescribed curves, and the absent frequency-first decision tree.
+
+## Final dogfood + commit
+
+Output: 1422 lines (baseline was 1146 - +276 from wiring + 39KB responsive doc loaded + linguistic findings + Emil's easings). 9/9 flows successful.
+
+Prescribed easings appear verbatim in chain output:
+- `--ease-out: cubic-bezier(0.23, 1, 0.32, 1)`
+- `--ease-in-out: cubic-bezier(0.77, 0, 0.175, 1)`
+- `--ease-drawer: cubic-bezier(0.32, 0.72, 0, 1)`
+
+Banned easings flagged:
+- ease-in (alone), bounce, elastic, ease-out-back
+
+Frequency-first matrix shipped verbatim in motion guidance.
+
+About to commit + push. 39 files changed, +2184 / -169.
+
+## Tasks closed
+
+121-127 all complete. W1 reference-loader, W2 lanes wired, W3 linguistic ban (catches all 3 yesterday templates), W4 Emil's easings, W5 Title Case contradiction fixed, W6 responsive foundation wired + flowM in craft chain, W7 dogfood verified end-to-end.

@@ -50,6 +50,18 @@ export interface LinguisticBanReport {
  */
 export declare function scanForLinguisticBans(input: string, label?: string): LinguisticBanReport;
 /**
+ * Adapter: convert a LinguisticBanReport into the BuildReport's ValidationResult
+ * shape so the BuildReport aggregator can produce a "copy" domain letter grade.
+ * Mirrors PolishStandardValidator.toValidationResult().
+ */
+export declare function linguisticBanToValidationResult(report: LinguisticBanReport): {
+    domain: 'copy';
+    status: 'pass' | 'fail' | 'partial';
+    passedRules: string[];
+    failedRules: string[];
+    message: string;
+};
+/**
  * Convenience function for flow handlers: returns ready-to-append guidance lines
  * describing the findings, suitable for FlowExecutionResult.guidance.
  */

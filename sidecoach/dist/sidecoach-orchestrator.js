@@ -959,12 +959,29 @@ class FlowExecutionEngine {
             if (chainGuidanceAppend) {
                 chainGuidance.push(...chainGuidanceAppend);
             }
+            // Round 2 (C4): generate BuildReport for verb-chain executions too.
+            // The composite path and single-flow opt-in path both already generated
+            // BuildReports; the verb-chain path (used by every /sidecoach <verb>
+            // invocation) silently dropped them, which is why `buildReport: (none)`
+            // showed in dogfood output even though flowJ pushed validationResults.
+            let chainBuildReport;
+            try {
+                chainBuildReport = (0, build_report_aggregator_1.generateBuildReport)({
+                    source: 'flow-results',
+                    flowResults,
+                    composite: commandMatch.command,
+                });
+            }
+            catch (err) {
+                process.stderr.write(`[sidecoach] BuildReport generation failed (chain): ${err.message}\n`);
+            }
             return {
                 success: flowResults.some((r) => r.status === 'success'),
                 message: `Executed ${commandMatch.command} flow chain (${flowResults.filter((r) => r.status === 'success').length}/${flowResults.length} flows successful)`,
                 detectedFlow,
                 flowResults,
                 guidance: chainGuidance.length > 0 ? chainGuidance : undefined,
+                buildReport: chainBuildReport,
             };
         }
         // Step 1: Detect intent (falls back to intent detection if not a slash command).

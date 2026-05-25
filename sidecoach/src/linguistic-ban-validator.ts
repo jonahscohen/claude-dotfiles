@@ -160,6 +160,48 @@ export function scanForLinguisticBans(input: string, label?: string): Linguistic
 }
 
 /**
+ * Adapter: convert a LinguisticBanReport into the BuildReport's ValidationResult
+ * shape so the BuildReport aggregator can produce a "copy" domain letter grade.
+ * Mirrors PolishStandardValidator.toValidationResult().
+ */
+export function linguisticBanToValidationResult(report: LinguisticBanReport): {
+  domain: 'copy';
+  status: 'pass' | 'fail' | 'partial';
+  passedRules: string[];
+  failedRules: string[];
+  message: string;
+} {
+  const p0 = report.findings.filter((f) => f.severity === 'P0');
+  const p1 = report.findings.filter((f) => f.severity === 'P1');
+  const status: 'pass' | 'fail' | 'partial' = p0.length > 0 ? 'fail' : p1.length > 0 ? 'partial' : 'pass';
+  // Synthesize per-rule pass/fail entries. Each rhetorical-template pattern
+  // and each slop-word category counts as one "rule." Pass count is total
+  // patterns checked minus distinct ones that matched.
+  const rhetoricalPatterns = loadRhetoricalPatterns();
+  const slopList = loadSlopWordList();
+  const failedRules: string[] = [];
+  const passedRules: string[] = [];
+  for (const pattern of rhetoricalPatterns) {
+    const hits = report.findings.some((f) => f.type === 'rhetorical-template' && f.patternName === pattern.name);
+    if (hits) failedRules.push(`rhetorical-${pattern.name}`);
+    else passedRules.push(`rhetorical-${pattern.name}`);
+  }
+  // Slop words: aggregate per word into one rule entry
+  const slopHits = new Set(report.findings.filter((f) => f.type === 'slop-word').map((f) => f.match.toLowerCase()));
+  for (const entry of slopList) {
+    if (slopHits.has(entry.toLowerCase())) failedRules.push(`slop-${entry.toLowerCase().replace(/\s+/g, '-')}`);
+    else passedRules.push(`slop-${entry.toLowerCase().replace(/\s+/g, '-')}`);
+  }
+  return {
+    domain: 'copy',
+    status,
+    passedRules,
+    failedRules,
+    message: report.summary,
+  };
+}
+
+/**
  * Convenience function for flow handlers: returns ready-to-append guidance lines
  * describing the findings, suitable for FlowExecutionResult.guidance.
  */

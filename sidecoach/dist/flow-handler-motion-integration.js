@@ -10,6 +10,12 @@ const flow_memory_schema_1 = require("./flow-memory-schema");
 const extended_domain_validator_1 = require("./extended-domain-validator");
 const design_md_parser_1 = require("./design-md-parser");
 const motion_stack_idioms_1 = require("./motion-stack-idioms");
+// Round 2 wiring (C3): mirror W4's easing prescriptions into the integration
+// flow so production code emits the named strong easings, not the Material
+// curve or the banned bounce. Pre-wiring this handler prescribed
+// `cubic-bezier(0.34, 1.56, 0.64, 1)` as the entrance easing - which is
+// literally the bounce curve Emil bans in the absorbed library.
+const reference_loader_1 = require("./reference-loader");
 class FlowHMotionIntegrationHandler extends flow_handler_1.BaseFlowHandler {
     constructor() {
         super('flowH_motion_integration');
@@ -29,51 +35,76 @@ class FlowHMotionIntegrationHandler extends flow_handler_1.BaseFlowHandler {
             const intensity = register === 'brand' && brandPersonality?.includes('bold') ? 'ambitious' :
                 register === 'brand' ? 'playful' :
                     'restrained';
-            // Define animation templates by category
+            // Round 2 wiring (C3): use Emil's prescribed strong easings instead of
+            // the Material curve, and never the bounce/elastic curves the previous
+            // template version emitted as "entrance" and "exit".
+            const prescribedEasings = (0, reference_loader_1.loadPrescribedEasings)();
+            const bannedEasings = (0, reference_loader_1.loadBannedEasings)();
+            const namedEaseOut = prescribedEasings.find((e) => e.name === '--ease-out').cssValue;
+            const namedEaseInOut = prescribedEasings.find((e) => e.name === '--ease-in-out').cssValue;
+            const namedEaseDrawer = prescribedEasings.find((e) => e.name === '--ease-drawer').cssValue;
+            // Define animation templates by category, using prescribed easings
             const animationTemplates = [
                 {
                     category: 'entrance',
                     duration: intensity === 'ambitious' ? 500 : intensity === 'playful' ? 400 : 200,
-                    easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)', // ease-out curves
+                    easing: namedEaseOut,
                     useCase: 'Page/section reveals, fade-in, slide-in from edges',
                 },
                 {
                     category: 'feedback',
                     duration: 100,
-                    easing: 'cubic-bezier(0.4, 0, 0.2, 1)', // swift ease-out
+                    easing: namedEaseOut,
                     useCase: 'Button clicks, state changes, micro-interactions',
                 },
                 {
                     category: 'state_change',
                     duration: intensity === 'ambitious' ? 300 : 150,
-                    easing: 'cubic-bezier(0.4, 0, 0.2, 1)',
+                    easing: namedEaseInOut,
                     useCase: 'Toggle states, modal opens, panel slides',
+                },
+                {
+                    category: 'drawer_modal',
+                    duration: 260,
+                    easing: namedEaseDrawer,
+                    useCase: 'Drawer/sheet/modal slides - the one place an asymmetric curve helps the affordance',
                 },
                 {
                     category: 'scroll_linked',
                     duration: 0, // No explicit duration for scroll-linked
                     easing: 'linear', // Scroll events drive timing
-                    useCase: 'Parallax, reveal-on-scroll, fixed-scroll indicators',
+                    useCase: 'Parallax, reveal-on-scroll, fixed-scroll indicators - the only place linear is correct',
                 },
                 {
                     category: 'exit',
                     duration: Math.max(75, intensity === 'restrained' ? 100 : 150),
-                    easing: 'cubic-bezier(0.4, 0, 1, 1)', // ease-in curves
-                    useCase: 'Modal close, fade-out, slide-out to edges',
+                    easing: namedEaseOut, // Emil: never ease-in alone for UI - reuse ease-out, just faster
+                    useCase: 'Modal close, fade-out, slide-out to edges. Faster than entrance (asymmetric timing).',
                 },
             ];
             // Validate motion patterns against domain rules
+            const prescribedValues = new Set(prescribedEasings.map((e) => e.cssValue.replace(/\s+/g, '')));
             const validationResults = animationTemplates.map((template) => {
                 // Duration compliance: 100-500ms for most, 50-100ms for feedback
                 const durationCompliant = template.duration === 0 ||
                     (template.category === 'feedback' && template.duration >= 50 && template.duration <= 100) ||
                     (template.category !== 'feedback' && template.duration >= 100 && template.duration <= 500);
-                // Easing compliance: only exponential (ease-out, ease-in-out, cubic-bezier with exponential curves)
-                const easingCompliant = /cubic-bezier|ease-out|ease-in-out/.test(template.easing) && !/linear|ease-in|bounce|elastic/.test(template.easing);
+                // Easing compliance: prescribed by name OR a non-banned cubic-bezier
+                // (scroll_linked is the exception - linear is allowed only there).
+                const normalizedEasing = template.easing.replace(/\s+/g, '');
+                const isPrescribed = prescribedValues.has(normalizedEasing);
+                const matchedBan = bannedEasings.find((b) => b.regex.test(template.easing));
+                const isScrollLinked = template.category === 'scroll_linked';
+                const easingCompliant = isScrollLinked
+                    ? template.easing === 'linear'
+                    : (isPrescribed || /cubic-bezier/.test(template.easing)) && !matchedBan;
                 return {
                     pattern: template.category,
                     durationCompliant,
                     easingCompliant,
+                    easingPrescribed: isPrescribed,
+                    easingBanned: !!matchedBan,
+                    banReason: matchedBan?.reason,
                     noLayoutAnimation: true, // Will validate in implementation phase
                     reducedMotionSupport: true, // Will add @media prefers-reduced-motion in implementation
                 };

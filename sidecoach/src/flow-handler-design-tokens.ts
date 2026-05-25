@@ -7,6 +7,7 @@ import { FlowMemoryBuilder } from './flow-memory-schema';
 import { ExtendedDomainValidator, DomainCheckContext } from './extended-domain-validator';
 import { EnhancedFlowExecutionContext } from './flow-execution-context-enhanced';
 import { findTokenLine } from './design-md-parser';
+import { TypographyValidator, typographyFindingsToGuidance } from './typography-validator';
 import fs from 'fs';
 import path from 'path';
 
@@ -191,6 +192,19 @@ export class FlowFDesignTokensHandler extends BaseFlowHandler {
       };
 
       const extendedValidationReport = ExtendedDomainValidator.validateAll(domainCheckContext);
+
+      // Round 2 wiring: run the new typography-validator that consumes
+      // TypeUI's modular ratio + line-height tier + heading-size-by-role
+      // tables from the absorbed library. Pre-wiring these rules lived in
+      // _extracted/external/typeui-fundamentals/ but no validator consumed
+      // them, so 3rem headings at 1.55 line-height shipped without a flag.
+      const typoReport = TypographyValidator.validate({
+        cssRules: domainCheckContext.cssRules as any,
+        designTokens: domainCheckContext.designTokens,
+      });
+      const typoP0 = typoReport.findings.filter((f) => f.severity === 'P0').length;
+      const typoP1 = typoReport.findings.filter((f) => f.severity === 'P1').length;
+
       const colorDomainRules = ExtendedDomainValidator.getRulesByDomain('color');
       const typographyDomainRules = ExtendedDomainValidator.getRulesByDomain('typography');
       const spatialDomainRules = ExtendedDomainValidator.getRulesByDomain('spatial');
@@ -219,6 +233,8 @@ export class FlowFDesignTokensHandler extends BaseFlowHandler {
       const checklist = this.createChecklist([
         { label: 'DESIGN.md exists at project root', required: true, description: hasDesignMd ? 'Found' : 'Missing' },
         { label: 'YAML frontmatter contains token sections', required: true, description: `${tokenSections.length} sections` },
+        { label: 'Typography validator: P0 line-height-tier findings (display headings 1.05-1.20)', required: true, description: typoP0 === 0 ? 'PASS' : `${typoP0} P0 findings - heading line-height outside size tier` },
+        { label: 'Typography validator: P1 modular-ratio + heading-size-by-role + tier-warnings', required: false, description: typoP1 === 0 ? 'PASS' : `${typoP1} P1 findings` },
         { label: 'Color domain validation', required: false, description: `${colorPassed}/${colorDomainRules.length} rules passing (${colorPassRate})` },
         { label: 'Typography domain validation', required: false, description: `${typographyPassed}/${typographyDomainRules.length} rules passing (${typographyPassRate})` },
         { label: 'Spatial domain validation', required: false, description: `${spatialPassed}/${spatialDomainRules.length} rules passing (${spatialPassRate})` },
@@ -243,6 +259,9 @@ export class FlowFDesignTokensHandler extends BaseFlowHandler {
       const guidance = [
         `DESIGN.md Status: ${hasDesignMd ? 'Found' : 'Missing at ' + designMdPath}`,
         `Token Sections: ${tokenSections.length > 0 ? tokenSections.join(', ') : 'None found'}`,
+        '',
+        `TYPOGRAPHY VALIDATOR (TypeUI rules): ${typoReport.summary}`,
+        ...typographyFindingsToGuidance(typoReport).slice(1),
         '',
         'Design Token Values (sourced from DESIGN.md):',
         `- Brand red: ${brandRed}${cite('colors.brand.red')}`,
@@ -319,7 +338,7 @@ export class FlowFDesignTokensHandler extends BaseFlowHandler {
         flowName: this.getFlowName(),
         status: 'success',
         message: hasDesignMd
-          ? `Design tokens validated: ${tokenSections.length} sections across all 7 domains`
+          ? `Design tokens validated: ${tokenSections.length} sections across 7 domains. Typography validator: ${typoReport.findings.length} findings (${typoP0} P0, ${typoP1} P1).`
           : 'DESIGN.md not found - create at project root to validate design tokens',
         guidance,
         checklist,

@@ -45,6 +45,7 @@ const flow_memory_schema_1 = require("./flow-memory-schema");
 const extended_domain_validator_1 = require("./extended-domain-validator");
 const polish_standard_validator_1 = require("./polish-standard-validator");
 const linguistic_ban_validator_1 = require("./linguistic-ban-validator");
+const absolute_ban_detector_1 = require("./absolute-ban-detector");
 /**
  * Scan all HTML files in a project directory for linguistic bans. Returns
  * a per-file map of reports plus an aggregate.
@@ -154,11 +155,21 @@ class FlowJTacticalPolishHandler extends flow_handler_1.BaseFlowHandler {
             const linguisticScan = scanProjectCopy(context.projectPath || process.cwd());
             const linguisticP0 = linguisticScan.totalFindings.filter((f) => f.severity === 'P0').length;
             const linguisticP1 = linguisticScan.totalFindings.filter((f) => f.severity === 'P1').length;
+            // Round 2 wiring (C2): scan project for the 6 named absolute bans.
+            // CSS scans for side-stripe borders, gradient text, glassmorphism
+            // default. HTML scans for identical card grids, hero-metric template,
+            // modal-as-first-thought. The detection-hint regexes from
+            // reference-loader.loadAbsoluteBans() are inlined into the detector.
+            const absoluteBanScan = (0, absolute_ban_detector_1.scanForAbsoluteBans)(context.projectPath || process.cwd());
+            const banP0 = absoluteBanScan.findings.filter((f) => f.severity === 'P0').length;
+            const banP1 = absoluteBanScan.findings.filter((f) => f.severity === 'P1').length;
             const appliedRules = Object.entries(TACTICAL_RULES).map(([key, rule]) => ({
                 category: key,
                 rule,
             }));
             const checklist = this.createChecklist([
+                { label: `Absolute ban scan: 0 P0 findings (named anti-patterns)${banP0 === 0 ? ' - PASS' : ` - ${banP0} P0 found`}`, required: true },
+                { label: `Absolute ban scan: 0 P1 findings${banP1 === 0 ? ' - PASS' : ` - ${banP1} P1 found (review each)`}`, required: false },
                 { label: `Linguistic ban scan: 0 P0 findings (rhetorical templates)${linguisticP0 === 0 ? ' - PASS' : ` - ${linguisticP0} P0 found`}`, required: true },
                 { label: `Linguistic ban scan: <= 2 P1 findings (slop words)${linguisticP1 <= 2 ? ' - PASS' : ` - ${linguisticP1} P1 found`}`, required: false },
                 { label: 'Scale on press: scale(0.96) for all interactive elements', required: true },
@@ -178,6 +189,15 @@ class FlowJTacticalPolishHandler extends flow_handler_1.BaseFlowHandler {
                 { label: 'Optical alignment verified (icons, circles, text baselines)', required: false },
                 { label: 'All interactive elements provide tactile feedback', required: false },
             ]);
+            // Build absolute-ban guidance lines
+            const absoluteBanGuidance = [];
+            if (absoluteBanScan.findings.length === 0) {
+                absoluteBanGuidance.push('ABSOLUTE BAN SCAN: 0 findings. The 6 named bans (side-stripe borders, gradient text, glassmorphism default, identical card grids, hero-metric template, modal-as-first-thought) are clean.');
+            }
+            else {
+                for (const line of (0, absolute_ban_detector_1.banFindingsToGuidance)(absoluteBanScan))
+                    absoluteBanGuidance.push(line);
+            }
             // Build linguistic-ban guidance lines from per-file reports
             const linguisticGuidance = [];
             if (linguisticScan.totalFindings.length === 0) {
@@ -198,6 +218,9 @@ class FlowJTacticalPolishHandler extends flow_handler_1.BaseFlowHandler {
                 '= 22-point Polish Standard (14 baseline + 8 proprietary)',
                 '+ 90-rule Extended Domain Validator (10 domains: 7 base + 3 new)',
                 '+ Linguistic Ban Scan (slop words + rhetorical templates)',
+                '+ Absolute Ban Detector (6 named anti-patterns)',
+                '',
+                ...absoluteBanGuidance,
                 '',
                 ...linguisticGuidance,
                 '',
@@ -260,6 +283,8 @@ class FlowJTacticalPolishHandler extends flow_handler_1.BaseFlowHandler {
                 .addMetric('pass-rate-percent', parseFloat(combinedPassRate), 'pass')
                 .addMetric('linguistic-p0-templates', linguisticP0, linguisticP0 === 0 ? 'pass' : 'fail')
                 .addMetric('linguistic-p1-slop-words', linguisticP1, linguisticP1 <= 2 ? 'pass' : 'warning')
+                .addMetric('absolute-ban-p0', banP0, banP0 === 0 ? 'pass' : 'fail')
+                .addMetric('absolute-ban-p1', banP1, banP1 === 0 ? 'pass' : 'warning')
                 .addValidation('Tactical polish checklist', 'pass', '16 principles documented')
                 .addValidation('Extended domain validation', 'pass', `${extendedReport.totalRules} rules across 10 domains`)
                 .addValidation('Linguistic ban scan', linguisticP0 === 0 ? 'pass' : 'fail', `${linguisticScan.totalFindings.length} findings across ${linguisticScan.perFile.size} files`)
@@ -268,7 +293,7 @@ class FlowJTacticalPolishHandler extends flow_handler_1.BaseFlowHandler {
                 flowId: this.flowId,
                 flowName: this.getFlowName(),
                 status: 'success',
-                message: `Tactical Polish: 112-rule matrix ${totalPassed}/${totalRules} pass. Linguistic ban: ${linguisticP0} P0 + ${linguisticP1} P1 findings across ${linguisticScan.perFile.size} files.`,
+                message: `Tactical Polish: 112-rule matrix ${totalPassed}/${totalRules} pass. Linguistic ban: ${linguisticP0} P0 + ${linguisticP1} P1. Absolute ban: ${banP0} P0 + ${banP1} P1 across ${absoluteBanScan.scannedFiles} files.`,
                 guidance,
                 checklist,
                 artifacts: [
@@ -280,8 +305,18 @@ class FlowJTacticalPolishHandler extends flow_handler_1.BaseFlowHandler {
                 memory: memoryBuilder.build(),
             };
             // Sprint 7 T6: push PolishStandard result onto result.validationResults so BuildReport picks it up.
+            // Round 2 (C4): also push linguistic-ban (Copy domain) and absolute-ban
+            // (Anti-Patterns domain) so BuildReport produces letter grades for both.
+            // Pre-wiring these results lived only in result.message; the aggregator
+            // never saw them, so BuildReport verdict came back as `(none)`.
             result.validationResults = result.validationResults || [];
             result.validationResults.push(polish_standard_validator_1.PolishStandardValidator.toValidationResult(polishReport));
+            result.validationResults.push((0, linguistic_ban_validator_1.linguisticBanToValidationResult)({
+                scanned: 0,
+                findings: linguisticScan.totalFindings,
+                summary: `Copy across ${linguisticScan.perFile.size} files: ${linguisticP0} P0 templates, ${linguisticP1} P1 slop words`,
+            }));
+            result.validationResults.push((0, absolute_ban_detector_1.absoluteBanToValidationResult)(absoluteBanScan));
             return result;
         }
         catch (err) {

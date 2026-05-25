@@ -30,6 +30,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.scanForLinguisticBans = scanForLinguisticBans;
+exports.linguisticBanToValidationResult = linguisticBanToValidationResult;
 exports.findingsToGuidance = findingsToGuidance;
 const reference_loader_1 = require("./reference-loader");
 /**
@@ -138,6 +139,45 @@ function scanForLinguisticBans(input, label) {
         scanned: prose.length,
         findings,
         summary,
+    };
+}
+/**
+ * Adapter: convert a LinguisticBanReport into the BuildReport's ValidationResult
+ * shape so the BuildReport aggregator can produce a "copy" domain letter grade.
+ * Mirrors PolishStandardValidator.toValidationResult().
+ */
+function linguisticBanToValidationResult(report) {
+    const p0 = report.findings.filter((f) => f.severity === 'P0');
+    const p1 = report.findings.filter((f) => f.severity === 'P1');
+    const status = p0.length > 0 ? 'fail' : p1.length > 0 ? 'partial' : 'pass';
+    // Synthesize per-rule pass/fail entries. Each rhetorical-template pattern
+    // and each slop-word category counts as one "rule." Pass count is total
+    // patterns checked minus distinct ones that matched.
+    const rhetoricalPatterns = (0, reference_loader_1.loadRhetoricalPatterns)();
+    const slopList = (0, reference_loader_1.loadSlopWordList)();
+    const failedRules = [];
+    const passedRules = [];
+    for (const pattern of rhetoricalPatterns) {
+        const hits = report.findings.some((f) => f.type === 'rhetorical-template' && f.patternName === pattern.name);
+        if (hits)
+            failedRules.push(`rhetorical-${pattern.name}`);
+        else
+            passedRules.push(`rhetorical-${pattern.name}`);
+    }
+    // Slop words: aggregate per word into one rule entry
+    const slopHits = new Set(report.findings.filter((f) => f.type === 'slop-word').map((f) => f.match.toLowerCase()));
+    for (const entry of slopList) {
+        if (slopHits.has(entry.toLowerCase()))
+            failedRules.push(`slop-${entry.toLowerCase().replace(/\s+/g, '-')}`);
+        else
+            passedRules.push(`slop-${entry.toLowerCase().replace(/\s+/g, '-')}`);
+    }
+    return {
+        domain: 'copy',
+        status,
+        passedRules,
+        failedRules,
+        message: report.summary,
     };
 }
 /**
