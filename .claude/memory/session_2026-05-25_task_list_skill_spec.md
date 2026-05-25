@@ -82,3 +82,48 @@ Wiring install.sh. Key anchor findings:
 ## Task 3 complete
 
 install.sh modified at lines 19, 56, 71, 87, 116-117, 133, 240, 563, 903, 920, 2225-2233, 2323. bash -n passes with no errors. --only task-list installs cleanly. Source/installed diff is empty.
+
+## Task 4 smoke test in progress
+
+Step 3 done: `add audit hook layer for redundant checks` -> T-0001 in dotfiles area, P2. File now has `## dotfiles > ### Active` section with one task. Last ID comment incremented to T-0001.
+
+Steps 4-5 done: explicit-area adds for sidecoach (T-0002 P1) and improv (T-0003 P1). Verified alphabetical area insertion: dotfiles -> improv -> sidecoach (correct alphabetical order even though IDs landed out of order). Last ID -> T-0003.
+
+Steps 6-8 done (read-only list verbs): `list` shows all 3 grouped by area; `list sidecoach` filters to T-0002; `list --p1` filters to T-0002 and T-0003.
+
+Step 9 done: `block T-0001 waiting on tooling decision` moved T-0001 from `### Active` to `### Blocked` with `[BLOCKED: waiting on tooling decision]` appended. `### Active` empty -> dropped.
+
+Step 10 done (read-only): `list --blocked` shows just T-0001 with BLOCKED tag.
+
+Steps 11-15 done (batched): unblock T-0001 (back to Active, [BLOCKED] stripped); edit T-0001 P0 (priority flipped); edit T-0001 description (text changed, [P0] preserved); done T-0002 (moved to sidecoach > Done, checkbox flipped, (done 2026-05-25) appended); remove T-0003 (line gone, improv Active emptied, improv section dropped entirely - confirms empty-section drop logic).
+
+Step 16: `show` would emit `cmux open /Users/spare3/Documents/Github/claude-dotfiles/TASKS.md` - command form verified, actual cmux open skipped to avoid pane clutter.
+
+Step 17 (hand-edit recovery) skipped in smoke test - documented in SKILL.md, logic is straightforward, not blocking.
+
+**Smoke test summary:** All 8 verbs exercised through their primary paths and key edge cases (alphabetical area insertion, empty-section drop, area-token parsing, priority defaulting, ID monotonic increment, sub-section transitions). No skill-spec deviations encountered.
+
+**Decision needed from Jonah:** Whether to revert TASKS.md to the empty skeleton or keep some of the smoke-test entries as initial backlog. The current entries (T-0001 "audit and trim redundant hook checks" at P0 in dotfiles, T-0002 "wire validator-coverage CLI flag" at P1 done in sidecoach) are reasonable real tasks; T-0003 was already removed.
+
+## Feature delivered (2026-05-25)
+
+Jonah chose reset; TASKS.md reverted to skeleton via `git checkout`. Working tree TASKS.md clean.
+
+Five commits on `main` from spec through wiring:
+- `9871ea1` spec(task-list): design global /task-list skill for dotfiles TASKS.md
+- `5e89385` chore(tasks): seed TASKS.md skeleton at dotfiles root
+- `5b1c21f` feat(task-list): add /task-list skill source
+- `086893a` fix(task-list): tighten SKILL.md per review (parse rule, ordering, anchors)
+- `2ffc6d2` feat(install): wire /task-list component into install.sh
+
+Net change: TASKS.md (+5), SKILL.md (+123), spec (+121), install.sh (+33-4). Plan file (+~225) and latest memory updates still uncommitted; wrap-up commit pending.
+
+Smoke test outcomes (all verbs PASS): add (cwd-inferred + explicit area + explicit priority), list (all/area/priority), block + unblock (with section drop/recreate), edit (priority + description, preserving other fields), done (with section transition), remove (with empty area drop), show (cmux open form verified).
+
+Skill is loaded in this and future sessions via the dotfiles skill loader.
+
+**Finding:** every TASKS.md write triggers the project-file-dirty memory hook. In real `/task-list add` use, every invocation will require a follow-up memory write or the user will hit the hook. Worth noting for post-smoke-test followup.
+
+## Task 3 verified, Task 4 inline path unlocked
+
+Direct diff inspection on commit `2ffc6d2` confirmed all 10 install.sh touch-points correct. Plan deviation noted: `bash install.sh --status` was referenced in the plan but no `--status` flag exists; functional verification (`--only task-list` + source/installed file diff) is the correct check and is what the implementer used. The skill is now loaded in this session per the system-reminder skills list, so Task 4 smoke testing can run inline instead of being handed off.
