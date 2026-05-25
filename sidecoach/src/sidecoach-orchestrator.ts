@@ -902,12 +902,22 @@ export class FlowExecutionEngine {
       }
 
       // Route to command's flow chain
+      // Sprint 10 Bug 1: ensure projectContext is populated for flows that need it
+      let projectContextForChain: any = (context as any).projectContext;
+      if (!projectContextForChain) {
+        try {
+          projectContextForChain = buildProjectContext(context.projectPath || process.cwd());
+        } catch (err) {
+          // Soft-fail - flows that need projectContext will report missing
+        }
+      }
       const executionContext: FlowExecutionContext = {
         utterance,
         userId: context.userId,
         projectPath: context.projectPath || process.cwd(),
         currentFile: context.currentFile,
         selectedText: context.selectedText,
+        projectContext: projectContextForChain,
         metadata: { ...context.metadata, commandTarget: commandMatch.target },
       };
       const flowResults: FlowExecutionResult[] = [];
