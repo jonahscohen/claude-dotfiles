@@ -37,7 +37,6 @@
     ],
     "defaultMode": "bypassPermissions"
   },
-  "model": "claude-opus-4-6[1m]",
   "hooks": {
     "PreToolUse": [
       {
@@ -46,6 +45,26 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/bash-guard.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__voice-output__speak",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/voice-gate.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__claude-in-chrome__javascript_tool",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/validation-guard.sh",
             "timeout": 5
           }
         ]
@@ -74,6 +93,20 @@
             "command": "SESSION_CWD=\"$(pwd)\" ~/.claude/startup-check.sh",
             "timeout": 10,
             "statusMessage": "Loading memory..."
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/voice-mandate.sh",
+            "timeout": 5,
+            "statusMessage": "Checking voice output..."
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/sidecoach-sessionstart.sh"
           }
         ]
       },
@@ -108,6 +141,134 @@
             "command": "SESSION_CWD=\"$(pwd)\" ~/.claude/startup-check.sh",
             "timeout": 10,
             "statusMessage": "Reloading memory after compaction..."
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/voice-mandate.sh",
+            "timeout": 5,
+            "statusMessage": "Checking voice output..."
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/resume-toggle.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/voice-toggle.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/verify-manual.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/multiple-choice-inject-prompt.sh",
+            "timeout": 5,
+            "statusMessage": "Checking for multiple-choice violations..."
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/sidecoach-postuserp.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/memory-nudge.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/verify-before-done.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/second-fix-gate.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__claude-in-chrome__javascript_tool|mcp__claude-in-chrome__read_page|mcp__claude-in-chrome__get_page_text|mcp__claude-in-chrome__navigate|mcp__claude-in-chrome__get_screenshot",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/verify-clear.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|mcp__claude-in-chrome__computer",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/screenshot-open-mandate.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/screenshot-open-clear.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/verify-before-done.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/sidecoach-postresponse.sh"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/multiple-choice-detect-stop.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/resume-guard.sh",
+            "timeout": 5
           }
         ]
       }
@@ -160,5 +321,6 @@
   },
   "alwaysThinkingEnabled": true,
   "skipDangerousModePermissionPrompt": true,
-  "verbose": true
+  "verbose": true,
+  "model": "claude-opus-4-7[1m]"
 }
