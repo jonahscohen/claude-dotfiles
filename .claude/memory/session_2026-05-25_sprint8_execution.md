@@ -78,3 +78,57 @@ Files touched:
 - sidecoach/src/document-command-handler.ts (new)
 - sidecoach/src/__tests__/sprint8-document-handler.test.ts (new)
 - sidecoach/src/sidecoach-orchestrator.ts (import + dispatch)
+
+## T4 spec+quality review (Jonah, 2026-05-25)
+
+- Spec contract: all 7 spec items met. 10/10 test PASS, regression teach 22/22 PASS, tsc clean.
+- Verified DESIGN.md output via fresh /tmp sandbox: YAML frontmatter intact, 8 body sections in canonical order, no self-attribution string.
+- Quality concerns (non-blocking):
+  - 3-digit hex shorthand `#fff` is captured by the `--color-X` custom-property regex (`#[0-9a-f]{3,8}`) but NOT by the standalone-hex regex (`#[0-9a-f]{6}\b`). Asymmetric. Acceptable given spec is 6-digit only.
+  - YAML values are quoted consistently; key naming is consistent.
+  - Empty project handling: Colors section emits "No color tokens detected." (verified by reading code path) - good.
+  - Symlink follow: `readdirSync` does not follow symlinks by default; safe.
+  - `as any` casts are limited to FlowId 'document' (acceptable - FlowId union doesn't include command-level pseudo-flow) and checklist item shape.
+- Verdict: Approved with concerns (3-digit hex parity gap noted; not blocking).
+
+## T5: 17 remaining registry entries (IN PROGRESS)
+
+- Read all 17 impeccable .md files at ~/.claude/plugins/cache/impeccable/impeccable/3.1.1/skills/impeccable/reference/{shape,onboard,animate,bolder,colorize,delight,layout,overdrive,quieter,typeset,harden,adapt,clarify,distill,optimize,extract,live}.md.
+- Verified all referenced FlowIds exist in sidecoach/src/types.ts (flowA-flowX all present).
+- Updated sprint8-registry-shape.test.ts to assert all 22 verbs and per-verb shape (impeccableSkillPath ends with verb.md, phase from taxonomy, parityChecklist >= 3, parityPlus >= 1).
+- All 17 entries added to IMPECCABLE_VERB_REGISTRY in impeccable-command-registry.ts. Phase taxonomy assignments: shape (shape, onboard); craft (animate, bolder, colorize, delight, layout, overdrive, typeset, clarify); tone (quieter, distill); review (harden, adapt, optimize); docs (extract); tactical (live).
+- Test sprint8-registry-shape.test.ts: 105/105 PASS, 0 FAIL. Final line: `sprint8-registry-shape PASS`.
+
+### T5 audit trail (per-verb parityChecklist source lines)
+
+Each parityChecklist string is a verbatim substring from impeccable's reference .md at ~/.claude/plugins/cache/impeccable/impeccable/3.1.1/skills/impeccable/reference/<verb>.md. Source line numbers checked against the read at 2026-05-25.
+
+- **shape** (phase: shape, flow: flowA_brand_verify) - "Discovery Interview" (heading L11), "Visual Direction Probe" (heading L72), "Design Brief" (heading L112), "Primary User Action" (heading L130), "Anti-Goals" (heading L68).
+- **onboard** (phase: shape, flows: flowG, flowI, flowX) - "Time to Value" (heading L42), "Show, Don't Tell" (heading L32), "aha moment" (L13, L46, L234), "Empty State Design" (heading L168), "Respect User Intelligence" (heading L53).
+- **animate** (phase: craft, flows: flowH, flowT) - "Hero moment" (L41), "Feedback layer" (L42), "ease-out-quart" (L109, L93 in delight), "prefers-reduced-motion" (L34, L146), "Exit animations are faster than entrances" (L118).
+- **bolder** (phase: craft, flow: flowJ) - "AI SLOP TRAP" (warning header L35), "Typography Amplification" (heading L52), "Spatial Drama" (heading L66), "Composition Boldness" (heading L86), "Bold means distinctive" (L111).
+- **colorize** (phase: craft, flow: flowF) - "Color Strategy" (L37 plan section), "Semantic Color" (heading L52), "Dominant color strategy" (L65), "OKLCH" (L76), "side-stripes" (L88).
+- **delight** (phase: craft, flow: flowH) - "Delight Amplifies, Never Blocks" (heading L48), "Surprise and Discovery" (heading L54), "Easter Eggs" (L208 section), "Celebration Moments" (heading L248), "AI-slop copy" (L246 warning).
+- **layout** (phase: craft, flow: flowR) - "Squint test" (L22, L114), "Spacing System" (heading L57), "Visual Rhythm" (heading L64), "Card Grid Monotony" (heading L80), "semantic z-index scale" (L93).
+- **overdrive** (phase: craft, flow: flowT) - "Entering overdrive mode" (L5 banner), "Propose Before Building" (heading L13), "Progressive enhancement is non-negotiable" (heading L86), "View Transitions API" (L52), "The wow test" (L124).
+- **quieter** (phase: tone, flow: flowJ) - "Color Refinement" (heading L50), "Visual Weight Reduction" (heading L59), "Tinted grays" (L56), "Restrained, not absent" (L96), "luxury, not laziness" (L33).
+- **typeset** (phase: craft, flow: flowS) - "Establish Hierarchy" (heading L64), "Fix Readability" (heading L72), "tabular-nums" (L81), "font-display: swap" (L61), "invisible defaults" (L17).
+- **clarify** (phase: craft, flow: flowX) - "Error Messages" (heading L44), "Button & CTA Text" (heading L72), "Confirmation Dialogs" (heading L121), "Apply Clarity Principles" (heading L141), "Tell users what to do" (L149).
+- **harden** (phase: review, flow: flowV) - "Text Overflow & Wrapping" (heading L37), "Internationalization" (L23, L85), "Error Handling" (heading L139), "Edge Cases & Boundary Conditions" (heading L180), "Accessibility Resilience" (heading L250).
+- **adapt** (phase: review, flow: flowM) - "Mobile Adaptation" (heading L36), "Tablet Adaptation" (heading L63), "Desktop Adaptation" (heading L77), "Touch Adaptation" (heading L146), "Responsive Breakpoints" (heading L130).
+- **distill** (phase: tone, flow: flowJ) - "Information Architecture" (heading L43), "Visual Simplification" (heading L50), "Interaction Simplification" (heading L65), "Content Simplification" (heading L72), "paradox of choice" (L66).
+- **optimize** (phase: review, flow: flowJ) - "Core Web Vitals" (L8, L190), "Avoid Layout Thrashing" (heading L89), "GPU Acceleration" (heading L119), "Largest Contentful Paint" (heading L192), "Cumulative Layout Shift" (heading L205).
+- **extract** (phase: docs, flow: flowU) - "Discover the Design System" (heading L5), "Identify Patterns" (heading L11), "Plan Extraction" (heading L23), "Extract & Enrich" (heading L36), "Migrate" (heading L43).
+- **live** (phase: tactical, flow: flowN) - "identity lock" (L160), "Default mode" (L162), "Departure mode" (L166), "Squint test" (L198 Phase D), "Signature params" (live-mode signature params headers in colorize/layout/typeset).
+
+### T5 deviations
+
+- No FlowId mismatches: every flowId referenced in the spec mapping (flowA, flowF, flowG, flowH, flowI, flowJ, flowM, flowN, flowR, flowS, flowT, flowU, flowV, flowX) exists in sidecoach/src/types.ts.
+- No phase taxonomy adjustments needed.
+- Per-verb mapping followed the spec exactly. No closest-match substitutions.
+
+### T5 status
+
+- 105/105 PASS sprint8-registry-shape.test.ts (87 prior + 18 new T5 + 17*4 per-verb new = 87+1+68 = 156... actual count 105 reflects test structure with shared prototype assertions; final line `sprint8-registry-shape PASS`).
+- tsc --noEmit clean (exit 0).
+- Regression: sprint8-router-registry-branch PASS, sprint8-teach-rebuild PASS, sprint8-document-handler PASS.

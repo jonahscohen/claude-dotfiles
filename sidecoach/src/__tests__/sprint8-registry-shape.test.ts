@@ -21,6 +21,20 @@ async function run() {
 
   checks.push(['T1.3: unknown verb returns undefined', getImpeccableEntry('does_not_exist') === undefined]);
 
+  // T5: assert all 22 verbs are present (17 new + 5 prototype)
+  const all22 = ['craft', 'shape', 'onboard', 'animate', 'bolder', 'colorize', 'delight', 'layout', 'overdrive', 'quieter', 'typeset', 'clarify', 'audit', 'critique', 'polish', 'harden', 'adapt', 'distill', 'optimize', 'document', 'extract', 'live'];
+  checks.push([`T5: registry has all 22 verbs`, all22.every(v => verbs.includes(v)) && verbs.length === 22]);
+
+  // T5: assert shape for each new verb
+  const newVerbs = ['shape', 'onboard', 'animate', 'bolder', 'colorize', 'delight', 'layout', 'overdrive', 'quieter', 'typeset', 'clarify', 'harden', 'adapt', 'distill', 'optimize', 'extract', 'live'];
+  for (const v of newVerbs) {
+    const entry = getImpeccableEntry(v);
+    checks.push([`T5: ${v} has impeccableSkillPath`, !!entry && typeof entry.impeccableSkillPath === 'string' && entry.impeccableSkillPath.endsWith(`${v}.md`)]);
+    checks.push([`T5: ${v} has phase`, !!entry && ['shape','craft','review','tone','docs','tactical'].includes(entry.phase)]);
+    checks.push([`T5: ${v} has parityChecklist length >= 3`, !!entry && entry.parityChecklist.length >= 3]);
+    checks.push([`T5: ${v} has parityPlus length >= 1`, !!entry && entry.parityPlus.length >= 1]);
+  }
+
   let allPass = true;
   for (const [label, ok] of checks) {
     console.log(ok ? `PASS ${label}` : `FAIL ${label}`);
