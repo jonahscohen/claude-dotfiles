@@ -25,7 +25,7 @@ Do not pick up `TASKS.md` files in other repos. If the dotfiles file does not ex
 
 ### `add` - `/task-list add [area] [P#] <description>`
 
-1. **Determine area.** If the user passed an area arg, use it. Otherwise infer from cwd:
+1. **Determine area.** Parse the first whitespace-delimited token as `[area]` only if it matches a known area name (`sidecoach`, `improv`, `marketing-site`, `test-site-1`, `dotfiles`) or matches an existing `## <name>` section in the file. Otherwise the whole arg string is the description and area is inferred from cwd:
    - cwd path contains `/sidecoach` -> `sidecoach`
    - cwd path contains `/improv` -> `improv`
    - cwd path contains `/marketing-site` -> `marketing-site`
@@ -35,7 +35,7 @@ Do not pick up `TASKS.md` files in other repos. If the dotfiles file does not ex
 3. **Determine priority.** If the user passed `[P0]`, `[P1]`, `[P2]`, or `[P3]`, use it. Default `P2`.
 4. **Read** the target file.
 5. **Get next ID.** Find `<!-- Last ID: T-NNNN -->`. Increment to `T-(NNNN+1)`, zero-padded to 4 digits.
-6. **Locate or create** the area's `## <area>` section, alphabetically ordered against existing areas. Within it, locate or create `### Active`.
+6. **Locate or create** the area's `## <area>` section, alphabetically ordered against existing areas. Within it, locate or create `### Active`. The `<!-- Last ID: T-NNNN -->` comment always lives at the top of the file (in the introductory header/comments block), regardless of which area sections exist.
 7. **Append the task line** at the end of `### Active`:
    ```
    - [ ] T-NNNN [P#] YYYY-MM-DD <description>
@@ -55,18 +55,18 @@ Do not pick up `TASKS.md` files in other repos. If the dotfiles file does not ex
 
 ### `done` - `/task-list done T-NNNN`
 
-1. Find the line containing ` T-NNNN ` (with surrounding spaces, anchored).
+1. Find the line whose third whitespace-delimited token equals `T-NNNN` (the ID position in the schema).
 2. **Not found:** error with `T-NNNN not found. Closest IDs: <up-to-3 nearest used IDs>.`
 3. Flip the checkbox: `- [ ]` -> `- [x]`.
 4. Append ` (done YYYY-MM-DD)` if not already present.
-5. Move the line to the area's `### Done` sub-section (create it if missing, immediately after `### Active` / `### Blocked`).
+5. Move the line to the area's `### Done` sub-section (create it if missing, as the last sub-section within the area - after `### Blocked` if present, otherwise after `### Active`).
 6. If the source sub-section is now empty, drop the header.
 
 ### `edit` - `/task-list edit T-NNNN [P#] [<new description>]`
 
 1. Find the line. Not found -> same error as `done`.
 2. If the args include `[P#]`, replace the priority tag.
-3. If the args include a description string, replace the description (everything after the created date, up to but not including trailing tags like `[sprint-NN]`, `[BLOCKED: ...]`, or `(done ...)`).
+3. If the args include a description string, replace the description (everything after the created date, up to but not including trailing tags like `[sprint-NN]`, `[BLOCKED: ...]`, or `(done ...)`). If no trailing tags are present, the description runs to end-of-line.
 4. Preserve checkbox, ID, created date, and all trailing tags.
 
 ### `remove` - `/task-list remove T-NNNN`

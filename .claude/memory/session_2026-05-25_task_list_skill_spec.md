@@ -55,3 +55,13 @@ TASKS.md skeleton seeded at repo root (Last ID: T-0000).
 ## Task 2 complete
 
 SKILL.md written at claude/skills/task-list/SKILL.md (123 lines). Verification passed: correct head/tail, line count >100, zero emdashes, no self-attribution. Ready for commit.
+
+## Task 2 review fixes
+
+- Fix 1 (Important): `add` step 1 - added parsing rule for `[area]` token matching before cwd inference bullets.
+- Fix 2 (Important): `add` step 6 - clarified `<!-- Last ID: T-NNNN -->` comment always lives at top of file.
+- Fix 3 (Important): `done` step 5 - replaced vague parenthetical with explicit sub-section ordering rule.
+- Fix 4 (Nit): `done` step 1 - replaced surrouding-spaces anchor with "third whitespace-delimited token" phrasing.
+- Fix 5 (Nit): `edit` step 3 - appended fallback "runs to end-of-line" when no trailing tags present.
+
+All 5 fixes applied and verified. Committed as part of "fix(task-list): tighten SKILL.md per review".
