@@ -29,3 +29,24 @@ Human collaborator: Jonah.
 Files touched (so far):
 - `sidecoach/src/__tests__/sprint10-context-propagation.test.ts` (new)
 - `sidecoach/src/sidecoach-orchestrator.ts` (chain executor projectContext propagation)
+
+## T2: canExecute=false records skipped (DONE)
+
+**Bug:** Chain executor's `if (handler.canExecute(enrichedCtx))` block (around line 968) had no else branch. Flows that returned `canExecute=false` silently dropped from flowResults entirely. Contributed to flowH/flowI absence in Sprint 9 dogfood results.
+
+**Status:** DONE - 3/3 PASS, tsc clean, regression triad (sprint10-context-propagation 2/2, sprint9-chain-continues-past-errors 5/5, sprint8-impeccable-parity 197/197) all pass.
+
+**Why:** When a chain handler's `canExecute()` returns false, the result must be observable in flowResults so callers/dogfood can tell a flow ran-but-was-skipped vs. never-considered. Silent drops were misread as missing wiring during Sprint 9 dogfood.
+
+**How:** Added an `else` branch after the existing `if (handler.canExecute(enrichedCtx))` block in `sidecoach-orchestrator.ts`. The else branch pushes `{ flowId, flowName: flowId, status: 'skipped', message, guidance: [], checklist: [] }` to `flowResults`. The else sits inside the existing `try { ... } catch` (Sprint 9 T3) so the loop continues regardless.
+
+**TDD trace:**
+1. Wrote `sprint10-canexecute-records-skip.test.ts` per plan - monkey-patches flowG `canExecute` to return false during `/sidecoach craft`, asserts flowG appears in flowResults with `status='skipped'` and an actionable message.
+2. Confirmed FAIL - 3/3 checks failed (flowG absent, no skipped status, no message).
+3. Added else branch.
+4. Re-ran: 3/3 PASS.
+5. tsc clean. Regression triad all pass; parity still 197/197.
+
+Files touched:
+- `sidecoach/src/__tests__/sprint10-canexecute-records-skip.test.ts` (new)
+- `sidecoach/src/sidecoach-orchestrator.ts` (else branch added)

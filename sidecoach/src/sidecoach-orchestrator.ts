@@ -1005,6 +1005,18 @@ export class FlowExecutionEngine {
                 confidence: 1.0
               };
             }
+          } else {
+            // Sprint 10 T2: record canExecute=false as 'skipped' so flows don't
+            // silently drop from chain results. Dogfood showed flowH/flowI
+            // absent from craft chain when canExecute returned false.
+            flowResults.push({
+              flowId,
+              flowName: flowId,
+              status: 'skipped',
+              message: `Skipped: ${flowId} prerequisites not met (canExecute returned false)`,
+              guidance: [],
+              checklist: [],
+            } as any);
           }
         } catch (err) {
           // Sprint 9 T3: continue past errors so downstream flows still attempt.
