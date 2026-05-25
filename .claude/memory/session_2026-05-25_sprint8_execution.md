@@ -31,3 +31,14 @@ Files touched:
 - .claude/memory/session_2026-05-25_sprint8_execution.md (new)
 
 Cleared `~/.claude/.needs-verification` flag pre-commit.
+
+## T2: Slash-router registry branch (DONE)
+
+- Added import for getImpeccableEntry from impeccable-command-registry at the top of slash-command-router.ts.
+- Inserted new branch in parseSlashCommand AFTER the composite block and BEFORE the SLASH_COMMANDS lookup. Branch returns CommandMatch with command/flowIds from the registry + reason mentioning "impeccable-parity".
+- craft now routes via the registry (impeccable-parity wins over the existing phase entry).
+- Phase commands like research and list still work (regression assertion).
+- Composite colon-form still works (sprint7 regression assertion).
+- Unknown verbs still fall through to isCommand=false.
+- Test sprint8-router-registry-branch.test.ts asserts 5 verb routes + 3 regression cases + 1 unknown case.
+- All assertions PASS. tsc clean.

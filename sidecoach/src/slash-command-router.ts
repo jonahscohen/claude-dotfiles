@@ -2,6 +2,7 @@
 // Maps user commands directly to flows, bypassing intent detection
 
 import { FlowId } from './types';
+import { getImpeccableEntry } from './impeccable-command-registry';
 
 export interface CommandMatch {
   isCommand: boolean;
@@ -67,6 +68,18 @@ export function parseSlashCommand(utterance: string): CommandMatch {
       flowIds: [],
       target,
       reason: target ? `Routed to composite flow: ${target}` : 'Composite flow command (no target specified)',
+    };
+  }
+
+  // Sprint 8: impeccable verb-based commands (parallel to phase-based SLASH_COMMANDS)
+  const impeccableEntry = getImpeccableEntry(command);
+  if (impeccableEntry) {
+    return {
+      isCommand: true,
+      command,
+      flowIds: impeccableEntry.flowIds,
+      target,
+      reason: `Routed to ${command} (impeccable-parity) - ${impeccableEntry.description}`,
     };
   }
 
