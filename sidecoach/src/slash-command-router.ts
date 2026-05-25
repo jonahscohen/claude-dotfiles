@@ -33,7 +33,8 @@ export function parseSlashCommand(utterance: string): CommandMatch {
   const trimmed = utterance.trim();
 
   // Check if starts with /sidecoach or just /
-  const match = trimmed.match(/^\/(?:sidecoach\s+)?(\w+)(?:\s+(.*))?$/i);
+  // Supports both /sidecoach command:target and /sidecoach command target
+  const match = trimmed.match(/^\/(?:sidecoach\s+)?(\w+)(?::([\w-]+)|\s+(.*))?$/i);
 
   if (!match) {
     return {
@@ -44,7 +45,9 @@ export function parseSlashCommand(utterance: string): CommandMatch {
   }
 
   const command = match[1].toLowerCase();
-  const target = match[2]?.trim() || '';
+  const colonTarget = match[2]?.trim() || '';
+  const spaceTarget = match[3]?.trim() || '';
+  const target = colonTarget || spaceTarget;
 
   if (command === 'list') {
     return {
@@ -56,14 +59,14 @@ export function parseSlashCommand(utterance: string): CommandMatch {
     };
   }
 
-  // Support composite flow commands: /sidecoach composite:composite_research_to_impl
-  if (command === 'composite' && target) {
+  // Support composite flow commands: /sidecoach composite:composite_research_to_impl or /sidecoach composite composite_research_to_impl
+  if (command === 'composite') {
     return {
       isCommand: true,
       command: 'composite',
       flowIds: [],
       target,
-      reason: `Routed to composite flow: ${target}`,
+      reason: target ? `Routed to composite flow: ${target}` : 'Composite flow command (no target specified)',
     };
   }
 
