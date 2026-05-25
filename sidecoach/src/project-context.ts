@@ -131,39 +131,89 @@ export class ContextLoader {
     const lines = content.split('\n');
     const result: Record<string, any> = {};
 
-    // Look for YAML-style frontmatter or structured markdown sections
-    // Very basic parsing - just extract key: value lines and section headings
+    // Existing pass: collect section headers + key:value pairs
     let currentSection = '';
     let inCode = false;
+    const sectionBodies: Record<string, string[]> = {};
 
     for (const line of lines) {
       if (line.trim().startsWith('```')) {
         inCode = !inCode;
         continue;
       }
-
       if (inCode) continue;
-
-      // Extract frontmatter (YAML between ---)
       if (line.trim().startsWith('---')) continue;
 
-      // Extract section headers
       if (line.startsWith('#')) {
         currentSection = line.replace(/^#+\s*/, '').toLowerCase().replace(/\s+/g, '_');
         result[currentSection] = [];
+        sectionBodies[currentSection] = [];
         continue;
       }
 
-      // Extract key: value pairs
+      if (currentSection) {
+        sectionBodies[currentSection].push(line);
+      }
+
       if (line.includes(':')) {
         const [key, value] = line.split(':', 2).map((s) => s.trim());
         if (key && value && !line.startsWith('|')) {
-          // Avoid table syntax
           result[key.toLowerCase().replace(/\s+/g, '_')] = value;
           if (currentSection && Array.isArray(result[currentSection])) {
             result[currentSection].push({ [key]: value });
           }
         }
+      }
+    }
+
+    // Sprint 9 Bug 1: teach v2 section-header recognition
+    // The ## Register section body contains **Brand** or **Product** as a bold marker.
+    const registerBody = (sectionBodies['register'] || []).join('\n');
+    if (/\*\*Brand\*\*/i.test(registerBody)) {
+      result.register = 'brand';
+    } else if (/\*\*Product\*\*/i.test(registerBody)) {
+      result.register = 'product';
+    }
+
+    // ## Primary Users section body -> users field
+    if (sectionBodies['primary_users']) {
+      const usersText = sectionBodies['primary_users']
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (usersText && !result.users) {
+        result.users = usersText;
+      }
+    }
+
+    // ## Brand Personality section body -> brandPersonality field
+    if (sectionBodies['brand_personality']) {
+      const personalityText = sectionBodies['brand_personality']
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (personalityText && !result.brandpersonality) {
+        result.brandpersonality = personalityText;
+      }
+    }
+
+    // ## Anti-References section body -> antireferences array (bullets)
+    if (sectionBodies['anti-references']) {
+      const bullets = sectionBodies['anti-references']
+        .filter((l) => l.trim().startsWith('- '))
+        .map((l) => l.trim().replace(/^- /, ''));
+      if (bullets.length > 0) {
+        result.antireferences = bullets;
+      }
+    }
+
+    // ## Strategic Principles section body -> strategicprinciples array (bullets)
+    if (sectionBodies['strategic_principles']) {
+      const bullets = sectionBodies['strategic_principles']
+        .filter((l) => l.trim().startsWith('- '))
+        .map((l) => l.trim().replace(/^- /, ''));
+      if (bullets.length > 0) {
+        result.strategicprinciples = bullets;
       }
     }
 
