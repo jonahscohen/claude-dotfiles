@@ -40,3 +40,13 @@ After Sprint 8 closed (impeccable parity + brief-driven teach), retried the mark
 ## Next
 
 Spec self-review, then user reviews, then writing-plans.
+
+## Plan written (2026-05-25)
+
+User said "Proceed please. We're going on day 3." Skipped the spec-review-gate; invoked writing-plans directly. Plan saved to `docs/superpowers/plans/2026-05-25-sprint9-dogfood-bug-fixes.md`.
+
+4 tasks: T1 PRODUCT.md parser (extends parseMarkdownFrontmatter with section-body post-pass for teach v2 format), T2 designTokens auto-load (calls buildProjectContext at top of process(), guards on caller-pre-stage), T3 chain continue-past-errors (try/catch each flow, push error-status results, continue loop, top-level success = some succeeded), T4 re-dogfood + sprint close.
+
+Each task uses the four-bash-call commit pattern. Verified code locations: parseMarkdownFrontmatter at src/project-context.ts:130-170, buildProjectContext at src/context-loader.ts:139-165, chain executor loop at src/sidecoach-orchestrator.ts:905+.
+
+Ready for subagent-driven execution with Opus.
