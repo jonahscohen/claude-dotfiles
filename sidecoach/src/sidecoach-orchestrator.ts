@@ -351,6 +351,17 @@ export class FlowExecutionEngine {
             }
           }
 
+          // Sprint 7 T6: ClaudemdMandate validation -> push ValidationResult so BuildReport picks it up.
+          if (result.status === 'success') {
+            try {
+              const mandateReport = ClaudemdMandateValidator.validateOutput(result, executionContext);
+              result.validationResults = result.validationResults || [];
+              result.validationResults.push(ClaudemdMandateValidator.toValidationResult(mandateReport));
+            } catch (err) {
+              process.stderr.write(`[sidecoach] ClaudemdMandate validation failed at step ${stepIndex} (continuing): ${(err as Error).message}\n`);
+            }
+          }
+
           // Apply context transformation if defined
           if (step.transformContext) {
             Object.assign(executionContext, step.transformContext(executionContext, result));
@@ -856,6 +867,17 @@ export class FlowExecutionEngine {
             executionDuration: this.contextManager.getExecutionDuration(flowId),
           };
 
+          // Sprint 7 T6: ClaudemdMandate validation for single-flow execution path.
+          if (result.status === 'success') {
+            try {
+              const mandateReport = ClaudemdMandateValidator.validateOutput(result, executionContext);
+              result.validationResults = result.validationResults || [];
+              result.validationResults.push(ClaudemdMandateValidator.toValidationResult(mandateReport));
+            } catch (err) {
+              process.stderr.write(`[sidecoach] ClaudemdMandate validation failed (continuing): ${(err as Error).message}\n`);
+            }
+          }
+
           this.runTasteValidationGate(flowId, executionContext, result);
           this.recordFlowWithMemory(result);
           flowResults.push(result);
@@ -1234,6 +1256,17 @@ export class FlowExecutionEngine {
           // Guidance/checklist drops: warn but continue
           const warningMessages = warningRegressions.map((w) => w.message).join('; ');
           result.message = `${result.message}\n\n⚠️ Warning: ${warningMessages}`;
+        }
+      }
+
+      // Sprint 7 T6: ClaudemdMandate validation for single-flow chain path.
+      if (result.status === 'success') {
+        try {
+          const mandateReport = ClaudemdMandateValidator.validateOutput(result, executionContext);
+          result.validationResults = result.validationResults || [];
+          result.validationResults.push(ClaudemdMandateValidator.toValidationResult(mandateReport));
+        } catch (err) {
+          process.stderr.write(`[sidecoach] ClaudemdMandate validation failed (continuing): ${(err as Error).message}\n`);
         }
       }
 

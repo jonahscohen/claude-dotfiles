@@ -97,41 +97,63 @@ function statusToSeverity(status: 'pass' | 'warning' | 'fail'): 'blocking' | 'wa
 function findingsFromResult(result: FlowExecutionResult): FindingEntry[] {
   const findings: FindingEntry[] = [];
   const memory = result.memory as FlowMemoryEntry | undefined;
-  if (!memory) return findings;
 
-  for (const v of memory.validationResults || []) {
-    const sev = statusToSeverity(v.result);
-    if (!sev) continue;
-    findings.push({
-      severity: sev,
-      source: result.flowId,
-      flowId: result.flowId,
-      rule: v.check,
-      message: v.details || v.check,
-    });
+  if (memory) {
+    for (const v of memory.validationResults || []) {
+      const sev = statusToSeverity(v.result);
+      if (!sev) continue;
+      findings.push({
+        severity: sev,
+        source: result.flowId,
+        flowId: result.flowId,
+        rule: v.check,
+        message: v.details || v.check,
+      });
+    }
+
+    for (const m of memory.metrics || []) {
+      const sev = statusToSeverity(m.status);
+      if (!sev) continue;
+      findings.push({
+        severity: sev,
+        source: result.flowId,
+        flowId: result.flowId,
+        rule: m.name,
+        message: `${m.name} = ${m.value}${m.target !== undefined ? ` (target ${m.target})` : ''}`,
+      });
+    }
+
+    for (const g of memory.gates || []) {
+      if (g.passed) continue;
+      findings.push({
+        severity: g.required ? 'blocking' : 'warning',
+        source: result.flowId,
+        flowId: result.flowId,
+        rule: `gate:${g.name}`,
+        message: g.error || `Gate "${g.name}" not passed`,
+      });
+    }
   }
 
-  for (const m of memory.metrics || []) {
-    const sev = statusToSeverity(m.status);
-    if (!sev) continue;
-    findings.push({
-      severity: sev,
-      source: result.flowId,
-      flowId: result.flowId,
-      rule: m.name,
-      message: `${m.name} = ${m.value}${m.target !== undefined ? ` (target ${m.target})` : ''}`,
-    });
-  }
-
-  for (const g of memory.gates || []) {
-    if (g.passed) continue;
-    findings.push({
-      severity: g.required ? 'blocking' : 'warning',
-      source: result.flowId,
-      flowId: result.flowId,
-      rule: `gate:${g.name}`,
-      message: g.error || `Gate "${g.name}" not passed`,
-    });
+  // Sprint 7 T6: also read result.validationResults (flow-composition ValidationResult shape).
+  // These come from ClaudemdMandate / PolishStandard / Taste validators pushed by the orchestrator.
+  const vrs = (result as any).validationResults as Array<{ domain: string; status: string; passedRules: string[]; failedRules: string[]; message: string }> | undefined;
+  if (Array.isArray(vrs)) {
+    for (const vr of vrs) {
+      // Skip pass results - only emit findings for fail/partial.
+      if (vr.status === 'pass') continue;
+      const sev: 'blocking' | 'warning' | 'info' = vr.status === 'fail' ? 'blocking' : 'warning';
+      const rules = vr.failedRules && vr.failedRules.length > 0 ? vr.failedRules : ['(unspecified)'];
+      for (const rule of rules) {
+        findings.push({
+          severity: sev,
+          source: result.flowId,
+          flowId: result.flowId,
+          rule: `${vr.domain}:${rule}`,
+          message: vr.message || rule,
+        });
+      }
+    }
   }
 
   return findings;
@@ -145,20 +167,44 @@ function domainGradesFromResults(
 
   for (const result of results) {
     const memory = result.memory as FlowMemoryEntry | undefined;
-    if (!memory) continue;
-    for (const m of memory.metrics || []) {
-      const dotIdx = String(m.name).indexOf('.');
-      if (dotIdx < 0) continue;
-      const domain = String(m.name).substring(0, dotIdx);
-      const value = typeof m.value === 'number' ? m.value : Number(m.value);
-      if (!Number.isFinite(value)) continue;
-      const passed = m.status === 'pass' ? 1 : 0;
-      const existing = byDomain.get(domain) || { passSum: 0, count: 0, rulesPassed: 0, rulesTotal: 0 };
-      existing.passSum += value;
-      existing.count += 1;
-      existing.rulesPassed += passed;
-      existing.rulesTotal += 1;
-      byDomain.set(domain, existing);
+    if (memory) {
+      for (const m of memory.metrics || []) {
+        const dotIdx = String(m.name).indexOf('.');
+        if (dotIdx < 0) continue;
+        const domain = String(m.name).substring(0, dotIdx);
+        const value = typeof m.value === 'number' ? m.value : Number(m.value);
+        if (!Number.isFinite(value)) continue;
+        const passed = m.status === 'pass' ? 1 : 0;
+        const existing = byDomain.get(domain) || { passSum: 0, count: 0, rulesPassed: 0, rulesTotal: 0 };
+        existing.passSum += value;
+        existing.count += 1;
+        existing.rulesPassed += passed;
+        existing.rulesTotal += 1;
+        byDomain.set(domain, existing);
+      }
+    }
+
+    // Sprint 7 T6: roll up flow-composition ValidationResult entries into domain grades.
+    // Each ValidationResult contributes a 0-100 pass-rate contribution to its domain.
+    // pass -> 100; fail -> 0; partial -> passedCount/total * 100.
+    const vrs = (result as any).validationResults as Array<{ domain: string; status: string; passedRules: string[]; failedRules: string[]; message: string }> | undefined;
+    if (Array.isArray(vrs)) {
+      for (const vr of vrs) {
+        if (!vr || typeof vr.domain !== 'string') continue;
+        const passedCount = Array.isArray(vr.passedRules) ? vr.passedRules.length : 0;
+        const failedCount = Array.isArray(vr.failedRules) ? vr.failedRules.length : 0;
+        const total = Math.max(1, passedCount + failedCount);
+        const passRateContribution = vr.status === 'pass' ? 100
+          : vr.status === 'fail' ? 0
+          : (passedCount / total) * 100;
+        const passed = vr.status === 'pass' ? 1 : 0;
+        const existing = byDomain.get(vr.domain) || { passSum: 0, count: 0, rulesPassed: 0, rulesTotal: 0 };
+        existing.passSum += passRateContribution;
+        existing.count += 1;
+        existing.rulesPassed += passed;
+        existing.rulesTotal += 1;
+        byDomain.set(vr.domain, existing);
+      }
     }
   }
 

@@ -147,7 +147,7 @@ export class FlowJTacticalPolishHandler extends BaseFlowHandler {
         .addValidation('Extended domain validation', 'pass', `${extendedReport.totalRules} rules across 10 domains`)
         .addArtifact('reference', totalRules);
 
-      return {
+      const result: any = {
         flowId: this.flowId,
         flowName: this.getFlowName(),
         status: 'success',
@@ -172,6 +172,12 @@ export class FlowJTacticalPolishHandler extends BaseFlowHandler {
         ],
         memory: memoryBuilder.build(),
       };
+
+      // Sprint 7 T6: push PolishStandard result onto result.validationResults so BuildReport picks it up.
+      result.validationResults = result.validationResults || [];
+      result.validationResults.push(PolishStandardValidator.toValidationResult(polishReport));
+
+      return result;
     } catch (err) {
       const memory = new FlowMemoryBuilder(this.flowId, this.getFlowName())
         .setStatus('error')
