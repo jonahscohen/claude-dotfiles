@@ -76,6 +76,7 @@ import { ClaudemdMandateValidator } from './clausemd-mandate-validator';
 import { BuildReport } from './build-report-types';
 import { generateBuildReport, renderBuildReportMarkdown } from './build-report-aggregator';
 import { CheckpointStore, SidecoachCheckpoint } from './checkpoint-store';
+import { getImpeccableEntry, ImpeccableCommandEntry } from './impeccable-command-registry';
 
 // Flows that produce HTML output and must clear the taste gate before declaring success.
 // craft / clone-match / layout / polish families (both modern flowX_* and legacy flowN_* IDs).
@@ -740,12 +741,18 @@ export class FlowExecutionEngine {
           selectedText: context.selectedText,
           metadata: context.metadata,
         });
+        // Sprint 8 T7: append impeccable-verb guidance after the document handler runs.
+        const docGuidanceAppend = this.buildImpeccableGuidanceAppend('document');
+        const docGuidance = [
+          ...(result.guidance || []),
+          ...(docGuidanceAppend || []),
+        ];
         return {
           success: result.status === 'success',
           message: result.message,
           detectedFlow: null,
           flowResults: [result],
-          guidance: result.guidance,
+          guidance: docGuidance.length > 0 ? docGuidance : undefined,
           checklist: result.checklist,
           artifacts: result.artifacts,
         };
@@ -912,11 +919,28 @@ export class FlowExecutionEngine {
           }
         }
       }
+      // Sprint 8 T7: append impeccable-verb guidance after the chain executes.
+      // Only fires for verbs that have a registry entry (the 22 impeccable parity
+      // verbs); phase commands like 'research' or 'review' return null from
+      // getImpeccableEntry and are unaffected.
+      const chainGuidanceAppend = commandMatch.command
+        ? this.buildImpeccableGuidanceAppend(commandMatch.command)
+        : null;
+      const chainGuidance: string[] = [];
+      for (const fr of flowResults) {
+        if (fr.guidance && fr.guidance.length > 0) {
+          chainGuidance.push(...fr.guidance);
+        }
+      }
+      if (chainGuidanceAppend) {
+        chainGuidance.push(...chainGuidanceAppend);
+      }
       return {
         success: flowResults.some((r) => r.status === 'success'),
         message: `Executed ${commandMatch.command} flow chain (${flowResults.filter((r) => r.status === 'success').length}/${flowResults.length} flows successful)`,
         detectedFlow,
         flowResults,
+        guidance: chainGuidance.length > 0 ? chainGuidance : undefined,
       };
     }
 
@@ -1341,6 +1365,30 @@ export class FlowExecutionEngine {
       artifacts: flowResults.flatMap((r) => r.artifacts || []),
       buildReport: buildReportSingle,
     };
+  }
+
+  /**
+   * Sprint 8 T7: Build the impeccable-verb guidance-append block.
+   * Returns the array of strings to append to result.guidance for verbs that
+   * have a registry entry (the 22 impeccable parity verbs). The returned
+   * array includes the parityChecklist and parityPlus tokens verbatim so the
+   * sprint8-impeccable-parity test sees them in the flattened output.
+   */
+  private buildImpeccableGuidanceAppend(command: string): string[] | null {
+    const entry: ImpeccableCommandEntry | undefined = getImpeccableEntry(command);
+    if (!entry) return null;
+    const appended: string[] = [
+      '',
+      `## ${entry.command} (impeccable parity)`,
+      ...entry.guidanceAppend,
+      '',
+      '### Parity checklist (matches impeccable)',
+      ...entry.parityChecklist.map((s) => `- ${s}`),
+      '',
+      '### Sidecoach additions (parity-plus)',
+      ...entry.parityPlus.map((s) => `- ${s}`),
+    ];
+    return appended;
   }
 
   private showInteractiveMenu(context: Partial<FlowExecutionContext>): SidecoachResult {

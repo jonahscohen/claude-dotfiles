@@ -188,3 +188,42 @@ Each parityChecklist string is a verbatim substring from impeccable's reference 
 
 Files touched:
 - sidecoach/src/__tests__/sprint8-impeccable-parity.test.ts (new)
+
+Commit: `a1ebc0c` - "test(sidecoach): parameterized parity test across all 22 impeccable verbs (Sprint 8 T6)". 2 files changed, 251 insertions.
+
+## T7: Orchestrator guidance-append callback (DONE)
+
+Wired the impeccable-command-registry into the orchestrator so command-chain results carry the parityChecklist and parityPlus tokens for verbs that have a registry entry.
+
+Before: parity test 23/197 passing (11.7%). Only the `result returned` assertion fired per verb; all 174 parity-string assertions failed because the orchestrator never surfaced the registry's guidanceAppend / parityChecklist / parityPlus strings.
+
+After: parity test 197/197 passing (100%). `sprint8-impeccable-parity PASS`.
+
+Implementation:
+- Added import of `getImpeccableEntry` + `ImpeccableCommandEntry` from `./impeccable-command-registry`.
+- Added private helper `buildImpeccableGuidanceAppend(command)` to FlowExecutionEngine. Returns a string[] block with section headers, guidanceAppend body, `### Parity checklist (matches impeccable)` followed by each parityChecklist string prefixed with `- `, and `### Sidecoach additions (parity-plus)` followed by each parityPlus string prefixed with `- `. Returns null if no registry entry (phase commands like `/sidecoach research` are unaffected).
+- Wired two return paths:
+  1. Command-chain return (line ~915): after the flowResults loop, flatten each flow's guidance into a chain-level array, then append the impeccable block if `commandMatch.command` has a registry entry. Result returns `guidance: chainGuidance.length > 0 ? chainGuidance : undefined`. This is the path that fires for craft, polish, audit, critique, shape, onboard, animate, bolder, colorize, delight, layout, overdrive, quieter, typeset, clarify, harden, adapt, distill, optimize, extract, live (21 of 22 verbs).
+  2. `document` handler return (line ~744): the DocumentCommandHandler runs a special path (it does not iterate `commandMatch.flowIds`). Append the impeccable block after the handler returns, so `document` (the 22nd verb) gets parity coverage too.
+- Type fix: `commandMatch.command` is typed `string | undefined`, so the chain-path call is guarded `commandMatch.command ? buildImpeccableGuidanceAppend(commandMatch.command) : null`.
+
+Why: the T2 router branch already routes the 22 impeccable verbs through the registry's flowIds (line 75 of slash-command-router.ts). What was missing was the post-execution surface of the registry's narrative strings - parityChecklist (matches impeccable verbatim) and parityPlus (sidecoach extensions). T7 closes that gap.
+
+Phase commands NOT affected:
+- `/sidecoach research` -> getImpeccableEntry('research') returns undefined -> no append, identical behavior.
+- `/sidecoach review`, `/sidecoach tone`, `/sidecoach docs` -> same.
+- `/sidecoach list`, `/sidecoach composite:...` -> early-return paths that never reach the registry code.
+
+Regression status:
+- `npx tsc --noEmit` exit 0.
+- sprint8-router-registry-branch PASS.
+- sprint8-teach-rebuild PASS.
+- sprint8-document-handler PASS.
+- sprint8-registry-shape PASS.
+- sprint7-buildreport-includes-unstructured PASS.
+- sprint4-build-report-composite PASS.
+
+Files touched:
+- sidecoach/src/sidecoach-orchestrator.ts (import + helper + 2 wire points)
+- .claude/memory/session_2026-05-25_sprint8_execution.md (this entry)
+
