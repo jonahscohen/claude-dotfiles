@@ -15,6 +15,11 @@ export interface BrandVerificationContext {
   designMetadata: Record<string, any>;
 }
 
+function nonEmptyStringOrNull(v: unknown): string | null {
+  if (typeof v === 'string' && v.trim().length > 0) return v;
+  return null;
+}
+
 export class FlowABrandVerifyHandler extends BaseFlowHandler {
   private contextLoader: ContextLoader;
   private cachedBrandContext?: BrandVerificationContext;
@@ -117,7 +122,7 @@ export class FlowABrandVerifyHandler extends BaseFlowHandler {
         'Brand metadata:',
         `  Users: ${productMetadata.users || 'Not specified'}`,
         `  Purpose: ${productMetadata.purpose || 'Not specified'}`,
-        `  Personality: ${productMetadata.brand_personality || productMetadata.brandPersonality || 'Not specified'}`,
+        `  Personality: ${nonEmptyStringOrNull(productMetadata.brandPersonality) || nonEmptyStringOrNull(productMetadata.brand_personality) || 'Not specified'}`,
         '',
         ...(preflightIssues.length > 0 ? ['Pre-flight warnings:'] : []),
         ...preflightIssues,
@@ -219,7 +224,7 @@ export class FlowABrandVerifyHandler extends BaseFlowHandler {
     }
 
     // Check for brand personality
-    if (!projectContext.product.brand_personality && !projectContext.product.brandPersonality) {
+    if (!nonEmptyStringOrNull(projectContext.product.brandPersonality) && !nonEmptyStringOrNull(projectContext.product.brand_personality)) {
       issues.push('⚠️  Brand personality not defined - tone/voice affects typography and color choices');
     }
 
