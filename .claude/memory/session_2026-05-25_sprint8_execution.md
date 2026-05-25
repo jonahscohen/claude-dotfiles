@@ -42,3 +42,22 @@ Cleared `~/.claude/.needs-verification` flag pre-commit.
 - Unknown verbs still fall through to isCommand=false.
 - Test sprint8-router-registry-branch.test.ts asserts 5 verb routes + 3 regression cases + 1 unknown case.
 - All assertions PASS. tsc clean.
+
+## T3: Teach V2 + 7-scenario test (DONE)
+
+- Created teach-command-handler-v2.ts with hybrid brief parsing + gap-question fallback.
+- 7 scenarios all PASS (22 assertions): full brief, partial brief, no brief, brief+teachAnswers, existing PRODUCT.md without force, existing+force, product register no Brand Personality.
+- Output PRODUCT.md contains NO self-attribution + NO legacy /impeccable references.
+- Refuses to overwrite real existing PRODUCT.md (>=200 chars, no [TODO] markers) without metadata.forceOverwrite.
+- Orchestrator dispatch updated to use TeachCommandHandlerV2 (import + instantiation at sidecoach-orchestrator.ts).
+- Old stub teach-command-handler.ts deleted.
+- Old test task9-teach-command.test.ts deleted.
+- Test runner uses `(result.status as string) === 'pending'` to cross the type narrowing (handler returns status 'pending' via `as any` cast since FlowExecutionResult status union doesn't include it).
+- tsc clean.
+
+Files touched:
+- sidecoach/src/teach-command-handler-v2.ts (new)
+- sidecoach/src/__tests__/sprint8-teach-rebuild.test.ts (new)
+- sidecoach/src/sidecoach-orchestrator.ts (import + instantiation swap)
+- sidecoach/src/teach-command-handler.ts (deleted)
+- sidecoach/src/__tests__/task9-teach-command.test.ts (deleted)

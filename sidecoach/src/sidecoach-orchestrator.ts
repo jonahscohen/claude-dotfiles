@@ -16,7 +16,7 @@ import { buildProjectContext, ProjectContext } from './context-loader';
 import { persistSessionMemory } from './session-memory-writer';
 import { parseSlashCommand, getAvailableCommands, getCommandsByPhase } from './slash-command-router';
 import { SidecoachEntryPoint, globalEntryPoint, EntryPointRequest } from './sidecoach-entry-point';
-import { TeachCommandHandler } from './teach-command-handler';
+import { TeachCommandHandlerV2 } from './teach-command-handler-v2';
 import { FlowPrerequisiteValidator } from './flow-prerequisites';
 import { FlowCompositionEngine, PRESET_COMPOSITE_FLOWS, CompositeFlowDefinition } from './flow-composition';
 import { registerFlowDomainValidators, getValidatorsForFlow } from './flow-domain-validators';
@@ -709,7 +709,7 @@ export class FlowExecutionEngine {
     const commandMatch = parseSlashCommand(utterance);
     if (commandMatch.isCommand) {
       if (commandMatch.command === 'teach') {
-        const teachHandler = new TeachCommandHandler();
+        const teachHandler = new TeachCommandHandlerV2();
         const result = await teachHandler.execute({
           utterance,
           userId: context.userId,
