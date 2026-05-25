@@ -246,7 +246,10 @@ export class FlowPrerequisiteValidator {
       return { valid: true };
     }
 
-    const missing = deps.contextRequirements.filter((req) => !context[req]);
+    // Sprint 9 T2: also consult context.metadata so requirements like 'designTokens'
+    // resolve against the canonical metadata location used by flow handlers.
+    const meta = (context && typeof context.metadata === 'object' && context.metadata) || {};
+    const missing = deps.contextRequirements.filter((req) => !context[req] && !meta[req]);
     return {
       valid: missing.length === 0,
       missing: missing.length > 0 ? missing : undefined,

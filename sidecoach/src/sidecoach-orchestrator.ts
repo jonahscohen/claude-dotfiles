@@ -707,6 +707,19 @@ export class FlowExecutionEngine {
       this.gcRan = true;
     }
 
+    // Sprint 9 Bug 2: auto-stage parsed DESIGN.md tokens into context.metadata.designTokens
+    try {
+      const projCtx = buildProjectContext(context.projectPath || process.cwd());
+      if (projCtx.parsedDesignTokens && !context.metadata?.designTokens) {
+        context.metadata = {
+          ...(context.metadata || {}),
+          designTokens: projCtx.parsedDesignTokens,
+        };
+      }
+    } catch (err) {
+      process.stderr.write(`[sidecoach] designTokens auto-load failed (continuing): ${(err as Error).message}\n`);
+    }
+
     // Step 2: Check for slash commands (deterministic routing)
     const commandMatch = parseSlashCommand(utterance);
     if (commandMatch.isCommand) {
