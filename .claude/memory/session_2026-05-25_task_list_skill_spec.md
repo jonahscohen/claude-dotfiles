@@ -31,9 +31,29 @@ Brainstormed `/task-list` skill with Jonah on 2026-05-25. Spec lives at `docs/su
 
 - Skill-location section originally said "walks up from cwd to find the nearest TASKS.md" - that would have picked up unrelated TASKS.md files in other repos. Tightened to **always operates on `~/Documents/Github/claude-dotfiles/TASKS.md`**; cwd is used only for area inference. Matches Jonah's intent ("for the dotfiles").
 
-## Next step
+## Spec approved + committed
 
-Spec pending Jonah's review. Then invoke superpowers:writing-plans to produce the implementation plan.
+Jonah approved 2026-05-25. Committed as `9871ea1` (spec + memory only; other dirty files in working tree left untouched).
+
+## Plan written
+
+Plan at `docs/superpowers/plans/2026-05-25-task-list-skill.md`. Four tasks:
+
+1. Seed `TASKS.md` skeleton at repo root.
+2. Write `claude/skills/task-list/SKILL.md` (the full verb spec embedded in the plan).
+3. Wire `install.sh` (10 touch-points modeled on the `reflect` component, all referenced by line number).
+4. Smoke-test each of the 8 verbs in a fresh Claude session, with expected file diffs documented per step.
+
+Recon used to write the plan: `reflect` component pattern in `install.sh` (lines 18, 55, 68, 83, 109-110, 126, 213, 234, 556, 889-892, 908, 2186-2208, 2298).
+
+Next step: choose execution mode (subagent-driven vs inline) per writing-plans handoff.
+
+## Task 1 complete
+
+TASKS.md skeleton seeded at repo root (Last ID: T-0000).
 
 Files touched:
 - `docs/superpowers/specs/2026-05-25-task-list-design.md` (new, then edited)
+- `.claude/memory/MEMORY.md` (one-line index pointer)
+- `docs/superpowers/plans/2026-05-25-task-list-skill.md` (new)
+- `TASKS.md` (new)
