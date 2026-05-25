@@ -2,6 +2,8 @@
 // Utility for validating UI implementations against 22-point proprietary polish framework
 // Separate from flow handlers - used by Flow J (Tactical Polish) and audit flows
 
+import type { ValidationResult } from './flow-composition';
+
 export interface PolishValidationRule {
   id: number;
   name: string;
@@ -392,5 +394,20 @@ export class PolishStandardValidator {
 
   static getSummary(): string {
     return 'Sidecoach 22-Point Polish Standard: 14 baseline + 8 proprietary rules for production UI quality';
+  }
+
+  static toValidationResult(report: PolishValidationReport): ValidationResult {
+    const failed = report.results.filter(r => !r.passed);
+    const status: 'pass' | 'fail' | 'partial' =
+      report.criticalViolations > 0 ? 'fail' :
+      report.violations > 0 ? 'partial' :
+      'pass';
+    return {
+      domain: 'polish-standard',
+      status,
+      passedRules: report.results.filter(r => r.passed).map(r => `rule-${r.ruleId}`),
+      failedRules: failed.map(r => `rule-${r.ruleId}`),
+      message: report.summary,
+    };
   }
 }
