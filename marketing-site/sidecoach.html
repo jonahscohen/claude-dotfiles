@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>sidecoach - design orchestration for Claude Code | claude-dotfiles</title>
+  <meta name="description" content="sidecoach is an opinionated design orchestrator: eight flows, 159 validators, one chain from brief to polish. The replacement for Impeccable." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <div class="container">
+    <header class="topbar">
+      <a class="wordmark" href="index.html">Yes<span class="wordmark__amp">&amp;</span></a>
+      <nav aria-label="Primary">
+        <a href="improv.html">improv</a>
+        <a href="sidecoach.html" aria-current="page">sidecoach</a>
+        <a href="https://github.com/jonahscohen/claude-dotfiles" rel="noreferrer noopener">GitHub</a>
+      </nav>
+    </header>
+  </div>
+
+  <main id="main">
+    <section class="page-hero">
+      <div class="container">
+        <p class="page-hero__tag stagger" style="--i: 0">design / sidecoach</p>
+        <h1 class="page-hero__title stagger" style="--i: 1">A design orchestrator that <span style="text-decoration: underline; text-decoration-color: var(--color-red); text-decoration-thickness: 4px; text-underline-offset: 0.1em;">refuses to skip the work</span>.</h1>
+        <p class="page-hero__lede stagger" style="--i: 2">
+          sidecoach replaces Impeccable. Eight craft flows, 22 verb commands, 159 validators across ten design domains, one chain that runs from PRODUCT.md to the polish checklist without losing the thread.
+        </p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <p class="section__eyebrow">The chain</p>
+        <h2 class="section__title">Eight flows. Each one earns the next one.</h2>
+        <p class="section__lede">
+          When you run <code>/sidecoach craft</code> against a project, sidecoach walks the chain in dependency order. Skip nothing. Each flow's output gets validated and becomes input for the next.
+        </p>
+
+        <ol style="list-style: none; margin: var(--space-12) 0 0; padding: 0; display: grid; gap: var(--space-2);">
+          <li class="feature-row" style="padding-block: var(--space-6); grid-template-columns: 8ch 1fr 1fr; gap: var(--space-8);">
+            <span style="font-family: var(--font-mono); font-size: var(--size-lg); color: var(--color-red);">flowA</span>
+            <h3 class="feature-row__title" style="font-size: var(--size-xl);">Brand verification</h3>
+            <p style="color: var(--text-secondary); font-size: var(--size-base);">Reads PRODUCT.md. Resolves register (brand vs product). Caches the design laws.</p>
+          </li>
+          <li class="feature-row" style="padding-block: var(--space-6); grid-template-columns: 8ch 1fr 1fr; gap: var(--space-8);">
+            <span style="font-family: var(--font-mono); font-size: var(--size-lg); color: var(--color-red);">flowB</span>
+            <h3 class="feature-row__title" style="font-size: var(--size-xl);">Component research</h3>
+            <p style="color: var(--text-secondary); font-size: var(--size-base);">Pulls component patterns vetted against AI-slop heuristics. 11 interaction rules. 8 writing rules.</p>
+          </li>
+          <li class="feature-row" style="padding-block: var(--space-6); grid-template-columns: 8ch 1fr 1fr; gap: var(--space-8);">
+            <span style="font-family: var(--font-mono); font-size: var(--size-lg); color: var(--color-red);">flowE</span>
+            <h3 class="feature-row__title" style="font-size: var(--size-xl);">Motion patterns</h3>
+            <p style="color: var(--text-secondary); font-size: var(--size-base);">Researches easing curves. Exponential-only - no bounce, no elastic. Six reduced-motion strategies.</p>
+          </li>
+          <li class="feature-row" style="padding-block: var(--space-6); grid-template-columns: 8ch 1fr 1fr; gap: var(--space-8);">
+            <span style="font-family: var(--font-mono); font-size: var(--size-lg); color: var(--color-red);">flowF</span>
+            <h3 class="feature-row__title" style="font-size: var(--size-xl);">Design tokens</h3>
+            <p style="color: var(--text-secondary); font-size: var(--size-base);">Validates DESIGN.md across all seven design domains. Twenty sections checked against the rule library.</p>
+          </li>
+          <li class="feature-row" style="padding-block: var(--space-6); grid-template-columns: 8ch 1fr 1fr; gap: var(--space-8);">
+            <span style="font-family: var(--font-mono); font-size: var(--size-lg); color: var(--color-red);">flowG</span>
+            <h3 class="feature-row__title" style="font-size: var(--size-xl);">Component implementation</h3>
+            <p style="color: var(--text-secondary); font-size: var(--size-base);">Generates token-backed component specs. Eight interaction states. Semantic copy. ARIA per state.</p>
+          </li>
+          <li class="feature-row" style="padding-block: var(--space-6); grid-template-columns: 8ch 1fr 1fr; gap: var(--space-8);">
+            <span style="font-family: var(--font-mono); font-size: var(--size-lg); color: var(--color-red);">flowH</span>
+            <h3 class="feature-row__title" style="font-size: var(--size-xl);">Motion integration</h3>
+            <p style="color: var(--text-secondary); font-size: var(--size-base);">Wires motion into components. Stack-aware templates. Exponential easing validated. Performance constraints checked.</p>
+          </li>
+          <li class="feature-row" style="padding-block: var(--space-6); grid-template-columns: 8ch 1fr 1fr; gap: var(--space-8);">
+            <span style="font-family: var(--font-mono); font-size: var(--size-lg); color: var(--color-red);">flowI</span>
+            <h3 class="feature-row__title" style="font-size: var(--size-xl);">Accessibility</h3>
+            <p style="color: var(--text-secondary); font-size: var(--size-base);">Seven WCAG 2.1 AA domain audits. Screen reader testing plan. Severity-prioritized findings.</p>
+          </li>
+          <li class="feature-row" style="padding-block: var(--space-6); grid-template-columns: 8ch 1fr 1fr; gap: var(--space-8); border-bottom: 0;">
+            <span style="font-family: var(--font-mono); font-size: var(--size-lg); color: var(--color-red);">flowJ</span>
+            <h3 class="feature-row__title" style="font-size: var(--size-xl);">Tactical polish</h3>
+            <p style="color: var(--text-secondary); font-size: var(--size-base);">Sixteen-point refinement pass. Concentric radius. Scale on press. Tabular nums. Text balance. The details that separate good from shipped.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="section section--paper">
+      <div class="container">
+        <p class="section__eyebrow">Verb commands</p>
+        <h2 class="section__title">Twenty-two slash commands, every one earned by a flow.</h2>
+        <p class="section__lede">
+          sidecoach matches Impeccable's verb surface command-for-command, plus a few additions. <code>craft</code> runs the full chain. <code>polish</code> runs just the refinement pass. <code>audit</code>, <code>critique</code>, <code>shape</code>, <code>typeset</code>, <code>layout</code>, and the rest each map to a focused flow or composite.
+        </p>
+
+        <pre><code>/sidecoach craft marketing-site
+/sidecoach polish src/components/Button.tsx
+/sidecoach audit pages/checkout</code></pre>
+
+        <p style="margin-top: var(--space-6); color: var(--text-secondary); max-width: 56ch;">
+          The full command list is documented in <code>SKILL.md</code>. Run <code>/sidecoach help &lt;verb&gt;</code> for parity-checklist detail on any of them.
+        </p>
+      </div>
+    </section>
+
+    <section class="section section--ink">
+      <div class="container">
+        <p class="section__eyebrow">Why it exists</p>
+        <h2 class="section__title">Because skipping the gates is how AI work ends up looking like AI work.</h2>
+        <p class="section__lede">
+          Every shortcut sidecoach refuses corresponds to a failure mode we've watched LLMs produce on real projects.
+        </p>
+
+        <div class="feature-row">
+          <h3 class="feature-row__title">No fabricated icons.</h3>
+          <div class="feature-row__body">
+            <p>SVG path data must come byte-for-byte from a real icon library - Heroicons, Lucide, Tabler, Phosphor. The reference system caches canonical path strings so flowG can verify them against what gets written into your codebase.</p>
+            <p>The ClaudemdMandate validator blocks the commit if a path doesn't match a registered source.</p>
+          </div>
+        </div>
+
+        <div class="feature-row">
+          <h3 class="feature-row__title">No hardcoded colors.</h3>
+          <div class="feature-row__body">
+            <p>Every CSS value must resolve through a DESIGN.md token. flowF parses your tokens, flowG emits code that references them, and the build report grades each domain on token coverage.</p>
+            <p>A hex literal that didn't come from DESIGN.md is a partial grade, never a pass.</p>
+          </div>
+        </div>
+
+        <div class="feature-row">
+          <h3 class="feature-row__title">No "request a demo".</h3>
+          <div class="feature-row__body">
+            <p>The category-reflex detector in flowD watches for AI-template phrases - "request a demo," "we use AI to do X," "powered by," gradient-mesh hero, screenshot-carousel-of-fake-dashboards. Findings get a severity tag and a fix recommendation in the build report.</p>
+          </div>
+        </div>
+
+        <div class="feature-row">
+          <h3 class="feature-row__title">No silent failures.</h3>
+          <div class="feature-row__body">
+            <p>The chain doesn't half-finish. If a prerequisite is missing, you get a structured error naming the missing flow, not a silent skip. If a flow soft-fails, it surfaces in the build report under that domain's letter grade.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <p class="section__eyebrow">How to start</p>
+        <h2 class="section__title">Install once. Add PRODUCT.md and DESIGN.md to your project.</h2>
+        <p class="section__lede">
+          sidecoach is part of the dotfiles. If you've cloned the repo, it's already installed.
+        </p>
+
+        <pre><code>./install.sh --only sidecoach
+echo "## Register\n\n**Brand**\n\n## Primary Users\n..." > PRODUCT.md
+/sidecoach craft .</code></pre>
+
+        <div style="margin-top: var(--space-8); display: flex; gap: var(--space-3); flex-wrap: wrap;">
+          <a class="btn btn--primary" href="https://github.com/jonahscohen/claude-dotfiles/tree/main/sidecoach" rel="noreferrer noopener">Read the source</a>
+          <a class="btn btn--secondary" href="index.html">Back to the toolkit</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="site-footer__row">
+        <span>Yes<span style="color: var(--color-red); font-style: italic;">&amp;</span> claude-dotfiles. Open source, MIT.</span>
+        <nav aria-label="Footer">
+          <a href="index.html">Home</a>
+          <a href="improv.html">improv</a>
+          <a href="https://github.com/jonahscohen/claude-dotfiles" rel="noreferrer noopener">GitHub</a>
+        </nav>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

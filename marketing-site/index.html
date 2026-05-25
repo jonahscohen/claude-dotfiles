@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>claude-dotfiles - tools for working with Claude Code</title>
+  <meta name="description" content="A toolkit for Claude Code: improv for visual micro-adjustment, sidecoach for design orchestration, memory for cross-session continuity, plus a half-dozen other tools that keep the loop tight." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <div class="container">
+    <header class="topbar">
+      <a class="wordmark" href="/">Yes<span class="wordmark__amp">&amp;</span></a>
+      <nav aria-label="Primary">
+        <a href="improv.html">improv</a>
+        <a href="sidecoach.html">sidecoach</a>
+        <a href="https://github.com/jonahscohen/claude-dotfiles" rel="noreferrer noopener">GitHub</a>
+      </nav>
+    </header>
+  </div>
+
+  <main id="main">
+    <section class="hero">
+      <div class="container">
+        <p class="hero__eyebrow stagger" style="--i: 0">claude-dotfiles</p>
+        <h1 class="hero__title stagger" style="--i: 1">A toolkit for working with <span class="accent">Claude Code</span>.</h1>
+        <p class="hero__lede stagger" style="--i: 2">
+          Small, focused tools that fit into the loop you already have. No platform, no SaaS, no demos to request. Clone the repo, run the installer, keep what you use.
+        </p>
+        <div class="hero__cta-row stagger" style="--i: 3">
+          <div class="install-block" role="group" aria-label="Install command">
+            <span class="install-block__cmd" id="install-cmd">curl -fsSL get.claude-dotfiles.dev | bash</span>
+            <button type="button" class="install-block__copy" data-copy-target="#install-cmd" aria-label="Copy install command">Copy</button>
+          </div>
+          <a class="btn btn--secondary" href="https://github.com/jonahscohen/claude-dotfiles" rel="noreferrer noopener">Read the source</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
+        <p class="section__eyebrow">The toolkit</p>
+        <h2 class="section__title">Three tools that earn their place. A handful more in the wings.</h2>
+        <p class="section__lede">
+          Every entry is something we use day to day. Equal billing - no hero tool, no consolation prize. Pick the one that maps to your problem and ignore the rest.
+        </p>
+
+        <div class="toolkit">
+          <a class="tool-card" href="improv.html">
+            <span class="tool-card__tag">visual</span>
+            <h3 class="tool-card__name">improv</h3>
+            <p class="tool-card__desc">
+              A two-pane editor that watches your live UI. Pick a region, change a value, see the result. The point is to short-circuit the screenshot-and-describe loop when you and Claude are nudging the same component for the tenth time.
+            </p>
+            <span class="tool-card__cta">See improv -&gt;</span>
+          </a>
+
+          <a class="tool-card" href="sidecoach.html">
+            <span class="tool-card__tag">design</span>
+            <h3 class="tool-card__name">sidecoach</h3>
+            <p class="tool-card__desc">
+              An opinionated design orchestrator. Eight flows, 159 validators, one chain from brief to polish. The replacement for Impeccable. If you have a DESIGN.md, sidecoach will hold it to you.
+            </p>
+            <span class="tool-card__cta">See sidecoach -&gt;</span>
+          </a>
+
+          <a class="tool-card" href="https://github.com/jonahscohen/claude-dotfiles/tree/main/claude/memory" rel="noreferrer noopener">
+            <span class="tool-card__tag">continuity</span>
+            <h3 class="tool-card__name">memory</h3>
+            <p class="tool-card__desc">
+              A file-based memory layer Claude writes to per task and reads on every session start. Survives compactions, forks across machines through the dotfiles repo, indexed by a single MEMORY.md you actually read.
+            </p>
+            <span class="tool-card__cta">See on GitHub -&gt;</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--paper">
+      <div class="container">
+        <p class="section__eyebrow">In the wings</p>
+        <h2 class="section__title">Smaller things that earn their keep.</h2>
+        <p class="section__lede">
+          The dotfiles ship a handful of supporting components - some hooks, some MCP servers, some shell glue. They're not pitched, they're documented in the README. Naming them here so you know they exist.
+        </p>
+
+        <ul class="minor-list">
+          <li>
+            <span class="minor-list__name">cmux</span>
+            <span class="minor-list__desc">Multi-pane terminal surface. The browser pane is the visual-verification path for any UI work.</span>
+          </li>
+          <li>
+            <span class="minor-list__name">voice</span>
+            <span class="minor-list__desc">Whisper.cpp transcription plus OpenAI TTS. Discord voice memos in, voice notes back.</span>
+          </li>
+          <li>
+            <span class="minor-list__name">discord</span>
+            <span class="minor-list__desc">A bot bridge so you can DM Claude from your phone. Per-user pairing, no group chats.</span>
+          </li>
+          <li>
+            <span class="minor-list__name">hooks</span>
+            <span class="minor-list__desc">A dozen pre- and post-tool hooks that enforce the team-rules: no emojis, no AI attribution, no skipped verification.</span>
+          </li>
+          <li>
+            <span class="minor-list__name">impeccable</span>
+            <span class="minor-list__desc">The pre-sidecoach design plugin. Still installed, increasingly shadowed by sidecoach.</span>
+          </li>
+          <li>
+            <span class="minor-list__name">validation-guard</span>
+            <span class="minor-list__desc">Blocks synthetic clicks and DOM probing during verification. Real input only.</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section section--ink">
+      <div class="container">
+        <p class="section__eyebrow">Posture</p>
+        <h2 class="section__title">What this is not.</h2>
+        <p class="section__lede">
+          Worth being explicit. There are categories of "developer tool" that we're deliberately not.
+        </p>
+
+        <div class="feature-row">
+          <h3 class="feature-row__title">Not a platform.</h3>
+          <div class="feature-row__body">
+            <p>There is no account, no dashboard, no telemetry. The whole thing is a folder you clone into <code>~/.claude</code>. Uninstall is <code>rm -rf</code>.</p>
+            <p>If you fork it, your changes stay yours. Nothing phones home.</p>
+          </div>
+        </div>
+
+        <div class="feature-row">
+          <h3 class="feature-row__title">Not a framework.</h3>
+          <div class="feature-row__body">
+            <p>The components are independent. Install <code>improv</code> without <code>sidecoach</code>. Disable <code>voice</code> if you don't want the TTS bill. The installer breaks each piece out so you can opt in component by component.</p>
+          </div>
+        </div>
+
+        <div class="feature-row">
+          <h3 class="feature-row__title">Not for everyone.</h3>
+          <div class="feature-row__body">
+            <p>This is a personal workstation setup that grew up enough to share. Opinionated about things you may disagree with. Read the rules at <code>CLAUDE.md</code> before you decide.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="site-footer__row">
+        <span>Yes<span style="color: var(--color-red); font-style: italic;">&amp;</span> claude-dotfiles. Open source, MIT.</span>
+        <nav aria-label="Footer">
+          <a href="https://github.com/jonahscohen/claude-dotfiles" rel="noreferrer noopener">GitHub</a>
+        </nav>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Click-to-copy on the install block. No frameworks, no transitions on layout
+    // properties, exit acknowledgment is a transient data-attribute.
+    (function () {
+      const btns = document.querySelectorAll('[data-copy-target]');
+      btns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          const target = document.querySelector(btn.getAttribute('data-copy-target'));
+          if (!target) return;
+          const text = target.textContent.trim();
+          navigator.clipboard.writeText(text).then(function () {
+            const prev = btn.textContent;
+            btn.textContent = 'Copied';
+            btn.setAttribute('data-copied', 'true');
+            setTimeout(function () {
+              btn.textContent = prev;
+              btn.removeAttribute('data-copied');
+            }, 1600);
+          });
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
