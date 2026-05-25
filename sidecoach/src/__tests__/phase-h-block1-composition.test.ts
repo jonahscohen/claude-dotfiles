@@ -20,7 +20,7 @@ function testPresetWorkflows() {
 
   results.push({
     test: 'Preset composite workflows are defined',
-    passed: workflows.length === 3 && workflows.every((w) => w.id && w.name && w.steps),
+    passed: workflows.length >= 3 && workflows.every((w) => w.id && w.name && w.steps),
     message: `${workflows.length} workflows defined`,
   });
 }

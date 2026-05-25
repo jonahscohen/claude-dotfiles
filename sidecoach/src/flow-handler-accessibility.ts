@@ -390,6 +390,8 @@ export class FlowIAccessibilityHandler extends BaseFlowHandler {
         status: 'error',
         message: 'Failed to plan accessibility validation',
         error: String(err),
+        guidance: [],
+        checklist: [],
         memory,
       };
     }

@@ -354,6 +354,8 @@ export class FlowFDesignTokensHandler extends BaseFlowHandler {
         status: 'error',
         message: 'Failed to validate design tokens',
         error: String(err),
+        guidance: [],
+        checklist: [],
         memory,
       };
     }

@@ -29,7 +29,13 @@ Three small loose ends from Sprints 2-4:
 
 Hooks + permissions + enabledPlugins merged from live. Filters: excluded nyx telemetry, normalized absolute paths, stripped personal-preference top-level keys (mcpServers, voice, voiceEnabled, effortLevel). Decisions: enabledPlugins from REPO (more curated, matches CLAUDE.md); model updated to claude-opus-4-7[1m] (was outdated 4.6); reflect-nudge.sh added to both repo AND live (was in repo only, user authorized adding to both). Result: 27 hooks across 8 events. Fresh-machine installs now get current state.
 
-### 4. Tackle 16 pre-existing sidecoach test failures (QUEUED)
+### 4. Tackle pre-existing sidecoach test failures (DONE 2026-05-24)
+
+Sweep with exit-code-based detection revealed the actual count was 3, not 16 (prior count was a grep artifact). All 3 fixed: 2 outdated test assertions (phase-h-block1-composition expected 3 composites but Sprint 2 added a 4th; validator-integration expected 90 and 112 rules but Sprint C expanded to 137 and 159). 1 real handler bug (design-references / design-tokens / accessibility handlers omitted guidance + checklist in their error-return paths, which would crash downstream consumers - all three now include `guidance: []` and `checklist: []`).
+
+Result: **64 PASS, 0 FAIL.** tsc clean. See session_2026-05-24_test_failures_triage.md for full breakdown.
+
+### 4-original. Tackle 16 pre-existing sidecoach test failures (HISTORICAL)
 
 Failing since 2026-05-22/23, never fixed. Mix of architectural drift and incomplete refactors:
 

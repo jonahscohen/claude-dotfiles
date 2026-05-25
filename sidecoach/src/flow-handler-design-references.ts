@@ -229,6 +229,8 @@ export class FlowDReferenceSearchHandler extends BaseFlowHandler {
         status: 'error',
         message: 'Failed to search design references',
         error: String(err),
+        guidance: [],
+        checklist: [],
         memory,
       };
     }
