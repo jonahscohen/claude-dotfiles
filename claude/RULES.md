@@ -22,7 +22,31 @@ You are BLOCKED from reporting task completion to the user until ALL of the foll
 
 1. **Visual verification required.** If UI was created or modified, you MUST open it in a browser (Chrome MCP, Claude Preview, or curl) and take a screenshot. You must LOOK at the screenshot and describe what you see. "It renders" is not verification. You must confirm every element the user asked for is visually present and correct.
 
-2. **Interactive verification required.** If the UI has interactive elements (buttons, dropdowns, toggles, inputs), you MUST click/hover/type into each one and screenshot the result. Checking computed styles via JavaScript is not a substitute for visual confirmation.
+   **HARD RULE - screenshots must be Read after capture.** A screenshot saved to disk that you never Read does NOT surface to the user's conversation. Describing a screenshot you didn't open is the same lie as not taking it at all. Specifically:
+   - cmux screenshots: ALWAYS `--out /tmp/<name>.png`, THEN immediately Read that path. The screenshot-open-mandate.sh PostToolUse hook will set a `~/.claude/.screenshot-pending` flag with the path; the bash-guard will block further `cmux ... screenshot` and `git commit` until you Read it.
+   - chrome MCP screenshots: ALWAYS pass `save_to_disk: true`. The hook warns if you forget. When the tool returns a path, Read it.
+   - The hook clears the pending flag automatically when you Read the matching path.
+   - There is no manual override. If you find yourself wanting to skip, stop - that's the failure mode this enforcement exists to prevent.
+
+2. **Interactive verification required - via REAL inputs only.** If the UI has interactive elements (buttons, dropdowns, toggles, inputs), you MUST click/hover/type into each one and screenshot the result. Checking computed styles via JavaScript is not a substitute for visual confirmation. **Scrolling counts as an interaction.** Every region with `overflow: auto/scroll` that has content taller (or wider) than its container must be wheel-scrolled and screenshotted to confirm the scroll responds. A visible scrollbar is not proof the region scrolls - libraries like Lenis hijack wheel events at the document level and silently block native scroll inside children. The fix when this happens: `data-lenis-prevent` on the child (Lenis-specific), or the equivalent escape hatch for whatever smooth-scroll library is in play. Logged 2026-05-20 from the reference-site polish pass where the sidebar showed a scrollbar that didn't respond until Lenis-prevent was added.
+
+   **HARD RULE - validation through real input only:** You may NOT call internal methods, dispatch synthetic events, invoke `.click()` from JS, mutate application arrays, or otherwise short-circuit the event flow to "produce" the state you want to verify. The bug the user is reporting may live in the very event path you skipped.
+
+   ALLOWED interaction tools during validation:
+   - `cmux browser ... click --selector ...` / `... type --selector ... --text ...` / `... press --key ...` / `... screenshot` / `... snapshot --interactive`
+   - chrome MCP: `computer left_click` (coords), `computer type`, `computer key`, `computer screenshot`, `read_page`, `get_page_text`
+
+   The unified blocklist (enforced identically by `validation-guard.sh` for the chrome MCP javascript_tool AND by `bash-guard.sh` for `cmux ... eval` commands - both hooks now cover the same patterns; any divergence is a bug to file) covers two categories.
+
+   State-mutation shortcuts (synthesizing user actions): `element.click()`, `element.dispatchEvent(...)`, `obj._privateMethod(...)`, `window.__improv.method(...)` or any other application-namespace method, `obj._privateArray.push/splice/shift/unshift/pop(...)`. These bypass the real event path, which is the path that may contain the bug you are trying to verify.
+
+   DOM-state reads (probing what's not visible to a human): `getComputedStyle`, `getBoundingClientRect`, the `offset*`/`client*`/`scroll*` dimension properties, `.scrollTop`/`.scrollLeft`, `.textContent`/`.innerText`/`.innerHTML`, `.style[...]` reads, `.classList`, `.className`, `.hasAttribute(...)`/`.getAttribute(...)`, `.matches(...)`, `.closest(...)`, `querySelectorAll(...).length` and `.forEach/.map/.filter/.every/.some/.reduce` on a query result, `window.innerWidth`/`innerHeight`, element-existence checks like `!!document.querySelector(...)` or `document.querySelector(...) !== null`, and form-state reads `.disabled`/`.checked`/`.selected`. These are DevTools-grade introspection - take a screenshot or interact with the element instead.
+
+   ALLOWED read pattern (the API-detection carve-out): read-only feature/capability detection is explicitly permitted on both surfaces. `typeof document.startViewTransition === 'function'`, `CSS.supports('display: grid')`, `'IntersectionObserver' in window`, `'startViewTransition' in document`, `navigator.userAgent`, and `window.matchMedia('(prefers-reduced-motion: reduce)').matches` all pass. These don't expose DOM state - they describe the browser's capabilities, which is needed to gate behavior on things like reduced-motion or color-scheme preferences. The carve-out applies only when feature detection is the entire eval; mixing it with any blocked pattern (e.g. `matchMedia(...); el.getAttribute(...)`) is still blocked.
+
+   Bundle setup (e.g. `document.createElement('script')` + `appendChild` to inject a bundle a mixed-content page couldn't load) is allowed - that's setup, not validation. The actual feature test must still go through real input.
+
+   If a click/type can't reach what you need (shadow DOM with no exposed selector, element off-screen, etc.), STOP and tell the user. Do not reach in via JS. The hook will block it anyway. Regression coverage lives at `~/.claude/hooks/test-validation-guards.sh` - run it after editing either hook to confirm parity.
 
 3. **Side-by-side verification required.** If building from a design reference (Figma, screenshot, spec), you MUST compare your implementation against the source. Check dimensions, colors, spacing, typography, border radius, and states. If something doesn't match, fix it before reporting.
 

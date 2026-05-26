@@ -143,10 +143,24 @@ Default scope is the current project's `.claude/memory/`. Say "reflect across ev
 
 ## Voice Output
 
+Voice is governed by the SessionStart `voice-mandate` hook at `~/.claude/hooks/voice-mandate.sh`. It checks two conditions: voice-output is installed in `mcpServers`, AND `~/.claude/.voice-enabled` exists (voice is not muted). If both are true the hook injects a `VOICE OUTPUT IS ACTIVE` mandate. If voice is muted the hook injects a `VOICE OUTPUT IS MUTED` notice. If voice-output is not installed the hook injects nothing.
+
+**Single source of truth: the hook output, every turn.** Do not ToolSearch for `mcp__voice-output__speak` or call it unless the active mandate appears in your context for the current turn. The mandate is the permission slip; without it, voice does not exist for this session.
+
+**When the active mandate is present in context:** load the speak tool via ToolSearch and include a `mcp__voice-output__speak` call in the FIRST batch of tool calls of every response. Concise 1-2 sentence summaries. No code, diffs, or file paths. Greetings, error messages, status updates - all spoken.
+
+**When the muted notice is present (or no mandate at all):** do not ToolSearch for speak, do not call speak, and drop spoken-style lines from text output. Skip voice machinery entirely. This saves the OpenAI TTS API cost the user explicitly opted out of by muting.
+
+**Mid-session mute toggles re-fire the hook.** When the user types `voice on` or `voice off`, the UserPromptSubmit `voice-toggle` hook flips the flag file and the next SessionStart-equivalent context injection reflects the new state. Always read the current turn's context for the mandate, not a remembered earlier state.
+
+**Why this is structured this way:** an unconditional "always speak" rule previously caused Claude to load and call speak even when the user had explicitly muted, wasting turns on `BLOCKED: voice is muted` responses. The hook is the authoritative gate. Follow the hook, not a remembered rule.
+
+### Infrastructure
+
 Claude can speak short verbal summaries aloud via OpenAI TTS API. Requires an OpenAI API key stored in macOS Keychain (`security add-generic-password -a 'claude-voice' -s 'openai-tts-api-key' -w 'YOUR_KEY'`). No key = feature unavailable, no fallback.
 
-Three mute controls (all toggle the same file):
-- In-session: "mute yourself" / "unmute"
+Three mute controls (all toggle the same `~/.claude/.voice-enabled` file):
+- In-session: "mute yourself" / "unmute" / `voice on` / `voice off`
 - Terminal: `voice-on` / `voice-off`
 - Manual: `touch ~/.claude/.voice-enabled` / `rm ~/.claude/.voice-enabled`
 
