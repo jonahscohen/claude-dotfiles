@@ -35,8 +35,37 @@ except Exception:
     print("{}"); sys.exit(0)
 
 tool = data.get("tool_name", "")
+transcript_path = data.get("transcript_path", "")
 verify_flag = os.path.expanduser("~/.claude/.needs-verification")
 last_screenshot_read = os.path.expanduser("~/.claude/.last-screenshot-read")
+
+def is_subagent_context(path):
+    """True if this session is a sidechain subagent or a named teammate.
+    Signals come from the transcript JSONL:
+      - any record with isSidechain == True  -> Agent-tool spawned sidechain
+      - any record carrying a teamName field -> cmux-teams teammate
+    The parent session sets neither, so the absence of both means we are
+    in the top-level session and the nudge should fire normally."""
+    if not path:
+        return False
+    try:
+        with open(path) as fh:
+            for i, line in enumerate(fh):
+                if i > 20:  # only the header + first few records carry these
+                    break
+                try:
+                    d = json.loads(line)
+                except Exception:
+                    continue
+                if d.get("isSidechain") is True:
+                    return True
+                if d.get("teamName"):
+                    return True
+    except (FileNotFoundError, OSError):
+        return False
+    return False
+
+IS_SUBAGENT = is_subagent_context(transcript_path)
 
 def recently_verified():
     """True if a screenshot Read happened within DEBOUNCE_SECONDS."""
@@ -133,6 +162,133 @@ def is_read_only_command(cmd):
     ]
     return any(cmd.strip().startswith(r) for r in read_only)
 
+def is_verification_only(cmd):
+    """Commands that are clearly verification-only operations.
+
+    These should NEVER fire the screenshot mandate, even if they contain
+    substrings like `npx ` or `make ` that also appear in real deploy
+    paths. The hook previously over-fired on `npx ts-node ./foo.test.ts`,
+    `npx tsc --noEmit`, `npx eslint`, `npx prettier --check`,
+    `npx @google/design.md lint`, `npm run bench`, and similar - because
+    `npx ` was a literal substring in `write_indicators`.
+
+    Distinct from `is_verification_command` (which CLEARS the verify flag
+    because tests/curl-localhost count as visual verification). This
+    function just means "skip the mandate - this is not a deploy."
+
+    Returns True if ANY segment of the command (split on `;`, `&&`, `||`,
+    `|`) matches a verification-only pattern. Returns False if any segment
+    looks like a deploy/build/dev-server start - those still need a
+    screenshot.
+
+    Negative-side carve-out: `npm run build`, `npm run deploy`, `npm start`,
+    `npm run dev`, `npm run serve`, `vite build`, `next build` MUST still
+    fire the mandate even when chained after a verification-only command.
+    """
+    import re
+
+    s = cmd.strip()
+    if not s:
+        return False
+
+    # Deploy/build/dev-server markers - if ANY of these are present, this
+    # is NOT verification-only regardless of any test-like prefix that
+    # might also appear in the same compound command.
+    deploy_patterns = [
+        r"(^|[\s;&|]+)npm\s+run\s+build(\s|$)",
+        r"(^|[\s;&|]+)npm\s+run\s+deploy(\s|$)",
+        r"(^|[\s;&|]+)npm\s+start(\s|$)",
+        r"(^|[\s;&|]+)npm\s+run\s+start(\s|$)",
+        r"(^|[\s;&|]+)npm\s+run\s+dev(\s|$)",
+        r"(^|[\s;&|]+)npm\s+run\s+serve(\s|$)",
+        r"(^|[\s;&|]+)yarn\s+(build|deploy|start|dev|serve)(\s|$)",
+        r"(^|[\s;&|]+)pnpm\s+(build|deploy|start|dev|serve)(\s|$)",
+        r"(^|[\s;&|]+)vite\s+build(\s|$)",
+        r"(^|[\s;&|]+)next\s+build(\s|$)",
+        r"(^|[\s;&|]+)next\s+start(\s|$)",
+        r"(^|[\s;&|]+)next\s+dev(\s|$)",
+        r"(^|[\s;&|]+)nodemon(\s|$)",
+        r"(^|[\s;&|]+)tsx\s+watch(\s|$)",
+        r"(^|[\s;&|]+)webpack(\s|$)",
+        r"(^|[\s;&|]+)rollup(\s|$)",
+        r"(^|[\s;&|]+)esbuild(\s|$)",
+    ]
+    for p in deploy_patterns:
+        if re.search(p, s):
+            return False
+
+    # Verification-only patterns. Token-anchored (start of cmd, or after
+    # a shell separator) so embedded prose / quoted args do not trigger.
+    vp = [
+        # --- Test runners (some also in is_verification_command - that
+        # is fine; this branch just suppresses the mandate without
+        # claiming the verification was visual).
+        r"(^|[\s;&|]+)npm\s+test(\s|$)",
+        r"(^|[\s;&|]+)npm\s+run\s+test(:|\s|$)",
+        r"(^|[\s;&|]+)yarn\s+test(\s|$)",
+        r"(^|[\s;&|]+)pnpm\s+test(\s|$)",
+        r"(^|[\s;&|]+)npx\s+vitest(\s|$)",
+        r"(^|[\s;&|]+)npx\s+jest(\s|$)",
+        r"(^|[\s;&|]+)npx\s+mocha(\s|$)",
+        r"(^|[\s;&|]+)npx\s+playwright\s+test",
+        r"(^|[\s;&|]+)vitest(\s|$)",
+        r"(^|[\s;&|]+)jest(\s|$)",
+        r"(^|[\s;&|]+)mocha(\s|$)",
+        # ts-node / tsx running a test or probe file
+        r"(^|[\s;&|]+)npx\s+ts-node\s+\S*(test|spec|probe|check|verify)",
+        r"(^|[\s;&|]+)npx\s+tsx\s+\S*(test|spec|probe|check|verify)",
+        r"(^|[\s;&|]+)ts-node\s+\S*(test|spec|probe|check|verify)",
+        # any node invocation pointing at a test/spec file
+        r"(^|[\s;&|]+)node\s+\S+\.(test|spec)\.(ts|tsx|js|jsx|mjs|cjs)",
+        # bash test scripts (hook tests, custom test runners)
+        r"(^|[\s;&|]+)bash\s+\S*test-[^\s]+\.sh",
+        r"(^|[\s;&|]+)bash\s+\S*test[^\s]*\.sh",
+        # Cross-language test runners
+        r"(^|[\s;&|]+)cargo\s+test(\s|$)",
+        r"(^|[\s;&|]+)pytest(\s|$)",
+        r"(^|[\s;&|]+)python3?\s+-m\s+pytest",
+        r"(^|[\s;&|]+)python3?\s+-m\s+unittest",
+        r"(^|[\s;&|]+)go\s+test(\s|$)",
+        r"(^|[\s;&|]+)bun\s+test(\s|$)",
+        r"(^|[\s;&|]+)deno\s+test(\s|$)",
+        r"(^|[\s;&|]+)rspec(\s|$)",
+        r"(^|[\s;&|]+)rake\s+test(\s|$)",
+
+        # --- Type checks ---
+        r"(^|[\s;&|]+)npx\s+tsc(\s|$)",
+        r"(^|[\s;&|]+)tsc(\s|$)",
+        r"--noEmit(\s|$)",
+        r"(^|[\s;&|]+)npm\s+run\s+typecheck(\s|$)",
+        r"(^|[\s;&|]+)npm\s+run\s+type-check(\s|$)",
+        r"(^|[\s;&|]+)npm\s+run\s+check(\s|$)",
+
+        # --- Lint / format-check runs ---
+        r"(^|[\s;&|]+)npm\s+run\s+lint(\s|$)",
+        r"(^|[\s;&|]+)npx\s+eslint(\s|$)",
+        r"(^|[\s;&|]+)eslint(\s|$)",
+        r"(^|[\s;&|]+)npx\s+prettier\s+--(check|list-different)",
+        r"(^|[\s;&|]+)prettier\s+--(check|list-different)",
+        r"(^|[\s;&|]+)npx\s+@google/design\.md\s+lint",
+        r"(^|[\s;&|]+)npx\s+stylelint(\s|$)",
+
+        # --- Benchmark runs ---
+        r"(^|[\s;&|]+)npm\s+run\s+bench(:|\s|$)",
+        r"(^|[\s;&|]+)yarn\s+bench(:|\s|$)",
+        r"(^|[\s;&|]+)pnpm\s+bench(:|\s|$)",
+
+        # --- Pure introspection (chain-aware, extends is_read_only_command) ---
+        r"(^|[\s;&|]+)git\s+status(\s|$)",
+        r"(^|[\s;&|]+)git\s+log(\s|$)",
+        r"(^|[\s;&|]+)git\s+diff(\s|$)",
+        r"(^|[\s;&|]+)git\s+show(\s|$)",
+        r"(^|[\s;&|]+)git\s+branch(\s|$)",
+    ]
+    for p in vp:
+        if re.search(p, s):
+            return True
+
+    return False
+
 # --- Handle Read tool: reading a screenshot OR a /tmp/ stdout-capture clears verification ---
 if tool == "Read":
     file_path = data.get("tool_input", {}).get("file_path", "")
@@ -172,6 +328,12 @@ if tool == "Bash":
     if is_read_only_command(cmd):
         print("{}"); sys.exit(0)
 
+    # T-0017: Skip verification-only commands (tests, type checks, lint,
+    # benchmarks, chained git/ls). These can contain `npx ` substrings that
+    # would otherwise trip the write_indicators heuristic below.
+    if is_verification_only(cmd):
+        print("{}"); sys.exit(0)
+
     # Check if command writes/deploys code files
     write_indicators = ["cp ", "mv ", "> ", ">> ", "tee ", "sed -i",
                         "node build", "npm run build", "npx ", "make "]
@@ -180,7 +342,7 @@ if tool == "Bash":
             open(verify_flag, "w").close()
         except Exception:
             pass
-        if recently_verified():
+        if recently_verified() or IS_SUBAGENT:
             print("{}"); sys.exit(0)
         print(json.dumps({
             "hookSpecificOutput": {
@@ -200,7 +362,7 @@ if is_code_file(file_path):
         open(verify_flag, "w").close()
     except Exception:
         pass
-    if recently_verified():
+    if recently_verified() or IS_SUBAGENT:
         print("{}")
     else:
         print(json.dumps({

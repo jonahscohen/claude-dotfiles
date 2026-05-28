@@ -191,6 +191,72 @@ YOU_CAN="You can:
 mc_assert_blocks "You can: + numbered list" "$YOU_CAN"
 
 # =============================================================================
+# T-0005 false-fire regression tests (2026-05-27)
+# Patterns that previously over-fired and should now PASS:
+#  (a) Binary "X or Y?" questions
+#  (b) Numbered fact lists with NO trailing question
+#  (c) Numbered list with a question >80 chars away from the last item
+#  (d) Numbered fact list + binary trailing question ("Want me to queue any?")
+# And one positive control: a genuine 3+ option question with trailing question
+# must still BLOCK.
+# =============================================================================
+
+# T-0005a: Binary "should we use X or Y?" - no list, just a binary question.
+BINARY_X_OR_Y="Looking at the routing options for the Discord thread.
+
+Should we use channel-A or channel-B for this?"
+mc_assert_allows "T-0005a: binary 'X or Y?' question (no list)" "$BINARY_X_OR_Y"
+
+# T-0005b: Numbered fact list with NO trailing question (Peekaboo capabilities pattern).
+FACT_LIST_NO_Q="Peekaboo can do these things today:
+
+1. Capture full-screen screenshots
+2. Crop to a region
+3. List open windows
+4. Switch focused app
+5. Read clipboard contents
+
+That's the current capability surface."
+mc_assert_allows "T-0005b: 5-item numbered fact list with NO trailing question" "$FACT_LIST_NO_Q"
+
+# T-0005c: Numbered list with a question elsewhere in the response but FAR from
+# the last list item (the question is in the opening paragraph, the list comes
+# after, and there's no question near the list itself).
+FACT_LIST_FAR_Q="Do you want the full audit summary? Here it is.
+
+Long preamble line one with extra padding to ensure distance from the list below this paragraph and onward.
+
+1. Finding alpha
+2. Finding beta
+3. Finding gamma
+4. Finding delta"
+mc_assert_allows "T-0005c: numbered list with question >80 chars from last item" "$FACT_LIST_FAR_Q"
+
+# T-0005d: Today's live false-fire - 5-item fact list followed by a binary
+# trailing question. The trailing question is yes/no, not "pick one of the 5".
+FACT_LIST_BINARY_Q="The follow-ups we tabled today:
+
+1. Tighten the bash-guard regex on git --no-verify
+2. Backport the validation-guard tests to the CI runner
+3. Move the screenshot-pending flag into XDG state
+4. Audit memory-nudge throttle window
+5. Roll the sidecoach mandate prompt into the SKILL frontmatter
+
+Want me to queue any?"
+mc_assert_allows "T-0005d: 5-item fact list + 'Want me to queue any?' binary trailing q" "$FACT_LIST_BINARY_Q"
+
+# T-0005e: Positive control - a genuine 3-option deflection with trailing
+# question that explicitly references the options. MUST still BLOCK.
+GENUINE_DEFLECTION="Three approaches I see:
+
+1. Refactor the orchestrator to lift the validator out
+2. Extract a separate validator-runner module
+3. Keep the current shape but add a feature flag
+
+Which one would you prefer?"
+mc_assert_blocks "T-0005e: positive control - 3-option list + 'Which one would you prefer?'" "$GENUINE_DEFLECTION"
+
+# =============================================================================
 # question-enforcement.sh tests
 # =============================================================================
 

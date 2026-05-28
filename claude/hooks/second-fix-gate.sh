@@ -25,7 +25,7 @@ INPUT=$(cat)
 export HOOK_INPUT="$INPUT"
 
 python3 <<'PYEOF'
-import json, os, sys, time, hashlib
+import json, os, re, sys, time, hashlib
 
 raw = os.environ.get("HOOK_INPUT", "")
 try:
@@ -43,8 +43,12 @@ if not file_path:
     print("{}"); sys.exit(0)
 
 # Exempt paths - memory writes, hook edits, skill edits do not count as fixes.
+# Global project memory (~/.claude/projects/<project>/memory/) lives outside the
+# project tree so it doesn't match `.claude/memory/`. Match it with a regex so
+# we don't over-exempt the session UUID transcripts that sit alongside it.
 EXEMPT = [".claude/memory/", "MEMORY.md", ".claude/hooks/", ".claude/skills/"]
-if any(e in file_path for e in EXEMPT):
+EXEMPT_REGEX = re.compile(r"\.claude/projects/[^/]+/memory/")
+if any(e in file_path for e in EXEMPT) or EXEMPT_REGEX.search(file_path):
     print("{}"); sys.exit(0)
 
 WINDOW_SECONDS = 600      # 10 min "stacked edits" window

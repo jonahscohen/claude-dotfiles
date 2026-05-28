@@ -104,7 +104,7 @@ echo "===== bash-guard cmux-eval BLOCK tests ====="
 bash_assert_blocks "synthetic .click()"            "cmux browser eval \"document.querySelector('a').click()\""
 bash_assert_blocks "dispatchEvent"                  "cmux browser eval \"el.dispatchEvent(new Event('click'))\""
 bash_assert_blocks "private method invocation"     "cmux browser eval \"obj._privateMethod()\""
-bash_assert_blocks "__improv namespace method"     "cmux browser eval \"window.__improv.activate()\""
+bash_assert_blocks "__endow namespace method"     "cmux browser eval \"window.__endow.activate()\""
 bash_assert_blocks "private array push"            "cmux browser eval \"pm._changeQueue.push({x:1})\""
 
 # Read shortcuts already covered before the fix
@@ -151,6 +151,43 @@ echo "===== bash-guard cmux-eval mixed DENY (feature-detect + blocked) ====="
 
 bash_assert_blocks "matchMedia + getAttribute mix" "cmux browser eval \"window.matchMedia('(min-width: 800px)').matches; el.getAttribute('x')\""
 bash_assert_blocks "typeof + .click() mix"          "cmux browser eval \"typeof X; btn.click()\""
+
+echo ""
+echo "===== bash-guard cmux-eval T-0003 false-block regression ====="
+# These reproduce the self-block on commit 50fc1b0: prose that DESCRIBES the
+# blocklist patterns (in HEREDOC bodies or quoted argument strings) is not
+# executed JS and must NOT trigger the cmux-eval guard. Only real
+# `cmux ... eval` invocations at a shell command-start position do.
+#
+# The test fixtures use `echo` (not `git commit`) so the cmux-eval gate is the
+# only gate in play - git commit would trip the memory-dirty / needs-verification
+# gates first and mask the result we're checking.
+
+# HEREDOC body that names every blocked pattern literally - this is the same
+# shape as the message that self-blocked commit 50fc1b0.
+HEREDOC_REPRO="echo \"\$(cat <<'EOF'
+fix(hooks): unify validation blocklists
+cmux blocklist was narrower than validation-guard. cmux eval can't be
+used to bypass anymore. Patterns: .getAttribute, inline-style read,
+.classList, .matches, window.innerWidth, form-state .disabled reads.
+EOF
+)\""
+bash_assert_allows "heredoc body describing cmux eval + .classList" "$HEREDOC_REPRO"
+
+# Flat quoted string that mentions cmux eval as prose - cmux is not at a
+# command-start position, so it isn't a real invocation.
+bash_assert_allows "echo with quoted cmux eval prose + .classList" \
+  'echo "cmux eval blocklist now also catches .classList reads"'
+
+# Mid-command prose: cmux mentioned inside a printf, not as the executable.
+bash_assert_allows "printf with cmux eval prose + .getAttribute" \
+  'printf "%s\n" "the cmux eval guard now handles .getAttribute too"'
+
+# Negative-side regression: real cmux eval call still gets blocked when it
+# appears after a benign echo via && chain.
+bash_assert_blocks "real cmux eval after && chain"   "echo prep && cmux browser eval \"el.style.color\""
+# Real cmux eval call inside a subshell - still blocks.
+bash_assert_blocks "real cmux eval at subshell start" "(cmux browser eval \"el.classList.contains('a')\")"
 
 echo ""
 echo "===== validation-guard BLOCK tests (regression) ====="

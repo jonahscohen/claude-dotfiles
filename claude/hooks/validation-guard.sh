@@ -156,10 +156,10 @@ if [ -z "$REASON" ] && echo "$JS_CODE" | grep -qE '\._[a-zA-Z][a-zA-Z0-9_]*\s*\(
   REMEDY="Drive the UI through real input (cmux click/type/press, chrome MCP computer). The private method should fire as a downstream consequence of the user's action, not as a direct invocation."
 fi
 
-# Calling methods on a known application namespace (improv-specific for now;
+# Calling methods on a known application namespace (endow-specific for now;
 # add others as the codebase grows). The pattern: <namespace>.method(...).
-if [ -z "$REASON" ] && echo "$JS_CODE" | grep -qE '(window\.)?__improv\.[a-zA-Z_][a-zA-Z0-9_]*\s*\('; then
-  REASON="Invoking a method on the application namespace (__improv) skips the user-facing path. The very state transitions you want to verify are now triggered by you, not by the UI."
+if [ -z "$REASON" ] && echo "$JS_CODE" | grep -qE '(window\.)?__endow\.[a-zA-Z_][a-zA-Z0-9_]*\s*\('; then
+  REASON="Invoking a method on the application namespace (__endow) skips the user-facing path. The very state transitions you want to verify are now triggered by you, not by the UI."
   REMEDY="Open the page, click/type like a user, and let the application call its own methods. Then screenshot to verify the visible result."
 fi
 

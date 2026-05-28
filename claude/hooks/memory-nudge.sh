@@ -22,8 +22,37 @@ except Exception:
     print("{}"); sys.exit(0)
 
 tool = data.get("tool_name", "")
+transcript_path = data.get("transcript_path", "")
 dirty_flag = os.path.expanduser("~/.claude/.memory-dirty")
 last_memory_write = os.path.expanduser("~/.claude/.last-memory-write")
+
+def is_subagent_context(path):
+    """True if this session is a sidechain subagent or a named teammate.
+    Signals come from the transcript JSONL:
+      - any record with isSidechain == True  -> Agent-tool spawned sidechain
+      - any record carrying a teamName field -> cmux-teams teammate
+    The parent session sets neither, so the absence of both means we are
+    in the top-level session and the nudge should fire normally."""
+    if not path:
+        return False
+    try:
+        with open(path) as fh:
+            for i, line in enumerate(fh):
+                if i > 20:  # only the header + first few records carry these
+                    break
+                try:
+                    d = json.loads(line)
+                except Exception:
+                    continue
+                if d.get("isSidechain") is True:
+                    return True
+                if d.get("teamName"):
+                    return True
+    except (FileNotFoundError, OSError):
+        return False
+    return False
+
+IS_SUBAGENT = is_subagent_context(transcript_path)
 
 def recently_satisfied():
     """True if a memory write happened within DEBOUNCE_SECONDS."""
@@ -72,12 +101,12 @@ if tool == "Bash":
             open(dirty_flag, "w").close()
         except Exception:
             pass
-        if recently_satisfied():
+        if recently_satisfied() or IS_SUBAGENT:
             print("{}"); sys.exit(0)
         print(json.dumps({
             "hookSpecificOutput": {
                 "hookEventName": "PostToolUse",
-                "additionalContext": "BASH WROTE FILES. You are in dirty state. Write to .claude/memory/ session file BEFORE composing any text response to the user."
+                "additionalContext": "BASH WROTE FILES. You are in dirty state. Write a session beat to .claude/memory/ BEFORE composing any text response to the user."
             }
         }))
     else:
@@ -106,13 +135,13 @@ try:
 except Exception:
     pass
 
-if recently_satisfied():
+if recently_satisfied() or IS_SUBAGENT:
     print("{}"); sys.exit(0)
 
 print(json.dumps({
     "hookSpecificOutput": {
         "hookEventName": "PostToolUse",
-        "additionalContext": "PROJECT FILE CHANGED. You are in dirty state. Write to .claude/memory/ session file BEFORE composing any text response to the user."
+        "additionalContext": "PROJECT FILE CHANGED. You are in dirty state. Write a session beat to .claude/memory/ BEFORE composing any text response to the user."
     }
 }))
 '

@@ -70,6 +70,16 @@
         ]
       },
       {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/agent-teams-guard.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
         "matcher": "Write|Edit|MultiEdit",
         "hooks": [
           {
@@ -81,6 +91,14 @@
             "type": "command",
             "command": "~/.claude/hooks/content-guard.sh",
             "timeout": 5
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.nyx/hook-bridge.cjs\" claude-code tool-start"
           }
         ]
       }
@@ -99,6 +117,14 @@
             "command": "~/.claude/hooks/voice-mandate.sh",
             "timeout": 5,
             "statusMessage": "Checking voice output..."
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.nyx/hook-bridge.cjs\" claude-code session-start"
           }
         ]
       },
@@ -174,6 +200,20 @@
             "command": "~/.claude/hooks/multiple-choice-inject-prompt.sh",
             "timeout": 5,
             "statusMessage": "Checking for multiple-choice violations..."
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/sidecoach-keyword.sh",
+            "timeout": 5,
+            "statusMessage": "Detecting sidecoach verbs..."
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.nyx/hook-bridge.cjs\" claude-code prompt-submit"
           }
         ]
       },
@@ -218,6 +258,14 @@
         ]
       },
       {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.nyx/hook-bridge.cjs\" claude-code tool-end"
+          }
+        ]
+      },
+      {
         "matcher": "Bash|mcp__claude-in-chrome__computer",
         "hooks": [
           {
@@ -243,7 +291,25 @@
         ]
       }
     ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.nyx/hook-bridge.cjs\" claude-code notify"
+          }
+        ]
+      }
+    ],
     "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.nyx/hook-bridge.cjs\" claude-code stop"
+          }
+        ]
+      },
       {
         "hooks": [
           {
@@ -262,6 +328,16 @@
         ]
       }
     ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.nyx/hook-bridge.cjs\" claude-code subagent-stop"
+          }
+        ]
+      }
+    ],
     "SessionEnd": [
       {
         "hooks": [
@@ -269,6 +345,14 @@
             "type": "command",
             "command": "~/.claude/hooks/resume-guard.sh",
             "timeout": 5
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.nyx/hook-bridge.cjs\" claude-code session-end"
           }
         ]
       }
@@ -282,7 +366,7 @@
     "claude-md-management@claude-plugins-official": true,
     "figma@claude-plugins-official": true,
     "firebase@claude-plugins-official": true,
-    "github@claude-plugins-official": false,
+    "github@claude-plugins-official": true,
     "hookify@claude-plugins-official": true,
     "learning-output-style@claude-plugins-official": false,
     "semgrep@claude-plugins-official": false,
@@ -299,10 +383,16 @@
     "feature-dev@claude-plugins-official": true,
     "ralph-loop@claude-plugins-official": true,
     "code-review@claude-plugins-official": true,
-    "plugin-developer-toolkit@claude-plugins-official": true,
-    "chrome-devtools@claude-plugins-official": true
+    "impeccable@impeccable": false
   },
   "extraKnownMarketplaces": {
+    "impeccable": {
+      "source": {
+        "source": "github",
+        "repo": "pbakaus/impeccable"
+      },
+      "autoUpdate": true
+    },
     "buildwithclaude": {
       "source": {
         "source": "github",
@@ -312,7 +402,29 @@
     }
   },
   "alwaysThinkingEnabled": true,
+  "effortLevel": "xhigh",
+  "voice": {
+    "enabled": true
+  },
   "skipDangerousModePermissionPrompt": true,
   "verbose": true,
-  "model": "claude-opus-4-7[1m]"
+  "voiceEnabled": true,
+  "mcpServers": {
+    "voice-output": {
+      "command": "node",
+      "args": [
+        "${HOME}/.claude/voice-output/server.js"
+      ]
+    },
+    "endow": {
+      "command": "node",
+      "args": [
+        "${HOME}/.claude/endow/dist/server/index.js"
+      ]
+    },
+    "peekaboo": {
+      "command": "/opt/homebrew/bin/peekaboo",
+      "args": ["mcp", "serve"]
+    }
+  }
 }

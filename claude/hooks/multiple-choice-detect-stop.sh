@@ -9,6 +9,19 @@
 # event. Stop is the only event with access to the just-completed assistant text.
 # This means detection is post-hoc; the bad response is already shown to the user.
 # The injection-on-next-turn loop is the enforcement.
+#
+# 2026-05-27 (T-0005 hardening): three false-fire patterns documented:
+#   (a) Binary "X or Y?" questions fired as deflections (Discord routing case).
+#   (b) Numbered fact lists with no trailing question (Peekaboo capabilities,
+#       audit-findings list) fired because option_count >= 2 alone triggered block.
+#   (c) Numbered fact list + a tangential binary trailing question ("Want me to
+#       queue any?") fired because trailing_deflection counted a yes/no as a
+#       choice prompt.
+# Fix: precondition `opt_count >= 3 AND (trailing_q == 1 OR trailing_deflection == 1)`
+# guards the numbered/vocabulary path; bold_label_count >= 2 stays as an
+# independent strong-signal override (preserves the original Failure 2 catch).
+# Trailing-question detection now requires a `?` within ~250 chars of the last
+# list item AND that question must not match the binary opener / "X or Y?" shape.
 
 LOG_FILE="$HOME/.claude/.multiple-choice-blocks.log"
 VIOLATION_FLAG="$HOME/.claude/.multiple-choice-violation"
@@ -79,6 +92,59 @@ OPTION_PATTERNS=(
 
 BOLD_LABEL_PATTERN='^[[:space:]]*\*\*[A-Z][A-Za-z]+[[:space:]]+[A-Z0-9]'
 
+# Pattern that marks an item-line for the trailing-q-window calculation.
+# Matches numbered items, dashed bullets, and bold-label options.
+LIST_ITEM_LINE_PATTERN='^[[:space:]]*([0-9]+\.[[:space:]]+|-[[:space:]]+|\*\*[A-Z][A-Za-z]+[[:space:]]+[A-Z0-9])'
+
+# Interrogative-introducer pattern. A line ending in ":" that opens a list
+# of options is functionally a trailing question even without a "?".
+INTERROGATIVE_INTRO_PATTERN='^[[:space:]]*(Would you (like|prefer)|You (can|could|should|might|may)|Want me to|Should I|Do you want|What.s your).*:[[:space:]]*$'
+
+# is_binary_question: returns 0 (true) if the question is a binary yes/no or
+# a simple "X or Y?" form; 1 (false) if it has multi-choice indicators or is
+# otherwise multi-option. Used to suppress trailing_q on tangential binaries.
+is_binary_question() {
+  local q="$1"
+  # Lowercase + strip leading whitespace for matching.
+  q=$(printf '%s' "$q" | tr '[:upper:]' '[:lower:]' | sed 's/^[[:space:]]*//')
+
+  # Multi-choice indicators: presence of any of these in the question text
+  # means the question references multiple listed items -> NOT binary.
+  if [[ "$q" =~ one[[:space:]]of[[:space:]](the[[:space:]])?(others|alternatives|options|plans|approaches|paths|choices|ones) ]]; then
+    return 1
+  fi
+  if [[ "$q" =~ which[[:space:]](one|approach|plan|path|option|choice|alternative|way|route|step) ]]; then
+    return 1
+  fi
+  if [[ "$q" =~ (prefer|pick|choose|select)[[:space:]](a|one|an|any|the) ]]; then
+    return 1
+  fi
+  if [[ "$q" =~ any[[:space:]]of[[:space:]](these|those|them|the) ]]; then
+    return 1
+  fi
+
+  # Multi-comma + "or" = enumerated alternatives ("A, B, or C?") -> NOT binary.
+  local comma_count
+  comma_count=$(printf '%s' "$q" | tr -cd ',' | wc -c | tr -d ' ')
+  local has_or=0
+  [[ "$q" =~ [[:space:]]or[[:space:]] ]] && has_or=1
+  if [[ $comma_count -ge 2 ]] && [[ $has_or -eq 1 ]]; then
+    return 1
+  fi
+
+  # Binary openers: yes/no question shape.
+  if [[ "$q" =~ ^(should|shall|want|do|does|did|is|are|can|could|would|will|may|might|have|has|ok|okay|ready|sound|good|alright)[[:space:]] ]]; then
+    return 0
+  fi
+
+  # Simple "X or Y?" form: exactly one "or", no commas.
+  if [[ $comma_count -eq 0 ]] && [[ $has_or -eq 1 ]]; then
+    return 0
+  fi
+
+  return 1
+}
+
 option_count=0
 bold_label_count=0
 matched_lines=""
@@ -101,22 +167,66 @@ while IFS= read -r line; do
   fi
 done <<< "$ASSISTANT_TEXT"
 
-# Block threshold: 2+ instances of either signal.
-should_block=0
-if [[ $option_count -ge 2 ]] || [[ $bold_label_count -ge 2 ]]; then
-  should_block=1
+# Effective opt_count = max(option_count, bold_label_count). The two counters
+# overlap on bold-labeled vocabulary lines ("**Option A:"), so summing
+# double-counts; max captures the strongest signal without inflation.
+opt_count=$option_count
+[[ $bold_label_count -gt $opt_count ]] && opt_count=$bold_label_count
+
+# Strip fenced code blocks before any trailing-question analysis so example
+# code containing "?" doesn't trip the detector.
+non_code=$(printf '%s\n' "$ASSISTANT_TEXT" | sed '/^```/,/^```/d')
+
+# Tightened trailing_q: locate the last list-item line, take a 250-char window
+# from there to end-of-response, and require a "?" inside that window. Then
+# verify the question isn't a binary yes/no or simple "X or Y?" shape.
+# Newlines are PRESERVED in the window so sentence extraction stops at line
+# boundaries (a bullet text + later question = two distinct sentences, not one
+# concatenated phrase whose opener is the bullet word).
+trailing_q=0
+last_list_line_num=$(printf '%s\n' "$non_code" | grep -nE "$LIST_ITEM_LINE_PATTERN" | tail -1 | cut -d: -f1)
+if [[ -n "$last_list_line_num" ]]; then
+  window=$(printf '%s' "$non_code" | tail -n +"$last_list_line_num")
+  window_short="${window:0:250}"
+  if [[ "$window_short" == *\?* ]]; then
+    # Extract the last `?`-terminated sentence from the window, with newlines
+    # treated as sentence boundaries.
+    last_q=$(python3 -c "
+import re, sys
+text = sys.argv[1]
+matches = re.findall(r'[^.!?\n]*\?', text)
+print(matches[-1].strip() if matches else '')
+" "$window_short")
+    if [[ -n "$last_q" ]] && ! is_binary_question "$last_q"; then
+      trailing_q=1
+    fi
+  fi
 fi
 
-# Trailing-question check: does the response END with a question (last 5 non-empty lines)?
-# This catches the soft-deflection pattern (presenting options + asking "does this land").
-non_code=$(printf '%s\n' "$ASSISTANT_TEXT" | sed '/^```/,/^```/d')
-last_paragraph=$(printf '%s\n' "$non_code" | grep -v '^[[:space:]]*$' | tail -5)
-trailing_q_mark=$(printf '%s\n' "$last_paragraph" | tail -1 | grep -cE '\?[[:space:]]*$')
+# Interrogative introducer ("Would you like me to:", "You can:") is treated
+# as a trailing question even without a "?". This catches the historic
+# "Failure 1" pattern (T3 / T21) where the question is implicit in the colon.
+if [[ $trailing_q -eq 0 ]]; then
+  has_intro=$(printf '%s\n' "$non_code" | grep -cE "$INTERROGATIVE_INTRO_PATTERN")
+  [[ $has_intro -gt 0 ]] && trailing_q=1
+fi
 
-# Combined deflection signal: labeled options + trailing question = high-confidence deflection.
+# trailing_deflection: trailing question + at least one option signal.
 trailing_deflection=0
-if [[ $trailing_q_mark -gt 0 ]] && ( [[ $option_count -ge 1 ]] || [[ $bold_label_count -ge 2 ]] ); then
+if [[ $trailing_q -eq 1 ]] && [[ $opt_count -ge 1 ]]; then
   trailing_deflection=1
+fi
+
+# Fire decision:
+#   - bold_label_count >= 2 always fires (strong structural signal; covers the
+#     "**Approach A/B/C**" deflection regardless of trailing-question shape).
+#   - Otherwise, require BOTH: opt_count >= 3 AND a trailing-question signal.
+#     This is the T-0005 precondition that suppresses false-fires on fact lists
+#     and binary questions.
+should_block=0
+if [[ $bold_label_count -ge 2 ]]; then
+  should_block=1
+elif [[ $opt_count -ge 3 ]] && ( [[ $trailing_q -eq 1 ]] || [[ $trailing_deflection -eq 1 ]] ); then
   should_block=1
 fi
 
@@ -157,7 +267,7 @@ fi
 
 if [[ $should_block -eq 1 ]]; then
   mkdir -p "$(dirname "$LOG_FILE")"
-  reason="opt=$option_count bold=$bold_label_count trailing_q=$trailing_q_mark trailing_deflection=$trailing_deflection"
+  reason="opt=$opt_count bold=$bold_label_count trailing_q=$trailing_q trailing_deflection=$trailing_deflection"
   echo "$(date '+%Y-%m-%d %H:%M:%S')  STOP-DETECT  $reason" >> "$LOG_FILE"
 
   # Write violation flag for next-turn injection.

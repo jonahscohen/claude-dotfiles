@@ -16,7 +16,7 @@ except Exception:
 ' 2>/dev/null)
 
 if echo "$FILE_PATH" | grep -qE '(^|/)\.claude/(memory|projects/.*/memory)/'; then
-    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"Auto-approved: memory directory write"}}'
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","permissionDecisionReason":"Auto-approved: beat write"}}'
 else
     echo '{}'
 fi
