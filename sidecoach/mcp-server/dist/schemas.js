@@ -13,7 +13,7 @@
 // both the raw shapes (for SDK registration) and the wrapped objects (for
 // internal validation in unit tests).
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.TOOL_INPUT_SCHEMAS = exports.LspWorkspaceSymbolsInput = exports.lspWorkspaceSymbolsShape = exports.LspDocumentSymbolsInput = exports.lspDocumentSymbolsShape = exports.LspFindReferencesInput = exports.lspFindReferencesShape = exports.LspGotoDefinitionInput = exports.lspGotoDefinitionShape = exports.LspHoverInput = exports.lspHoverShape = exports.LSP_LANGUAGES = exports.AstGrepInput = exports.astGrepShape = exports.AST_GREP_LANGUAGES = exports.StateListKeysInput = exports.stateListKeysShape = exports.StateDeleteInput = exports.stateDeleteShape = exports.StateGetInput = exports.stateGetShape = exports.StateSetInput = exports.stateSetShape = exports.GetFlowMetadataInput = exports.getFlowMetadataShape = exports.GetCheatsheetInput = exports.getCheatsheetShape = exports.GetCostLedgerInput = exports.getCostLedgerShape = exports.ValidateTasteInput = exports.validateTasteShape = exports.ValidateExtendedDomainInput = exports.validateExtendedDomainShape = exports.ValidatePolishInput = exports.validatePolishShape = exports.ResolveKeywordInput = exports.resolveKeywordShape = exports.ListFlowsInput = exports.listFlowsShape = exports.ListModesInput = exports.listModesShape = exports.ListVerbsInput = exports.listVerbsShape = void 0;
+exports.TOOL_INPUT_SCHEMAS = exports.PythonReplExecuteInput = exports.pythonReplExecuteShape = exports.LspWorkspaceSymbolsInput = exports.lspWorkspaceSymbolsShape = exports.LspDocumentSymbolsInput = exports.lspDocumentSymbolsShape = exports.LspFindReferencesInput = exports.lspFindReferencesShape = exports.LspGotoDefinitionInput = exports.lspGotoDefinitionShape = exports.LspHoverInput = exports.lspHoverShape = exports.LSP_LANGUAGES = exports.AstGrepInput = exports.astGrepShape = exports.AST_GREP_LANGUAGES = exports.StateListKeysInput = exports.stateListKeysShape = exports.StateDeleteInput = exports.stateDeleteShape = exports.StateGetInput = exports.stateGetShape = exports.StateSetInput = exports.stateSetShape = exports.GetFlowMetadataInput = exports.getFlowMetadataShape = exports.GetCheatsheetInput = exports.getCheatsheetShape = exports.GetCostLedgerInput = exports.getCostLedgerShape = exports.ValidateTasteInput = exports.validateTasteShape = exports.ValidateExtendedDomainInput = exports.validateExtendedDomainShape = exports.ValidatePolishInput = exports.validatePolishShape = exports.ResolveKeywordInput = exports.resolveKeywordShape = exports.ListFlowsInput = exports.listFlowsShape = exports.ListModesInput = exports.listModesShape = exports.ListVerbsInput = exports.listVerbsShape = void 0;
 const zod_1 = require("zod");
 // ---------------------------------------------------------------------------
 // Shared primitive bounds
@@ -330,6 +330,33 @@ exports.lspWorkspaceSymbolsShape = {
 };
 exports.LspWorkspaceSymbolsInput = zod_1.z.object(exports.lspWorkspaceSymbolsShape); // T-0026
 // ---------------------------------------------------------------------------
+// Tool 21: python_repl_execute (T-0025)
+// ---------------------------------------------------------------------------
+// T-0025: code length cap. 256 KiB is generous for a one-shot snippet while
+// still rejecting pathological multi-megabyte payloads before they reach the
+// static screen or the container.
+const PYTHON_CODE_MAX = 256 * 1024; // T-0025
+// T-0025: caller-supplied timeout bounds. Floor 100ms, ceiling 10s (the
+// container hard-kill budget). The per-tool wrapper timeout (30s) sits above
+// this so the internal kill always fires first.
+const PYTHON_TIMEOUT_MIN_MS = 100; // T-0025
+const PYTHON_TIMEOUT_MAX_MS = 10000; // T-0025
+exports.pythonReplExecuteShape = {
+    code: zod_1.z
+        .string()
+        .min(1)
+        .max(PYTHON_CODE_MAX)
+        .describe('Python source to execute one-shot inside the sandbox container. Streamed via stdin.'),
+    timeoutMs: zod_1.z
+        .number()
+        .int()
+        .min(PYTHON_TIMEOUT_MIN_MS)
+        .max(PYTHON_TIMEOUT_MAX_MS)
+        .optional()
+        .describe('Optional hard-kill timeout in ms (100..10000). Default 10000.'),
+}; // T-0025
+exports.PythonReplExecuteInput = zod_1.z.object(exports.pythonReplExecuteShape); // T-0025
+// ---------------------------------------------------------------------------
 // Map every tool name -> its wrapped Zod object schema (for tests + the
 // uniform input-validation guard in index.ts).
 // ---------------------------------------------------------------------------
@@ -354,5 +381,6 @@ exports.TOOL_INPUT_SCHEMAS = {
     sidecoach_lsp_find_references: exports.LspFindReferencesInput, // T-0026
     sidecoach_lsp_document_symbols: exports.LspDocumentSymbolsInput, // T-0026
     sidecoach_lsp_workspace_symbols: exports.LspWorkspaceSymbolsInput, // T-0026
+    sidecoach_python_repl_execute: exports.PythonReplExecuteInput, // T-0025
 };
 //# sourceMappingURL=schemas.js.map

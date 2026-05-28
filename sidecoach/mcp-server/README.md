@@ -99,7 +99,8 @@ re-spawns the MCP server and reads the new config.
 |---|---|---|
 | `SIDECOACH_MCP_LOG_LEVEL` | `info` | One of `error` / `warn` / `info` / `debug`. Higher = more verbose stderr logs. |
 | `SIDECOACH_MCP_TIMEOUT_MS` | `30000` | Default per-tool timeout in milliseconds. Per-tool timeouts override this (5s for read tools, 30s for validators). |
-| `SIDECOACH_PROJECT_ROOT` | `process.cwd()` | Filesystem boundary for `sidecoach_ast_grep`. Any `path` argument is resolved against this root, realpath-followed, and rejected if it escapes via `..` or a symlink that points outside. Set to your repo root when launching the server so `ast_grep` queries scope to your project. Wrong value (missing dir, file instead of dir) returns `INVALID_INPUT` on the first ast_grep call. |
+| `SIDECOACH_PROJECT_ROOT` | `process.cwd()` | Filesystem boundary for `sidecoach_ast_grep` and the LSP tools. Any `path`/`file` argument is resolved against this root, realpath-followed, and rejected if it escapes via `..` or a symlink that points outside. Set to your repo root when launching the server so queries scope to your project. Wrong value (missing dir, file instead of dir) returns `INVALID_INPUT` on the first call. |
+| `SIDECOACH_PYTHON_IMAGE` | `python:3-slim` | Container image used by `sidecoach_python_repl_execute`. Override to pin a version or use a smaller base (e.g. `python:3.12-alpine`). The image must be pullable by the local docker/podman runtime. |
 
 ---
 
@@ -323,6 +324,35 @@ it from an optional `file`, defaulting to `typescript`.
 - Errors: `DOWNSTREAM_UNAVAILABLE` (selected server missing), `INVALID_INPUT` (unknown language).
 
 <!-- T-0026 LSP tools end -->
+
+<!-- T-0025 Python REPL begin -->
+
+### `sidecoach_python_repl_execute` (T-0025)
+
+Execute a one-shot Python snippet inside a locked-down, single-use container.
+
+- **Prerequisite:** a container runtime (`docker` **or** `podman`) must be on PATH. docker is probed first, then podman; the result is cached per process. No runtime, or a binary present but daemon unreachable, returns `DOWNSTREAM_UNAVAILABLE` (never a crash).
+- **Image:** `python:3-slim` by default. Override with the `SIDECOACH_PYTHON_IMAGE` env var (e.g. `python:3.12-alpine`). Pull the image once before first use.
+- Input: `{ code: string (1..256 KiB), timeoutMs?: number (100..10000, default 10000) }`
+- Output: `{ image, runtime, exitCode, timedOut, oomKilled, stdout, stderr, durationMs }`
+- **Two defensive layers:**
+  1. **Static screen (before any container spawns):** the code is lexically scanned (string/comment contents neutralized first to avoid false positives) and rejected as `INVALID_INPUT` if it imports `os` / `subprocess` / `socket`, or uses `__import__` / `eval` / `exec` / `compile`, or pokes at `__builtins__`. The violation is named in the error.
+  2. **Container (the hard boundary):** every run gets `--network none --memory 256m --cpus 0.5 --read-only --tmpfs /tmp:size=64m --user nobody`. Code is streamed over stdin (never lands on disk or in argv). `--rm` cleans up the container.
+- **Output cap:** stdout/stderr capped at 64 KiB with a `...[truncated]` suffix.
+- **Hard timeout:** 10s container hard-kill (configurable down via `timeoutMs`). On timeout the container is killed (`<runtime> kill`), not just the client, so nothing leaks; the tool returns `TIMEOUT`. The per-tool wrapper budget is 30s, comfortably above the container kill so the internal kill always fires first.
+- **Result semantics:** a non-zero container exit (a Python traceback, an OOM kill at exit 137) is a *normal* result returned as data with `exitCode` + `stderr` - it is NOT a tool error. Only a hard timeout maps to `TIMEOUT`.
+- Errors: `DOWNSTREAM_UNAVAILABLE` (no runtime / daemon down / runtime vanished mid-call), `INVALID_INPUT` (static-screen violation, oversize code, bad timeout), `TIMEOUT` (container hard-killed).
+
+| Container flag | Why |
+|---|---|
+| `--network none` | No network namespace at all - egress is impossible from inside the container. |
+| `--memory 256m` | Memory ceiling; an allocation past it is OOM-killed (exit 137) rather than exhausting the host. |
+| `--cpus 0.5` | Half a core - bounds a busy loop's blast radius until the timeout fires. |
+| `--read-only` | Root filesystem is read-only: no persistence, no tampering with the image. |
+| `--tmpfs /tmp:size=64m` | The only writable surface, size-capped and wiped with the container. |
+| `--user nobody` | Drop to an unprivileged user; code never runs as root. |
+
+<!-- T-0025 Python REPL end -->
 
 ---
 

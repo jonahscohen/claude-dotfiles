@@ -317,3 +317,123 @@ Test counts added by T-0026: unit +45 (framing 10, servers 7, client 8, manager
 204, all green.
 
 <!-- T-0026 end -->
+
+---
+<!-- T-0025 begin -->
+
+# T-0025: Containerized Python REPL (implements the section 3b reject's follow-up)
+
+Owner: Jonah | Filed: 2026-05-28 | Status: implemented
+
+Section 3b above REJECTED an in-process / host-sandboxed Python REPL because the
+seven sandboxing requirements could not be met portably without containerization,
+and filed a follow-up for "a containerized variant (Docker or Podman) where all
+seven requirements ARE meetable." T-0025 is that variant. It extends the T-0018 /
+T-0022 / T-0026 quality bar 1:1 (Zod-validated input, uniform `wrapHandler`
+guard, structured `ToolError` taxonomy, redacted stderr logger, per-tool
+timeout, graceful degradation when the runtime is absent).
+
+## 1. Tool surface (1 tool)
+
+| Tool | Arg shape | Notes |
+|---|---|---|
+| `sidecoach_python_repl_execute` | `{code: string(1..256 KiB), timeoutMs?: int(100..10000)}` | one-shot; streams `code` over stdin to `python3 -` |
+
+Output: `{image, runtime, exitCode, timedOut, oomKilled, stdout, stderr, durationMs}`.
+
+## 2. Architecture (3 modules, mirroring ast_grep's probe-and-shell shape)
+
+- **`src/python-ast-check.ts`** - the static screen. Pure, no I/O. `neutralize()`
+  replaces string-literal and comment CONTENTS with spaces (preserving newlines)
+  so a forbidden token inside a string is not a false positive and a real import
+  cannot hide behind a `#`. `checkPythonCode()` then runs ordered detectors and
+  returns the FIRST violation.
+- **`src/python-sandbox.ts`** - `buildDockerArgs()` (the exact security-flag
+  vector, asserted by a unit test), `probeRuntime()` (docker then podman, ENOENT
+  -> not found, cached per process with a `_resetRuntimeProbe()` test seam), and
+  `runInContainer()` (spawn, stdin-stream the code, byte-capped capture, hard
+  timeout that issues `<runtime> kill <name>` so the CONTAINER dies, not just the
+  client).
+- **`src/tools/python-repl-execute.ts`** - the handler: probe -> screen -> run ->
+  classify outcome. Thin, delegates to the two modules above.
+
+## 3. Static screen choice - TS lexical scanner, not host `python3 -m ast`
+
+The spec allowed "Python's `ast` module (a static parse) or a robust check -
+document your choice." We chose an in-process TypeScript scanner over shelling to
+host `python3` for `ast.parse`:
+
+- **The gate must ALWAYS fire.** The only declared host dependency for this tool
+  is the container runtime. Adding a second host runtime (python3) just to screen
+  input creates a path where, on a host without python3, the gate silently
+  no-ops. An in-process scanner guarantees it always runs.
+- **Deterministic + unit-testable** without any interpreter.
+- **String/comment neutralization** removes the dominant false-positive /
+  false-negative vector a naive regex-on-raw-source would suffer.
+- The screen is **defense-in-depth, not the wall.** The container flags are the
+  hard boundary; an exotic obfuscation that slips the lexical screen still runs
+  with no network, a read-only FS, 256m RAM, 0.5 CPU, and as `nobody`.
+
+Forbidden constructs (each -> `INVALID_INPUT` naming the violation):
+`import os|subprocess|socket` (incl. `from`, dotted, comma forms), `__import__`,
+`eval(` / `exec(` / `compile(`, and any `__builtins__` access (covers
+`getattr(__builtins__, ...)`).
+
+## 4. The two timeout values (documented, per the bar)
+
+- **Container hard-kill: 10s** (`CONTAINER_TIMEOUT_MS`, configurable DOWN via the
+  `timeoutMs` arg, floor 100ms). On expiry the run aborts the spawned client AND
+  issues `<runtime> kill <name>`; `--rm` removes the container. Surfaces `TIMEOUT`.
+- **Per-tool wrapper budget: 30s** (`definition.timeoutMs`). Strictly greater than
+  the container kill so the internal kill always fires first and reports a precise
+  `TIMEOUT`; the wrapper race is the backstop.
+
+## 5. Failure modes (extending DESIGN.md Section 5)
+
+| Trigger | Code | Behavior |
+|---|---|---|
+| No docker/podman on PATH | `DOWNSTREAM_UNAVAILABLE` (`resource: docker`) | install hint; no container spawned |
+| Runtime binary present but daemon unreachable | `DOWNSTREAM_UNAVAILABLE` (`resource: docker`) | "is it running?" hint; suite stays green |
+| Runtime vanished between probe and call | `DOWNSTREAM_UNAVAILABLE` | probe cache invalidated implicitly on next reset |
+| Sandbox escape: forbidden import/builtin/`__builtins__` | `INVALID_INPUT` | rejected by the static screen BEFORE any container starts; violation named |
+| Network egress (allowed import, e.g. urllib) | (no error) | `--network none` makes the connect fail inside python; surfaced cleanly in stderr/stdout with a non-zero or caught result |
+| OOM (allocation > 256m) | (no error) | kernel OOM-kills the process (exit 137 / `MemoryError`); `oomKilled` flagged; NOT a hang |
+| Timeout / infinite loop | `TIMEOUT` | container hard-killed at the budget; no hang, no leak |
+| Oversize code (> 256 KiB) or bad `timeoutMs` | `INVALID_INPUT` | Zod rejects before the handler runs |
+| Oversize output | (no error) | stdout/stderr capped at 64 KiB with `...[truncated]` |
+| Python traceback (normal failing code) | (no error) | returned as data with `exitCode` + `stderr` - a REPL result, not a tool error |
+
+## 6. Per-flag security rationale
+
+| Flag | Threat it closes |
+|---|---|
+| `--network none` | Data exfiltration / C2 / dependency-confusion fetches - no network namespace exists. |
+| `--memory 256m` | Memory-exhaustion DoS against the host; bounds the blast radius to an OOM kill. |
+| `--cpus 0.5` | CPU-exhaustion DoS; a busy loop can only consume half a core until the timeout. |
+| `--read-only` | Persistence / image tampering / writing to host-mounted paths. |
+| `--tmpfs /tmp:size=64m` | Disk-fill via /tmp; the only writable surface is RAM-backed, size-capped, and ephemeral. |
+| `--user nobody` | Privilege escalation; code never runs as container-root, narrowing any container-escape CVE blast radius. |
+| `--rm` + per-call unique name | Resource leak; killed/finished containers are auto-removed. |
+| stdin streaming (`python3 -`) | Argv/disk leakage of code; the snippet never lands in process args or on disk. |
+
+## 7. Tests
+
+- **Unit:** `python-ast-check.test.ts` (AST-reject for EVERY forbidden pattern +
+  neutralizer false-positive proofs), `python-sandbox.test.ts` (buildDockerArgs
+  asserts the EXACT security flags; resolveImage env override; timeout bound),
+  `schemas.test.ts` (+4: code required, empty rejected, oversize rejected,
+  timeout bounds).
+- **Fault-injection:** `python-repl-faults.test.ts` - empty-PATH ->
+  `DOWNSTREAM_UNAVAILABLE`; one sandbox-escape reject per forbidden category;
+  and (daemon-gated) timeout-kill, OOM, and urllib network-egress block.
+- **Integration:** `python-repl.test.ts` - always-on `DOWNSTREAM_UNAVAILABLE`
+  and `INVALID_INPUT` paths; daemon-gated LIVE `print(2+2) -> "4"` round-trip and
+  a `--network none` egress block. Daemon-gated tests log a skip and keep the
+  suite green when docker is down.
+
+Test counts added by T-0025: suite total 204 -> 254, all green (unit 194,
+integration 23, fault-injection 37). Live docker round-trip verified:
+`print(2+2)` -> stdout "4" in ~326ms; `import os` -> INVALID_INPUT; urllib ->
+"BLOCKED: URLError" under `--network none`.
+
+<!-- T-0025 end -->

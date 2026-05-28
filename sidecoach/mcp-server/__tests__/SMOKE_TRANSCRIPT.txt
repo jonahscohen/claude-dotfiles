@@ -169,3 +169,57 @@ before any subprocess is spawned.
 T-0026 LSP EXTENSION SHUTDOWN: process exited cleanly when stdin closed (EOF);
 peekSharedLspManager() teardown ran (no servers had been spawned, nothing to kill).
 =========================================================
+
+
+=========================================================
+T-0025 PYTHON REPL EXTENSION (sidecoach_python_repl_execute)
+Captured live via __tests__/smoke-t0025.sh on 2026-05-28 (Jonah).
+Docker 27.4.0 daemon UP. Image python:3-slim. SIDECOACH_MCP_LOG_LEVEL=warn.
+This is a REAL containerized round-trip, not a mock.
+=========================================================
+
+--- 1) initialize / tools/list - tool count rose from 20 to 21 ---
+The tools/list response now enumerates the 20 prior tools plus:
+  - sidecoach_python_repl_execute
+Its inputSchema is {code: string(1..262144), timeoutMs?: int(100..10000)}.
+Its description spells out the exact sandbox flags:
+  --network none, --read-only root FS, 256m memory, 0.5 CPU, /tmp tmpfs (64m),
+  runs as nobody.
+
+--- 2) tools/call sidecoach_python_repl_execute (id=3) - LIVE ROUND-TRIP ---
+CLIENT->SERVER: {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"sidecoach_python_repl_execute","arguments":{"code":"print(2 + 2)"}}}
+SERVER->CLIENT: content[0]="sidecoach_python_repl_execute: ok in 326ms (docker)"
+SERVER->CLIENT: content[1]={
+  "image": "python:3-slim",
+  "runtime": "docker",
+  "exitCode": 0,
+  "timedOut": false,
+  "oomKilled": false,
+  "stdout": "4\n",
+  "stderr": "",
+  "durationMs": 326
+}
+^^ print(2+2) executed inside the locked-down container, stdout == "4".
+
+--- 3) sidecoach_python_repl_execute (id=4) "import os" - STATIC SCREEN REJECT ---
+CLIENT->SERVER: {"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"sidecoach_python_repl_execute","arguments":{"code":"import os\nprint(os.getcwd())"}}}
+SERVER->CLIENT: isError:true {"code":"INVALID_INPUT","message":"python code rejected by static screen: forbidden import: os","errorMessage":"forbidden import: os"}
+^^ Rejected BEFORE any container was spawned (defense-in-depth layer 1).
+
+--- 4) sidecoach_python_repl_execute (id=5) urllib over network - --network none BLOCK ---
+CLIENT->SERVER: {... code: import urllib.request; try urlopen('http://example.com') except print 'BLOCKED:' type ...}
+SERVER->CLIENT: content[0]="sidecoach_python_repl_execute: ok in 619ms (docker)"
+SERVER->CLIENT: content[1]={... "stdout": "BLOCKED: URLError\n", "exitCode": 0 ...}
+^^ urllib is an ALLOWED import (not os/subprocess/socket), so it passed the
+   screen - the egress block came from the CONTAINER (--network none), proving
+   layer 2 enforces isolation even when layer 1 lets the code through.
+
+--- 5) sidecoach_python_repl_execute (id=6) empty code - SCHEMA REJECT ---
+CLIENT->SERVER: {"jsonrpc":"2.0","id":6,...,"arguments":{"code":""}}
+SERVER->CLIENT: isError:true MCP error -32602: Input validation error ... "String must contain at least 1 character(s)" path:["code"]
+^^ Zod min(1) rejects empty code at the SDK layer, before the handler runs.
+
+Every call produced a clean, structured response. The container round-trip
+returned "4"; forbidden imports never reach a container; network egress is
+blocked at the container even for allowed imports; empty input is schema-rejected.
+=========================================================

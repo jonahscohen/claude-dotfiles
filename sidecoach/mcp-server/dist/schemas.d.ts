@@ -348,6 +348,21 @@ export declare const LspWorkspaceSymbolsInput: z.ZodObject<{
     language?: "javascript" | "typescript" | "python" | "go" | "rust" | "c" | "cpp" | undefined;
 }>;
 export type LspWorkspaceSymbolsInputT = z.infer<typeof LspWorkspaceSymbolsInput>;
+export declare const pythonReplExecuteShape: {
+    code: z.ZodString;
+    timeoutMs: z.ZodOptional<z.ZodNumber>;
+};
+export declare const PythonReplExecuteInput: z.ZodObject<{
+    code: z.ZodString;
+    timeoutMs: z.ZodOptional<z.ZodNumber>;
+}, "strip", z.ZodTypeAny, {
+    code: string;
+    timeoutMs?: number | undefined;
+}, {
+    code: string;
+    timeoutMs?: number | undefined;
+}>;
+export type PythonReplExecuteInputT = z.infer<typeof PythonReplExecuteInput>;
 export declare const TOOL_INPUT_SCHEMAS: {
     readonly sidecoach_list_verbs: z.ZodObject<{
         phase: z.ZodOptional<z.ZodString>;
@@ -585,6 +600,16 @@ export declare const TOOL_INPUT_SCHEMAS: {
         query: string;
         file?: string | undefined;
         language?: "javascript" | "typescript" | "python" | "go" | "rust" | "c" | "cpp" | undefined;
+    }>;
+    readonly sidecoach_python_repl_execute: z.ZodObject<{
+        code: z.ZodString;
+        timeoutMs: z.ZodOptional<z.ZodNumber>;
+    }, "strip", z.ZodTypeAny, {
+        code: string;
+        timeoutMs?: number | undefined;
+    }, {
+        code: string;
+        timeoutMs?: number | undefined;
     }>;
 };
 export type ToolName = keyof typeof TOOL_INPUT_SCHEMAS;

@@ -23,6 +23,8 @@ import * as lspGotoDefinition from './lsp-goto-definition';
 import * as lspFindReferences from './lsp-find-references';
 import * as lspDocumentSymbols from './lsp-document-symbols';
 import * as lspWorkspaceSymbols from './lsp-workspace-symbols';
+// T-0025 Python REPL tool
+import * as pythonReplExecute from './python-repl-execute';
 
 import type { ToolDefinition, ToolHandler } from './types';
 
@@ -55,6 +57,8 @@ export const TOOLS: RegisteredTool[] = [
   { definition: lspFindReferences.definition, handler: lspFindReferences.handler }, // T-0026
   { definition: lspDocumentSymbols.definition, handler: lspDocumentSymbols.handler }, // T-0026
   { definition: lspWorkspaceSymbols.definition, handler: lspWorkspaceSymbols.handler }, // T-0026
+  // T-0025 extension tool (containerized Python REPL).
+  { definition: pythonReplExecute.definition, handler: pythonReplExecute.handler }, // T-0025
 ];
 
 export const TOOL_NAMES = TOOLS.map((t) => t.definition.name);

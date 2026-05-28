@@ -188,4 +188,44 @@ export async function run(): Promise<void> {
       false,
     );
   });
+
+  // T-0025 Python REPL schema
+
+  await test('python_repl_execute: code required', () => {
+    assert.strictEqual(TOOL_INPUT_SCHEMAS.sidecoach_python_repl_execute.safeParse({}).success, false);
+    assert.strictEqual(
+      TOOL_INPUT_SCHEMAS.sidecoach_python_repl_execute.safeParse({ code: 'print(1)' }).success,
+      true,
+    );
+  });
+
+  await test('python_repl_execute: empty code rejected', () => {
+    assert.strictEqual(
+      TOOL_INPUT_SCHEMAS.sidecoach_python_repl_execute.safeParse({ code: '' }).success,
+      false,
+    );
+  });
+
+  await test('python_repl_execute: oversize code (>256 KiB) rejected', () => {
+    const big = 'x = 1\n'.repeat(50_000); // ~300 KiB
+    assert.strictEqual(
+      TOOL_INPUT_SCHEMAS.sidecoach_python_repl_execute.safeParse({ code: big }).success,
+      false,
+    );
+  });
+
+  await test('python_repl_execute: timeoutMs bounds enforced (100..10000)', () => {
+    assert.strictEqual(
+      TOOL_INPUT_SCHEMAS.sidecoach_python_repl_execute.safeParse({ code: 'print(1)', timeoutMs: 50 }).success,
+      false,
+    );
+    assert.strictEqual(
+      TOOL_INPUT_SCHEMAS.sidecoach_python_repl_execute.safeParse({ code: 'print(1)', timeoutMs: 10_001 }).success,
+      false,
+    );
+    assert.strictEqual(
+      TOOL_INPUT_SCHEMAS.sidecoach_python_repl_execute.safeParse({ code: 'print(1)', timeoutMs: 5_000 }).success,
+      true,
+    );
+  });
 }

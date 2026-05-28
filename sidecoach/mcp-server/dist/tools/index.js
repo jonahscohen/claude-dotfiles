@@ -58,6 +58,8 @@ const lspGotoDefinition = __importStar(require("./lsp-goto-definition"));
 const lspFindReferences = __importStar(require("./lsp-find-references"));
 const lspDocumentSymbols = __importStar(require("./lsp-document-symbols"));
 const lspWorkspaceSymbols = __importStar(require("./lsp-workspace-symbols"));
+// T-0025 Python REPL tool
+const pythonReplExecute = __importStar(require("./python-repl-execute"));
 exports.TOOLS = [
     { definition: listVerbs.definition, handler: listVerbs.handler },
     { definition: listModes.definition, handler: listModes.handler },
@@ -82,6 +84,8 @@ exports.TOOLS = [
     { definition: lspFindReferences.definition, handler: lspFindReferences.handler }, // T-0026
     { definition: lspDocumentSymbols.definition, handler: lspDocumentSymbols.handler }, // T-0026
     { definition: lspWorkspaceSymbols.definition, handler: lspWorkspaceSymbols.handler }, // T-0026
+    // T-0025 extension tool (containerized Python REPL).
+    { definition: pythonReplExecute.definition, handler: pythonReplExecute.handler }, // T-0025
 ];
 exports.TOOL_NAMES = exports.TOOLS.map((t) => t.definition.name);
 //# sourceMappingURL=index.js.map

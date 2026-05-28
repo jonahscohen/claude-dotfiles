@@ -402,6 +402,37 @@ export const LspWorkspaceSymbolsInput = z.object(lspWorkspaceSymbolsShape); // T
 export type LspWorkspaceSymbolsInputT = z.infer<typeof LspWorkspaceSymbolsInput>; // T-0026
 
 // ---------------------------------------------------------------------------
+// Tool 21: python_repl_execute (T-0025)
+// ---------------------------------------------------------------------------
+
+// T-0025: code length cap. 256 KiB is generous for a one-shot snippet while
+// still rejecting pathological multi-megabyte payloads before they reach the
+// static screen or the container.
+const PYTHON_CODE_MAX = 256 * 1024; // T-0025
+// T-0025: caller-supplied timeout bounds. Floor 100ms, ceiling 10s (the
+// container hard-kill budget). The per-tool wrapper timeout (30s) sits above
+// this so the internal kill always fires first.
+const PYTHON_TIMEOUT_MIN_MS = 100; // T-0025
+const PYTHON_TIMEOUT_MAX_MS = 10_000; // T-0025
+
+export const pythonReplExecuteShape = {
+  code: z
+    .string()
+    .min(1)
+    .max(PYTHON_CODE_MAX)
+    .describe('Python source to execute one-shot inside the sandbox container. Streamed via stdin.'),
+  timeoutMs: z
+    .number()
+    .int()
+    .min(PYTHON_TIMEOUT_MIN_MS)
+    .max(PYTHON_TIMEOUT_MAX_MS)
+    .optional()
+    .describe('Optional hard-kill timeout in ms (100..10000). Default 10000.'),
+}; // T-0025
+export const PythonReplExecuteInput = z.object(pythonReplExecuteShape); // T-0025
+export type PythonReplExecuteInputT = z.infer<typeof PythonReplExecuteInput>; // T-0025
+
+// ---------------------------------------------------------------------------
 // Map every tool name -> its wrapped Zod object schema (for tests + the
 // uniform input-validation guard in index.ts).
 // ---------------------------------------------------------------------------
@@ -427,6 +458,7 @@ export const TOOL_INPUT_SCHEMAS = {
   sidecoach_lsp_find_references: LspFindReferencesInput, // T-0026
   sidecoach_lsp_document_symbols: LspDocumentSymbolsInput, // T-0026
   sidecoach_lsp_workspace_symbols: LspWorkspaceSymbolsInput, // T-0026
+  sidecoach_python_repl_execute: PythonReplExecuteInput, // T-0025
 } as const;
 
 export type ToolName = keyof typeof TOOL_INPUT_SCHEMAS;
