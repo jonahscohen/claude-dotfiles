@@ -26,3 +26,12 @@ Files touched: ~377 total. Multi-topic split keeps history bisectable.
 - Commit 4 next: T-0015 flow cull + T-0016 t16-bench-ledger.test + T-0018 hardened MCP server + sidecoach/dist rebuild.
 - Commit 4 landed: T-0015 + T-0016 + T-0018 + dist + mcp-server node_modules (~4166 files).
 - Commit 5 next: TASKS.md + MEMORY.md + sidecoach_followup_queue.md + ~35 session beats.
+
+## Round 2 (omc-gap-close wave): 2 commits
+
+After session 1 closed (6 commits 9c52588..ad04513), spawned omc-gap-close team to close 5 OMC capability gaps + 19-subagent analysis. All six teammates shipped (T-0019..T-0024) with two follow-up deferrals queued (T-0025 Python REPL containerized, T-0026 LSP subsystem).
+
+Plan:
+- Commit 7: `feat(omc-gap-close)`: T-0019 preamble + T-0020 ralph + T-0021 HUD + T-0022 MCP extension + T-0023 deep-interview
+- Commit 8: `chore(memory)`: T-0024 decision beat + 6 session beats + MEMORY.md sweep + TASKS.md closures (T-0019..T-0024 done, T-0025/T-0026 active)
+- Commit 7 staging complete (82 files); commit in progress.
