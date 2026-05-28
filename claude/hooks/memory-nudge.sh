@@ -79,14 +79,24 @@ if tool == "Bash":
                  "wc ", "diff ", "readlink", "which", "type ", "file ",
                  "curl -s", "node -e", "python3 -c"]
     is_read = any(cmd.strip().startswith(r) for r in read_only)
-    # Also skip if it is a git command that does not modify files
-    is_git_read = cmd.strip().startswith("git") and not any(w in cmd for w in ["commit", "add", "push", "reset", "checkout", "merge", "rebase", "cherry"])
+    # Pure-git commands never AUTHOR project content that needs a beat - they
+    # manipulate VCS state, and `git commit` is what CONSUMES a beat, not a new
+    # change requiring one. Treating them as writes also false-matched the
+    # redirect tokens below ("> ", ">>") against arrows like "->" inside commit
+    # messages, which spuriously re-set the dirty flag right after a successful
+    # commit and blocked the next one. So: if every chained segment is a git
+    # command, this is not a beat-needing write. A compound that mixes git with
+    # a non-git writer (e.g. `sed -i x && git add`) still falls through to the
+    # write check below via the not-all-git test.
+    import re as _re
+    _segments = [s.strip() for s in _re.split(r"&&|\|\||;|\||\n", cmd) if s.strip()]
+    is_pure_git = bool(_segments) and all(s.startswith("git ") or s == "git" for s in _segments)
     # Skip memory-related commands
     is_memory = ".claude/memory" in cmd or "MEMORY.md" in cmd
     # Commands that write files
     writes = ["cp ", "mv ", "python3 <<", "cat <<", "> ", ">>", "tee ", "install",
               "sed -i", "chmod", "ln -s", "mkdir", "touch ", "rm "]
-    is_write = any(w in cmd for w in writes)
+    is_write = any(w in cmd for w in writes) and not is_pure_git
 
     if is_memory:
         try:
