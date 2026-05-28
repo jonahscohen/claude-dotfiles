@@ -510,6 +510,16 @@ install can come later (a follow-up task) once the contract has shaken out.
 | 16 | Validator outputs leak PII from the HTML the caller provided | The caller provided the HTML; we return what the validator computed against it. The MCP protocol is process-local; PII never leaves the user's machine via this surface. Logger does NOT log inputs/outputs, so we don't accidentally persist PII to disk. |
 | 17 | Cost ledger has thousands of entries | `get_cost_ledger` returns full list only in `raw` format; `summary` (default) returns aggregates. Caller chooses verbosity. No artificial cap; if it grows pathological we cap then. |
 | 18 | DESIGN.md goes out of date | Filed as a beat with `relates_to: session_2026-05-28_t0018_mcp_server.md`; reviewed at every server-touching task. |
+| 19 | (T-0022) state_set called when store at 1000-entry cap | Sweep stale entries before the cap check (frees expired slots). If still at cap, return `VALIDATOR_FAILURE` with `code=TOO_MANY_ENTRIES`. Caller can delete + retry. |
+| 20 | (T-0022) state_set called with key/value over Zod cap | Schema rejects with `INVALID_INPUT` before the handler body runs. Defense in depth: store's internal `validateKey/validateValue` also raise `StoreError` which the handler maps to `INVALID_INPUT`. |
+| 21 | (T-0022) state_get on key whose TTL just expired | Lazy expiry on read: the entry is dropped from the map and the response is `{value: null}`. No error - missing/expired keys are not failures (matches normal cache semantics). |
+| 22 | (T-0022) state TTL math overflows | Zod schema caps `ttlMs` at 24h (86_400_000); the store also enforces the same cap. No `Date.now() + ttlMs` overflow possible in the next ~290 million years. |
+| 23 | (T-0022) ast_grep CLI binary not on PATH | Probed at first call (cached per process). Missing -> `DOWNSTREAM_UNAVAILABLE` with `resource: "ast-grep"` and install hint. Server stays alive; other tools unaffected. |
+| 24 | (T-0022) ast_grep path escapes project root | `validatePathInRoot` resolves the user path against `SIDECOACH_PROJECT_ROOT`, follows symlinks via realpath, computes the relative offset. If it starts with `..` or is absolute, returns `INVALID_INPUT` with `path escapes the project root`. Tests cover `..`, absolute `/etc`, and symlink-to-outside attacks. |
+| 25 | (T-0022) ast_grep CLI hangs on a pathological pattern | AbortController-tied timeout at 9.5s (under the 10s tool budget so we report `TIMEOUT` cleanly inside the handler). execFile timeout option provides defense in depth. |
+| 26 | (T-0022) ast_grep CLI exits non-zero (bad pattern, unsupported language) | Maps to `VALIDATOR_FAILURE` with `validator: "ast-grep"` and the redacted stderr in `errorMessage`. Server stays alive. |
+| 27 | (T-0022) ast_grep stdout exceeds 4 MiB | execFile's `maxBuffer: 4 MiB` cap returns an `ERR_CHILD_PROCESS_STDIO_MAXBUFFER` errno. The handler maps to `VALIDATOR_FAILURE`. Caller should narrow the path or pattern. |
+| 28 | (T-0022) `SIDECOACH_PROJECT_ROOT` points at a non-existent path or a file (not a directory) | `resolveProjectRoot` raises `INVALID_INPUT` at the first ast_grep call. Other tools (state, registries, validators) are unaffected. |
 
 ---
 
@@ -526,7 +536,7 @@ install can come later (a follow-up task) once the contract has shaken out.
 - [x] Test strategy has per-category targets with counts.
 - [x] Distribution includes the exact .mcp.json snippet and the rationale
       for separate-package vs in-parent.
-- [x] Failure modes table has at least 15 distinct rows. (Currently 18.)
+- [x] Failure modes table has at least 15 distinct rows. (Currently 28 after T-0022 extension.)
 
 No section reads as "TODO: think about X later." This memo is ready to be
 turned into code.

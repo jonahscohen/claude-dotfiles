@@ -16,7 +16,7 @@ function silentLogger() {
 }
 
 export async function run(): Promise<void> {
-  await test('server connects, lists 10 tools, every tool has an input schema', async () => {
+  await test('server connects, lists all tools, every tool has an input schema', async () => {
     const built = buildServer({ logger: silentLogger() });
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     await built.mcp.connect(serverTransport);

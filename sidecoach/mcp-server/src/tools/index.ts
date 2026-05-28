@@ -11,6 +11,12 @@ import * as validateTaste from './validate-taste';
 import * as getCostLedger from './get-cost-ledger';
 import * as getCheatsheet from './get-cheatsheet';
 import * as getFlowMetadata from './get-flow-metadata';
+// T-0022 extension tools
+import * as stateSet from './state-set';
+import * as stateGet from './state-get';
+import * as stateDelete from './state-delete';
+import * as stateListKeys from './state-list-keys';
+import * as astGrep from './ast-grep';
 
 import type { ToolDefinition, ToolHandler } from './types';
 
@@ -30,6 +36,12 @@ export const TOOLS: RegisteredTool[] = [
   { definition: getCostLedger.definition, handler: getCostLedger.handler },
   { definition: getCheatsheet.definition, handler: getCheatsheet.handler },
   { definition: getFlowMetadata.definition, handler: getFlowMetadata.handler },
+  // T-0022 extension tools (state + ast-grep).
+  { definition: stateSet.definition, handler: stateSet.handler },
+  { definition: stateGet.definition, handler: stateGet.handler },
+  { definition: stateDelete.definition, handler: stateDelete.handler },
+  { definition: stateListKeys.definition, handler: stateListKeys.handler },
+  { definition: astGrep.definition, handler: astGrep.handler },
 ];
 
 export const TOOL_NAMES = TOOLS.map((t) => t.definition.name);

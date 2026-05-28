@@ -12,7 +12,7 @@ This file is generated from `claude/hooks/sidecoach-verbs.json`, `claude/hooks/s
 
 ---
 
-## Section 0 - Modes (5 commands)
+## Section 0 - Modes (6 commands)
 
 Modes name the shape of work itself, not a single step. Each mode is a curated chain of verbs and takes precedence over verb matches in the same prompt. Type a mode word in any prompt to fire the chain.
 
@@ -23,6 +23,7 @@ Modes name the shape of work itself, not a single step. Each mode is a curated c
 | `bloom` | Add joy, color, motion, personality | colorize -> delight -> animate -> polish | `bloom the empty state` |
 | `canvas` | Live in-browser visual iteration | live -> colorize -> polish -> critique | `canvas the hero` |
 | `trim` | Strip a busy UI back to essentials | quieter -> distill -> clarify -> polish | `trim the dashboard` |
+| `ralph` | Relentless cross-flow iteration to convergence | polish -> audit -> critique (loop) | `ralph the checkout flow` |
 
 ---
 
@@ -167,6 +168,16 @@ The `UserPromptSubmit` hook at `claude/hooks/sidecoach-keyword.sh` (built by T-0
 In parallel, the slash-command router in `sidecoach/src/slash-command-router.ts` looks up the verb in `verb-command-registry.ts`, retrieves the `flowIds` chain for that verb, and runs each flow in order. Each flow produces guidance, a checklist, artifacts, and a memory entry. The orchestrator appends the verb-specific `guidanceAppend` lines after the chain finishes so the response speaks the verb's voice while keeping sidecoach's validators, BuildReport, taste validation, and memory infrastructure intact.
 
 The keyword hook is the keyword-detector layer (it ensures the right intent gets recognized even when the user does not type the slash command directly). The verb registry is the flow-mapping layer (it turns a verb into a deterministic chain). The two together replace the older "skill auto-trigger" model that did not fire reliably on real builds.
+
+### Setup commands (teach + document)
+
+Setup commands are NOT verbs - they're dedicated handlers in the orchestrator that write canonical project files (PRODUCT.md, DESIGN.md). They exist outside the 22-verb registry because they're invoked once at project setup, not per-task.
+
+| Command | What it does |
+|---|---|
+| `/sidecoach teach [brief]` | Brief-driven hybrid setup. Parses the brief, asks targeted questions only for the gaps, writes PRODUCT.md. Refuses to overwrite a real existing PRODUCT.md unless `metadata.forceOverwrite=true`. |
+| `/sidecoach teach --deep [brief]` | Deep-interview mode (T-0023). Extends taxonomy from 5 to 9 fields (adds problem, success metrics, business model, technical constraints, brand voice), runs vague-answer detection that demotes generic answers and asks sharper follow-ups, reports an OMC-style ambiguity score across 4 dimensions (goal/constraints/criteria/context) with weakest-dimension targeting, validates the written PRODUCT.md structurally, hands off to `/sidecoach document` when DESIGN.md is missing. |
+| `/sidecoach document` | Scans project HTML/CSS and writes a Google-spec DESIGN.md (YAML token frontmatter plus six canonical-order sections). |
 
 ---
 

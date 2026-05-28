@@ -52,3 +52,61 @@ STDERR log line for the same call (proves logger emits stderr, not stdout):
 =========================================================
 SHUTDOWN: process exited cleanly when stdin closed (EOF)
 =========================================================
+
+
+=========================================================
+T-0022 EXTENSION SMOKE - 5 new tools end-to-end
+Captured: 2026-05-28 by Jonah
+Server: dist/index.js (built with new state-set/get/delete/list_keys + ast-grep)
+Driver: __tests__/smoke-t0022.sh
+SIDECOACH_PROJECT_ROOT=sidecoach/mcp-server (default = cwd in this run)
+=========================================================
+
+--- 1) initialize / tools/list - tool count rose from 10 to 15 ---
+The tools/list response now enumerates the original 10 plus:
+  - sidecoach_state_set
+  - sidecoach_state_get
+  - sidecoach_state_delete
+  - sidecoach_state_list_keys
+  - sidecoach_ast_grep
+Each new tool ships full description, JSON-Schema-shaped inputSchema,
+and execution.taskSupport=forbidden (default).
+
+--- 2) tools/call sidecoach_state_set (id=3) - SUCCESS ---
+CLIENT->SERVER: {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"sidecoach_state_set","arguments":{"key":"smoke:project","value":"sidecoach-mcp","ttlMs":600000}}}
+SERVER->CLIENT: {"result":{"content":[{"type":"text","text":"sidecoach_state_set: key=\"smoke:project\" expiresAt=1779979920091 total=1"},{"type":"text","text":"{\n  \"key\": \"smoke:project\",\n  \"expiresAt\": 1779979920091,\n  \"totalEntries\": 1\n}"}]},"jsonrpc":"2.0","id":3}
+
+--- 3) tools/call sidecoach_state_set (id=4, second key) - SUCCESS ---
+CLIENT->SERVER: {"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"sidecoach_state_set","arguments":{"key":"smoke:phase","value":"t0022-extension","ttlMs":600000}}}
+SERVER->CLIENT: (totalEntries now 2)
+
+--- 4) tools/call sidecoach_state_list_keys (id=5, prefix="smoke:") - SUCCESS ---
+SERVER->CLIENT: {"result":{"content":[{"type":"text","text":"sidecoach_state_list_keys: 2 returned (2 matched)"},{"type":"text","text":"{\n  \"keys\": [\n    {\"key\":\"smoke:phase\",\"expiresAt\":1779979920091},\n    {\"key\":\"smoke:project\",\"expiresAt\":1779979920091}\n  ],\n  \"totalMatches\": 2,\n  \"truncated\": false\n}"}]},"jsonrpc":"2.0","id":5}
+
+--- 5) tools/call sidecoach_state_get (id=6, key="smoke:project") - HIT ---
+SERVER->CLIENT: {"result":{"content":[{"type":"text","text":"sidecoach_state_get: key=\"smoke:project\" hit (13 bytes)"},{"type":"text","text":"{\n  \"key\": \"smoke:project\",\n  \"value\": \"sidecoach-mcp\",\n  \"expiresAt\": 1779979920091\n}"}]},"jsonrpc":"2.0","id":6}
+
+--- 6) tools/call sidecoach_state_delete (id=7, key="smoke:phase") - DELETED=TRUE ---
+SERVER->CLIENT: {"result":{"content":[{"type":"text","text":"sidecoach_state_delete: key=\"smoke:phase\" deleted=true"},{"type":"text","text":"{\n  \"key\": \"smoke:phase\",\n  \"deleted\": true\n}"}]},"jsonrpc":"2.0","id":7}
+
+--- 7) tools/call sidecoach_state_list_keys (id=8) - one remaining key ---
+SERVER->CLIENT: (totalMatches=1 after delete)
+
+--- 8) tools/call sidecoach_ast_grep (id=9) against src/tools - SUCCESS ---
+CLIENT->SERVER: {"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"sidecoach_ast_grep","arguments":{"pattern":"export const definition","language":"typescript","path":"src/tools","maxResults":20}}}
+SERVER->CLIENT: 15 match(es) in 163ms. Each match includes file (relativized to project root), startLine/endLine (1-indexed), startColumn/endColumn, text (capped at 500 chars with ...[truncated] suffix where needed), and language.
+Sample match (one of 15):
+  file: "src/tools/state-set.ts"
+  startLine: 9, endLine: 17
+  text: "export const definition: ToolDefinition<typeof stateSetShape> = { ... };"
+
+--- 9) tools/call sidecoach_state_set (id=10, empty key) - STRUCTURED ERROR ---
+CLIENT->SERVER: {"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"sidecoach_state_set","arguments":{"key":"","value":"v"}}}
+SERVER->CLIENT: {"result":{"content":[{"type":"text","text":"MCP error -32602: Input validation error: Invalid arguments for tool sidecoach_state_set: [\n  {\n    \"code\": \"too_small\",\n    \"minimum\": 1,\n    \"type\": \"string\",\n    ...\n    \"path\": [\"key\"]\n  }\n]"}],"isError":true},"jsonrpc":"2.0","id":10}
+
+Zod schema rejected the empty key BEFORE the handler body ran - exactly the
+T-0018 guarantee. Server stays alive (it produced a clean response).
+
+=========================================================
+T-0022 EXTENSION SHUTDOWN: process exited cleanly when stdin closed (EOF)
+=========================================================

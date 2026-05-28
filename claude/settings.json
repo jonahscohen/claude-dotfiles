@@ -140,6 +140,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "SESSION_CWD=\"$(pwd)\" ~/.claude/hooks/sidecoach-preamble.sh",
+            "timeout": 5,
+            "statusMessage": "Loading project design context..."
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "SESSION_CWD=\"$(pwd)\" ~/.claude/hooks/reflect-nudge.sh",
             "timeout": 5,
             "statusMessage": "Checking reflection status..."
@@ -173,6 +183,12 @@
             "command": "~/.claude/hooks/voice-mandate.sh",
             "timeout": 5,
             "statusMessage": "Checking voice output..."
+          },
+          {
+            "type": "command",
+            "command": "SESSION_CWD=\"$(pwd)\" ~/.claude/hooks/sidecoach-preamble.sh",
+            "timeout": 5,
+            "statusMessage": "Reloading project design context..."
           }
         ]
       }

@@ -179,6 +179,83 @@ export declare const GetFlowMetadataInput: z.ZodObject<{
     flowId: string;
 }>;
 export type GetFlowMetadataInputT = z.infer<typeof GetFlowMetadataInput>;
+export declare const stateSetShape: {
+    key: z.ZodString;
+    value: z.ZodString;
+    ttlMs: z.ZodOptional<z.ZodNumber>;
+};
+export declare const StateSetInput: z.ZodObject<{
+    key: z.ZodString;
+    value: z.ZodString;
+    ttlMs: z.ZodOptional<z.ZodNumber>;
+}, "strip", z.ZodTypeAny, {
+    value: string;
+    key: string;
+    ttlMs?: number | undefined;
+}, {
+    value: string;
+    key: string;
+    ttlMs?: number | undefined;
+}>;
+export type StateSetInputT = z.infer<typeof StateSetInput>;
+export declare const stateGetShape: {
+    key: z.ZodString;
+};
+export declare const StateGetInput: z.ZodObject<{
+    key: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    key: string;
+}, {
+    key: string;
+}>;
+export type StateGetInputT = z.infer<typeof StateGetInput>;
+export declare const stateDeleteShape: {
+    key: z.ZodString;
+};
+export declare const StateDeleteInput: z.ZodObject<{
+    key: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    key: string;
+}, {
+    key: string;
+}>;
+export type StateDeleteInputT = z.infer<typeof StateDeleteInput>;
+export declare const stateListKeysShape: {
+    prefix: z.ZodOptional<z.ZodString>;
+};
+export declare const StateListKeysInput: z.ZodObject<{
+    prefix: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    prefix?: string | undefined;
+}, {
+    prefix?: string | undefined;
+}>;
+export type StateListKeysInputT = z.infer<typeof StateListKeysInput>;
+/** Languages accepted by the ast-grep CLI we ship. */
+export declare const AST_GREP_LANGUAGES: readonly ["javascript", "typescript", "tsx", "python", "go", "rust", "java", "c", "cpp", "html", "css", "json", "yaml"];
+export declare const astGrepShape: {
+    pattern: z.ZodString;
+    language: z.ZodOptional<z.ZodEnum<["javascript", "typescript", "tsx", "python", "go", "rust", "java", "c", "cpp", "html", "css", "json", "yaml"]>>;
+    path: z.ZodOptional<z.ZodString>;
+    maxResults: z.ZodOptional<z.ZodNumber>;
+};
+export declare const AstGrepInput: z.ZodObject<{
+    pattern: z.ZodString;
+    language: z.ZodOptional<z.ZodEnum<["javascript", "typescript", "tsx", "python", "go", "rust", "java", "c", "cpp", "html", "css", "json", "yaml"]>>;
+    path: z.ZodOptional<z.ZodString>;
+    maxResults: z.ZodOptional<z.ZodNumber>;
+}, "strip", z.ZodTypeAny, {
+    pattern: string;
+    language?: "html" | "css" | "javascript" | "typescript" | "tsx" | "python" | "go" | "rust" | "java" | "c" | "cpp" | "json" | "yaml" | undefined;
+    path?: string | undefined;
+    maxResults?: number | undefined;
+}, {
+    pattern: string;
+    language?: "html" | "css" | "javascript" | "typescript" | "tsx" | "python" | "go" | "rust" | "java" | "c" | "cpp" | "json" | "yaml" | undefined;
+    path?: string | undefined;
+    maxResults?: number | undefined;
+}>;
+export type AstGrepInputT = z.infer<typeof AstGrepInput>;
 export declare const TOOL_INPUT_SCHEMAS: {
     readonly sidecoach_list_verbs: z.ZodObject<{
         phase: z.ZodOptional<z.ZodString>;
@@ -304,6 +381,56 @@ export declare const TOOL_INPUT_SCHEMAS: {
         flowId: string;
     }, {
         flowId: string;
+    }>;
+    readonly sidecoach_state_set: z.ZodObject<{
+        key: z.ZodString;
+        value: z.ZodString;
+        ttlMs: z.ZodOptional<z.ZodNumber>;
+    }, "strip", z.ZodTypeAny, {
+        value: string;
+        key: string;
+        ttlMs?: number | undefined;
+    }, {
+        value: string;
+        key: string;
+        ttlMs?: number | undefined;
+    }>;
+    readonly sidecoach_state_get: z.ZodObject<{
+        key: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        key: string;
+    }, {
+        key: string;
+    }>;
+    readonly sidecoach_state_delete: z.ZodObject<{
+        key: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        key: string;
+    }, {
+        key: string;
+    }>;
+    readonly sidecoach_state_list_keys: z.ZodObject<{
+        prefix: z.ZodOptional<z.ZodString>;
+    }, "strip", z.ZodTypeAny, {
+        prefix?: string | undefined;
+    }, {
+        prefix?: string | undefined;
+    }>;
+    readonly sidecoach_ast_grep: z.ZodObject<{
+        pattern: z.ZodString;
+        language: z.ZodOptional<z.ZodEnum<["javascript", "typescript", "tsx", "python", "go", "rust", "java", "c", "cpp", "html", "css", "json", "yaml"]>>;
+        path: z.ZodOptional<z.ZodString>;
+        maxResults: z.ZodOptional<z.ZodNumber>;
+    }, "strip", z.ZodTypeAny, {
+        pattern: string;
+        language?: "html" | "css" | "javascript" | "typescript" | "tsx" | "python" | "go" | "rust" | "java" | "c" | "cpp" | "json" | "yaml" | undefined;
+        path?: string | undefined;
+        maxResults?: number | undefined;
+    }, {
+        pattern: string;
+        language?: "html" | "css" | "javascript" | "typescript" | "tsx" | "python" | "go" | "rust" | "java" | "c" | "cpp" | "json" | "yaml" | undefined;
+        path?: string | undefined;
+        maxResults?: number | undefined;
     }>;
 };
 export type ToolName = keyof typeof TOOL_INPUT_SCHEMAS;

@@ -99,6 +99,7 @@ re-spawns the MCP server and reads the new config.
 |---|---|---|
 | `SIDECOACH_MCP_LOG_LEVEL` | `info` | One of `error` / `warn` / `info` / `debug`. Higher = more verbose stderr logs. |
 | `SIDECOACH_MCP_TIMEOUT_MS` | `30000` | Default per-tool timeout in milliseconds. Per-tool timeouts override this (5s for read tools, 30s for validators). |
+| `SIDECOACH_PROJECT_ROOT` | `process.cwd()` | Filesystem boundary for `sidecoach_ast_grep`. Any `path` argument is resolved against this root, realpath-followed, and rejected if it escapes via `..` or a symlink that points outside. Set to your repo root when launching the server so `ast_grep` queries scope to your project. Wrong value (missing dir, file instead of dir) returns `INVALID_INPUT` on the first ast_grep call. |
 
 ---
 
@@ -199,6 +200,58 @@ Return metadata for a single flow by ID.
 - Output: `{ flow: { id, name, description, triggers, tier, modelConfig } }`
 - Errors: `INVALID_INPUT` if flowId is unknown.
 - Timeout: 5s.
+
+### `sidecoach_state_set` (T-0022)
+
+Write a key/value pair to the in-process MCP session state store.
+
+- Input: `{ key: string, value: string, ttlMs?: number }`
+- Output: `{ key, expiresAt, totalEntries }`
+- Caps: key 4 KiB, value 64 KiB, TTL 1ms..24h (default 30 min), total entries 1000.
+- Errors: `INVALID_INPUT` (oversize key/value/TTL), `VALIDATOR_FAILURE` (store at total-entry cap).
+- Timeout: 5s.
+- Lifetime: the store lives on the MCP server's process heap. New stdio
+  connection = new process = empty store. No on-disk artifact.
+
+### `sidecoach_state_get` (T-0022)
+
+Read a key from the state store. Missing or expired keys return `value: null`.
+
+- Input: `{ key: string }`
+- Output: `{ key, value: string | null, expiresAt? }`
+- Errors: `INVALID_INPUT` (oversize key). Missing keys are NOT errors.
+- Timeout: 5s.
+- Expiry is lazy: a read on an expired key drops it and returns null.
+
+### `sidecoach_state_delete` (T-0022)
+
+Drop a key from the state store. Deleting a missing key is idempotent.
+
+- Input: `{ key: string }`
+- Output: `{ key, deleted: boolean }`
+- Errors: `INVALID_INPUT` (oversize key).
+- Timeout: 5s.
+
+### `sidecoach_state_list_keys` (T-0022)
+
+Enumerate currently-live keys. Optional prefix filter. Capped at 100 keys per call.
+
+- Input: `{ prefix?: string }`
+- Output: `{ keys: [{ key, expiresAt }], totalMatches, truncated }`
+- Errors: `INVALID_INPUT` (oversize prefix).
+- Timeout: 5s.
+
+### `sidecoach_ast_grep` (T-0022)
+
+Run an [ast-grep](https://ast-grep.github.io/) pattern search over project source.
+
+- **Prerequisite:** the `ast-grep` CLI must be on PATH. Install via `brew install ast-grep` or `cargo install ast-grep`. Missing binary returns `DOWNSTREAM_UNAVAILABLE`.
+- Input: `{ pattern: string, language?: enum, path?: string, maxResults?: number }`
+- Output: `{ pattern, language, path, projectRoot, matchCount, truncated, matches: [{ file, startLine, endLine, startColumn, endColumn, text, language }], durationMs, linesSeen, linesSkipped }`
+- Path scoping: relative paths resolve against `SIDECOACH_PROJECT_ROOT` (defaults to cwd). Absolute paths must resolve inside the root. Symlinks are followed before comparison. `..` escape attempts are rejected.
+- Caps: 10s timeout, max 100 results (default 50), per-match text capped at 500 chars with `...[truncated]` suffix, max 4 MiB stdout buffered.
+- Errors: `DOWNSTREAM_UNAVAILABLE` (binary missing or vanished mid-call), `INVALID_INPUT` (path escape), `TIMEOUT` (slow query), `VALIDATOR_FAILURE` (CLI non-zero exit).
+- Search-only - no replace. T-0022 v1 ships search; replace will land in a follow-up if demand surfaces.
 
 ---
 

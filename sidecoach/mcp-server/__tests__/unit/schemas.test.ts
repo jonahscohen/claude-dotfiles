@@ -65,4 +65,63 @@ export async function run(): Promise<void> {
     const r = TOOL_INPUT_SCHEMAS.sidecoach_get_flow_metadata.safeParse({});
     assert.strictEqual(r.success, false);
   });
+
+  // T-0022 extension schemas
+
+  await test('state_set: empty key rejected', () => {
+    const r = TOOL_INPUT_SCHEMAS.sidecoach_state_set.safeParse({ key: '', value: 'x' });
+    assert.strictEqual(r.success, false);
+  });
+
+  await test('state_set: oversize value rejected', () => {
+    const r = TOOL_INPUT_SCHEMAS.sidecoach_state_set.safeParse({
+      key: 'k',
+      value: 'x'.repeat(65_537),
+    });
+    assert.strictEqual(r.success, false);
+  });
+
+  await test('state_set: ttlMs > 24h rejected', () => {
+    const r = TOOL_INPUT_SCHEMAS.sidecoach_state_set.safeParse({
+      key: 'k',
+      value: 'x',
+      ttlMs: 24 * 60 * 60 * 1000 + 1,
+    });
+    assert.strictEqual(r.success, false);
+  });
+
+  await test('state_set: happy path', () => {
+    const r = TOOL_INPUT_SCHEMAS.sidecoach_state_set.safeParse({
+      key: 'k',
+      value: 'v',
+      ttlMs: 5000,
+    });
+    assert.strictEqual(r.success, true);
+  });
+
+  await test('state_list_keys: prefix optional', () => {
+    const r = TOOL_INPUT_SCHEMAS.sidecoach_state_list_keys.safeParse({});
+    assert.strictEqual(r.success, true);
+  });
+
+  await test('ast_grep: pattern required', () => {
+    const r = TOOL_INPUT_SCHEMAS.sidecoach_ast_grep.safeParse({});
+    assert.strictEqual(r.success, false);
+  });
+
+  await test('ast_grep: maxResults capped at 100', () => {
+    const r = TOOL_INPUT_SCHEMAS.sidecoach_ast_grep.safeParse({
+      pattern: 'console.log($X)',
+      maxResults: 101,
+    });
+    assert.strictEqual(r.success, false);
+  });
+
+  await test('ast_grep: invalid language rejected', () => {
+    const r = TOOL_INPUT_SCHEMAS.sidecoach_ast_grep.safeParse({
+      pattern: 'console.log($X)',
+      language: 'cobol',
+    });
+    assert.strictEqual(r.success, false);
+  });
 }

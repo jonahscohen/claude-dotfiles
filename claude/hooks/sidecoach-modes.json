@@ -41,6 +41,13 @@
       "description": "Strip a busy UI back to essentials.",
       "oneLineExplanation": "Tone-down pass: quiets visual noise, distills to essentials, clarifies copy and labels, then polishes.",
       "chain": ["quieter", "distill", "clarify", "polish"]
+    },
+    {
+      "mode": "ralph",
+      "pattern": "ralph",
+      "description": "Relentless cross-flow iteration to convergence.",
+      "oneLineExplanation": "Runs polish, audit, and critique in a loop until validators all pass or a hard cap fires (convergence, stall, or maxIterations).",
+      "chain": ["polish", "audit", "critique"]
     }
   ]
 }

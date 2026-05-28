@@ -46,6 +46,12 @@ const validateTaste = __importStar(require("./validate-taste"));
 const getCostLedger = __importStar(require("./get-cost-ledger"));
 const getCheatsheet = __importStar(require("./get-cheatsheet"));
 const getFlowMetadata = __importStar(require("./get-flow-metadata"));
+// T-0022 extension tools
+const stateSet = __importStar(require("./state-set"));
+const stateGet = __importStar(require("./state-get"));
+const stateDelete = __importStar(require("./state-delete"));
+const stateListKeys = __importStar(require("./state-list-keys"));
+const astGrep = __importStar(require("./ast-grep"));
 exports.TOOLS = [
     { definition: listVerbs.definition, handler: listVerbs.handler },
     { definition: listModes.definition, handler: listModes.handler },
@@ -57,6 +63,12 @@ exports.TOOLS = [
     { definition: getCostLedger.definition, handler: getCostLedger.handler },
     { definition: getCheatsheet.definition, handler: getCheatsheet.handler },
     { definition: getFlowMetadata.definition, handler: getFlowMetadata.handler },
+    // T-0022 extension tools (state + ast-grep).
+    { definition: stateSet.definition, handler: stateSet.handler },
+    { definition: stateGet.definition, handler: stateGet.handler },
+    { definition: stateDelete.definition, handler: stateDelete.handler },
+    { definition: stateListKeys.definition, handler: stateListKeys.handler },
+    { definition: astGrep.definition, handler: astGrep.handler },
 ];
 exports.TOOL_NAMES = exports.TOOLS.map((t) => t.definition.name);
 //# sourceMappingURL=index.js.map

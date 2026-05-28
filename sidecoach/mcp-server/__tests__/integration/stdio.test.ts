@@ -103,7 +103,7 @@ function spawnServer(): SpawnedServer {
 }
 
 export async function run(): Promise<void> {
-  await test('subprocess initialize -> tools/list -> tools/call x10 -> SIGTERM exit 0', async () => {
+  await test('subprocess initialize -> tools/list -> tools/call (all tools) -> SIGTERM exit 0', async () => {
     const server = spawnServer();
     let exitInfo: { code: number | null; stderr: string } | undefined;
     try {
@@ -133,9 +133,23 @@ export async function run(): Promise<void> {
       server.send({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} });
       const toolsResp = await server.waitFor(2, 5_000);
       assert.ok(toolsResp.result, 'no result on tools/list');
-      assert.strictEqual((toolsResp.result.tools as any[]).length, 10);
+      // Tool count check is intentionally elastic - the registry grew from
+      // 10 (T-0018) to 15 (T-0022 added 5 dev tools). We pin the floor and
+      // assert the new tools appear so a future regression that drops a
+      // tool is caught.
+      const toolNames = (toolsResp.result.tools as any[]).map((t) => t.name);
+      assert.ok(toolNames.length >= 15, `expected >=15 tools, got ${toolNames.length}`);
+      for (const n of [
+        'sidecoach_state_set',
+        'sidecoach_state_get',
+        'sidecoach_state_delete',
+        'sidecoach_state_list_keys',
+        'sidecoach_ast_grep',
+      ]) {
+        assert.ok(toolNames.includes(n), `missing T-0022 tool: ${n}`);
+      }
 
-      // 3) tools/call against each of the 10 tools
+      // 3) tools/call against each of the original 10 tools (T-0018 surface)
       const calls = [
         ['sidecoach_list_verbs', {}],
         ['sidecoach_list_modes', {}],
@@ -147,6 +161,11 @@ export async function run(): Promise<void> {
         ['sidecoach_validate_taste', { html: '<div>hi</div>' }],
         ['sidecoach_validate_polish_standard', { css: '.btn:active { transform: scale(0.96); }' }],
         ['sidecoach_validate_extended_domain', { css: '.x { color: red; padding: 8px; }' }],
+        // T-0022 extension tools - exercise via the live subprocess too.
+        ['sidecoach_state_set', { key: 'stdio:test', value: 'v', ttlMs: 60_000 }],
+        ['sidecoach_state_get', { key: 'stdio:test' }],
+        ['sidecoach_state_list_keys', { prefix: 'stdio:' }],
+        ['sidecoach_state_delete', { key: 'stdio:test' }],
       ] as const;
 
       for (let i = 0; i < calls.length; i++) {

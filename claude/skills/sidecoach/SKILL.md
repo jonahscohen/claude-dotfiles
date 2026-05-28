@@ -12,7 +12,7 @@ Sidecoach is the design workflow layer built into this Claude Code installation.
 Three command surfaces share the same flow chains:
 - **Phase commands** - sidecoach native vocabulary grouped by phase (research / craft / review / special).
 - **Verb commands** - 22 verb commands that mirror the canonical design verb vocabulary 1:1 and route to the same underlying flows. The orchestrator appends per-verb guidance (canonical reference sections plus sidecoach extensions) so output speaks the verb language while keeping sidecoach's validators, BuildReport, taste validation, and memory.
-- **Modes** - 5 sticky one-word "shape of work" keywords that bundle 3-5 verbs into a recognizable arc (analogs of oh-my-claudecode's autopilot/ralph/ultrawork, but design-coded). Magic-keyword triggerable via the same `sidecoach-keyword.sh` hook that handles verbs.
+- **Modes** - 6 sticky one-word "shape of work" keywords that bundle 3-5 verbs into a recognizable arc (analogs of oh-my-claudecode's autopilot/ralph/ultrawork, with `ralph` carried forward verbatim for cross-tool familiarity). Magic-keyword triggerable via the same `sidecoach-keyword.sh` hook that handles verbs.
 
 ## Modes
 
@@ -25,6 +25,7 @@ Modes name the shape of work itself, not a single step. Each mode is a curated c
 | `bloom` | Add joy, color, motion, personality | colorize -> delight -> animate -> polish |
 | `canvas` | Live in-browser visual iteration | live -> colorize -> polish -> critique |
 | `trim` | Strip a busy UI back to essentials | quieter -> distill -> clarify -> polish |
+| `ralph` | Relentless cross-flow iteration to convergence | polish -> audit -> critique (loop until clean, stall, or cap) |
 
 Source of truth: `sidecoach/src/modes.ts` (TypeScript registry with FlowId chains) mirrored by `claude/hooks/sidecoach-modes.json` (consumed by the bash hook).
 
@@ -75,6 +76,7 @@ When unsure, run `/sidecoach list` for the full menu. Once an entry command is l
 | Command | What it does |
 |---|---|
 | `/sidecoach teach [brief]` | Brief-driven hybrid setup: parses what's in the brief, asks targeted questions only for the gaps, writes PRODUCT.md. Refuses to overwrite a real existing PRODUCT.md unless `forceOverwrite` is set. |
+| `/sidecoach teach --deep [brief]` | Deep-interview mode (T-0023, closes OMC gap #5): extends the taxonomy from 5 to 9 fields (adds problem, success metrics, business model, technical constraints, brand voice), runs vague-answer detection that demotes low-effort answers ("developers", "modern", "professional") to low confidence and surfaces a sharper follow-up question, reports an ambiguity score across 4 weighted dimensions (goal/constraints/criteria/context) with weakest-dimension targeting, validates the written PRODUCT.md structurally before returning, and hands off to `/sidecoach document` when DESIGN.md is missing. Use for any new project where the brief is more than a sentence or two; standard teach is fine for established projects with a known shape. |
 | `/sidecoach document` | Generates Google-spec DESIGN.md from project HTML/CSS: YAML token frontmatter plus the six-section body in canonical order. |
 | `/sidecoach shape <feature>` | Plans design approach before building; runs exploration and rapid iteration |
 | `/sidecoach list` | Shows both phase commands and the 22 verb commands grouped by phase |

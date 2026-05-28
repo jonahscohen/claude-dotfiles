@@ -254,6 +254,9 @@ assert_mode_fires "kiln fires"    "kiln this release"                 "kiln"   "
 assert_mode_fires "bloom fires"   "bloom the dashboard"               "bloom"  "colorize,delight,animate,polish"
 assert_mode_fires "canvas fires"  "canvas mode for the pricing page"  "canvas" "live,colorize,polish,critique"
 assert_mode_fires "trim fires"    "trim the settings panel"           "trim"   "quieter,distill,clarify,polish"
+# T-0020: ralph mode fires (relentless cross-flow iteration). Chain is
+# polish -> audit -> critique - the three validating verbs the loop drives.
+assert_mode_fires "ralph fires"   "ralph the checkout flow"           "ralph"  "polish,audit,critique"
 
 # Word-boundary correctness on modes - "forged" / "blooming" / "trimmed" do NOT fire.
 assert_silent "forged in past tense"      "the steel was forged yesterday"
@@ -264,6 +267,10 @@ assert_silent "trimmed hedges"            "I just trimmed the hedges"
 assert_silent "what is forge"             "what is forge in sidecoach"
 assert_silent "how do I use kiln"         "how do I use kiln on a feature"
 assert_silent "explain bloom"             "explain bloom and what it chains"
+# T-0020: informational mention of ralph must not fire the mode.
+assert_silent "what is ralph"             "what is ralph mode in sidecoach"
+# T-0020: word-boundary correctness - "ralphing" / "ralpher" must NOT fire.
+assert_silent "ralphing not a word"       "ralphing through the changelog feels noisy"
 
 # Mode + verb in same prompt: mode wins (precedence).
 out=$(run_hook "forge and polish the homepage" 2>/dev/null)

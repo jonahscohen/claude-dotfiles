@@ -196,6 +196,124 @@ export const GetFlowMetadataInput = z.object(getFlowMetadataShape);
 export type GetFlowMetadataInputT = z.infer<typeof GetFlowMetadataInput>;
 
 // ---------------------------------------------------------------------------
+// Tool 11: state_set (T-0022)
+// ---------------------------------------------------------------------------
+
+/** State-store key cap. Mirrored in state-store.ts. */
+const STATE_KEY_MAX = 4096;
+/** State-store value cap. Mirrored in state-store.ts. */
+const STATE_VALUE_MAX = 65_536;
+/** State-store TTL cap (24h). Mirrored in state-store.ts. */
+const STATE_TTL_MAX_MS = 24 * 60 * 60 * 1000;
+
+export const stateSetShape = {
+  key: z
+    .string()
+    .min(1)
+    .max(STATE_KEY_MAX)
+    .describe('State key (1..4096 bytes UTF-8).'),
+  value: z
+    .string()
+    .max(STATE_VALUE_MAX)
+    .describe(
+      'State value as a string. Callers JSON.stringify their payload if storing non-string data.',
+    ),
+  ttlMs: z
+    .number()
+    .int()
+    .min(1)
+    .max(STATE_TTL_MAX_MS)
+    .optional()
+    .describe('Optional TTL override in ms. Default 30 min. Max 24h.'),
+};
+export const StateSetInput = z.object(stateSetShape);
+export type StateSetInputT = z.infer<typeof StateSetInput>;
+
+// ---------------------------------------------------------------------------
+// Tool 12: state_get
+// ---------------------------------------------------------------------------
+
+export const stateGetShape = {
+  key: z.string().min(1).max(STATE_KEY_MAX).describe('State key to read.'),
+};
+export const StateGetInput = z.object(stateGetShape);
+export type StateGetInputT = z.infer<typeof StateGetInput>;
+
+// ---------------------------------------------------------------------------
+// Tool 13: state_delete
+// ---------------------------------------------------------------------------
+
+export const stateDeleteShape = {
+  key: z.string().min(1).max(STATE_KEY_MAX).describe('State key to delete.'),
+};
+export const StateDeleteInput = z.object(stateDeleteShape);
+export type StateDeleteInputT = z.infer<typeof StateDeleteInput>;
+
+// ---------------------------------------------------------------------------
+// Tool 14: state_list_keys
+// ---------------------------------------------------------------------------
+
+export const stateListKeysShape = {
+  prefix: z
+    .string()
+    .max(STATE_KEY_MAX)
+    .optional()
+    .describe('Optional prefix filter. Empty/omitted returns all live keys.'),
+};
+export const StateListKeysInput = z.object(stateListKeysShape);
+export type StateListKeysInputT = z.infer<typeof StateListKeysInput>;
+
+// ---------------------------------------------------------------------------
+// Tool 15: ast_grep
+// ---------------------------------------------------------------------------
+
+/** Languages accepted by the ast-grep CLI we ship. */
+export const AST_GREP_LANGUAGES = [
+  'javascript',
+  'typescript',
+  'tsx',
+  'python',
+  'go',
+  'rust',
+  'java',
+  'c',
+  'cpp',
+  'html',
+  'css',
+  'json',
+  'yaml',
+] as const;
+
+export const astGrepShape = {
+  pattern: z
+    .string()
+    .min(1)
+    .max(4096)
+    .describe('ast-grep pattern. Meta-variables: $NAME single node, $$$VARS multi-node.'),
+  language: z
+    .enum(AST_GREP_LANGUAGES)
+    .optional()
+    .describe('Language hint. Omit to let ast-grep auto-detect via file extensions.'),
+  path: z
+    .string()
+    .min(1)
+    .max(2048)
+    .optional()
+    .describe(
+      'Path to search. Relative paths resolve against SIDECOACH_PROJECT_ROOT. Defaults to ".".',
+    ),
+  maxResults: z
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .optional()
+    .describe('Cap on returned matches (1..100). Default 50.'),
+};
+export const AstGrepInput = z.object(astGrepShape);
+export type AstGrepInputT = z.infer<typeof AstGrepInput>;
+
+// ---------------------------------------------------------------------------
 // Map every tool name -> its wrapped Zod object schema (for tests + the
 // uniform input-validation guard in index.ts).
 // ---------------------------------------------------------------------------
@@ -211,6 +329,11 @@ export const TOOL_INPUT_SCHEMAS = {
   sidecoach_get_cost_ledger: GetCostLedgerInput,
   sidecoach_get_cheatsheet: GetCheatsheetInput,
   sidecoach_get_flow_metadata: GetFlowMetadataInput,
+  sidecoach_state_set: StateSetInput,
+  sidecoach_state_get: StateGetInput,
+  sidecoach_state_delete: StateDeleteInput,
+  sidecoach_state_list_keys: StateListKeysInput,
+  sidecoach_ast_grep: AstGrepInput,
 } as const;
 
 export type ToolName = keyof typeof TOOL_INPUT_SCHEMAS;

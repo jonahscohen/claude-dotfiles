@@ -13,7 +13,7 @@
 // both the raw shapes (for SDK registration) and the wrapped objects (for
 // internal validation in unit tests).
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.TOOL_INPUT_SCHEMAS = exports.GetFlowMetadataInput = exports.getFlowMetadataShape = exports.GetCheatsheetInput = exports.getCheatsheetShape = exports.GetCostLedgerInput = exports.getCostLedgerShape = exports.ValidateTasteInput = exports.validateTasteShape = exports.ValidateExtendedDomainInput = exports.validateExtendedDomainShape = exports.ValidatePolishInput = exports.validatePolishShape = exports.ResolveKeywordInput = exports.resolveKeywordShape = exports.ListFlowsInput = exports.listFlowsShape = exports.ListModesInput = exports.listModesShape = exports.ListVerbsInput = exports.listVerbsShape = void 0;
+exports.TOOL_INPUT_SCHEMAS = exports.AstGrepInput = exports.astGrepShape = exports.AST_GREP_LANGUAGES = exports.StateListKeysInput = exports.stateListKeysShape = exports.StateDeleteInput = exports.stateDeleteShape = exports.StateGetInput = exports.stateGetShape = exports.StateSetInput = exports.stateSetShape = exports.GetFlowMetadataInput = exports.getFlowMetadataShape = exports.GetCheatsheetInput = exports.getCheatsheetShape = exports.GetCostLedgerInput = exports.getCostLedgerShape = exports.ValidateTasteInput = exports.validateTasteShape = exports.ValidateExtendedDomainInput = exports.validateExtendedDomainShape = exports.ValidatePolishInput = exports.validatePolishShape = exports.ResolveKeywordInput = exports.resolveKeywordShape = exports.ListFlowsInput = exports.listFlowsShape = exports.ListModesInput = exports.listModesShape = exports.ListVerbsInput = exports.listVerbsShape = void 0;
 const zod_1 = require("zod");
 // ---------------------------------------------------------------------------
 // Shared primitive bounds
@@ -159,6 +159,103 @@ exports.getFlowMetadataShape = {
 };
 exports.GetFlowMetadataInput = zod_1.z.object(exports.getFlowMetadataShape);
 // ---------------------------------------------------------------------------
+// Tool 11: state_set (T-0022)
+// ---------------------------------------------------------------------------
+/** State-store key cap. Mirrored in state-store.ts. */
+const STATE_KEY_MAX = 4096;
+/** State-store value cap. Mirrored in state-store.ts. */
+const STATE_VALUE_MAX = 65536;
+/** State-store TTL cap (24h). Mirrored in state-store.ts. */
+const STATE_TTL_MAX_MS = 24 * 60 * 60 * 1000;
+exports.stateSetShape = {
+    key: zod_1.z
+        .string()
+        .min(1)
+        .max(STATE_KEY_MAX)
+        .describe('State key (1..4096 bytes UTF-8).'),
+    value: zod_1.z
+        .string()
+        .max(STATE_VALUE_MAX)
+        .describe('State value as a string. Callers JSON.stringify their payload if storing non-string data.'),
+    ttlMs: zod_1.z
+        .number()
+        .int()
+        .min(1)
+        .max(STATE_TTL_MAX_MS)
+        .optional()
+        .describe('Optional TTL override in ms. Default 30 min. Max 24h.'),
+};
+exports.StateSetInput = zod_1.z.object(exports.stateSetShape);
+// ---------------------------------------------------------------------------
+// Tool 12: state_get
+// ---------------------------------------------------------------------------
+exports.stateGetShape = {
+    key: zod_1.z.string().min(1).max(STATE_KEY_MAX).describe('State key to read.'),
+};
+exports.StateGetInput = zod_1.z.object(exports.stateGetShape);
+// ---------------------------------------------------------------------------
+// Tool 13: state_delete
+// ---------------------------------------------------------------------------
+exports.stateDeleteShape = {
+    key: zod_1.z.string().min(1).max(STATE_KEY_MAX).describe('State key to delete.'),
+};
+exports.StateDeleteInput = zod_1.z.object(exports.stateDeleteShape);
+// ---------------------------------------------------------------------------
+// Tool 14: state_list_keys
+// ---------------------------------------------------------------------------
+exports.stateListKeysShape = {
+    prefix: zod_1.z
+        .string()
+        .max(STATE_KEY_MAX)
+        .optional()
+        .describe('Optional prefix filter. Empty/omitted returns all live keys.'),
+};
+exports.StateListKeysInput = zod_1.z.object(exports.stateListKeysShape);
+// ---------------------------------------------------------------------------
+// Tool 15: ast_grep
+// ---------------------------------------------------------------------------
+/** Languages accepted by the ast-grep CLI we ship. */
+exports.AST_GREP_LANGUAGES = [
+    'javascript',
+    'typescript',
+    'tsx',
+    'python',
+    'go',
+    'rust',
+    'java',
+    'c',
+    'cpp',
+    'html',
+    'css',
+    'json',
+    'yaml',
+];
+exports.astGrepShape = {
+    pattern: zod_1.z
+        .string()
+        .min(1)
+        .max(4096)
+        .describe('ast-grep pattern. Meta-variables: $NAME single node, $$$VARS multi-node.'),
+    language: zod_1.z
+        .enum(exports.AST_GREP_LANGUAGES)
+        .optional()
+        .describe('Language hint. Omit to let ast-grep auto-detect via file extensions.'),
+    path: zod_1.z
+        .string()
+        .min(1)
+        .max(2048)
+        .optional()
+        .describe('Path to search. Relative paths resolve against SIDECOACH_PROJECT_ROOT. Defaults to ".".'),
+    maxResults: zod_1.z
+        .number()
+        .int()
+        .min(1)
+        .max(100)
+        .optional()
+        .describe('Cap on returned matches (1..100). Default 50.'),
+};
+exports.AstGrepInput = zod_1.z.object(exports.astGrepShape);
+// ---------------------------------------------------------------------------
 // Map every tool name -> its wrapped Zod object schema (for tests + the
 // uniform input-validation guard in index.ts).
 // ---------------------------------------------------------------------------
@@ -173,5 +270,10 @@ exports.TOOL_INPUT_SCHEMAS = {
     sidecoach_get_cost_ledger: exports.GetCostLedgerInput,
     sidecoach_get_cheatsheet: exports.GetCheatsheetInput,
     sidecoach_get_flow_metadata: exports.GetFlowMetadataInput,
+    sidecoach_state_set: exports.StateSetInput,
+    sidecoach_state_get: exports.StateGetInput,
+    sidecoach_state_delete: exports.StateDeleteInput,
+    sidecoach_state_list_keys: exports.StateListKeysInput,
+    sidecoach_ast_grep: exports.AstGrepInput,
 };
 //# sourceMappingURL=schemas.js.map

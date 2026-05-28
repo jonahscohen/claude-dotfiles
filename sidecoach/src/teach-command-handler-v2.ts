@@ -1,6 +1,18 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import type { FlowExecutionContext, FlowExecutionResult } from './flow-handler';
+import {
+  CORE_FIELDS,
+  EXTENDED_FIELDS,
+  DEEP_FIELDS,
+  DeepFieldId,
+  ambiguityScore,
+  isVagueAnswer,
+  generateFollowUpQuestion,
+  validateProductMd,
+  parseDeepFlag,
+  ProductMdValidation,
+} from './teach-deep-interview';
 
 export interface TeachExtraction {
   register?: 'brand' | 'product';
@@ -8,6 +20,12 @@ export interface TeachExtraction {
   brandPersonality?: string;
   antiReferences?: string[];
   strategicPrinciples?: string[];
+  // T-0023 deep-interview extended fields:
+  problem?: string;
+  successMetrics?: string[];
+  businessModel?: string;
+  technicalConstraints?: string[];
+  brandVoice?: string;
   confidence: { [field: string]: 'high' | 'low' | 'absent' };
 }
 
@@ -50,19 +68,55 @@ export class TeachCommandHandlerV2 {
       };
     }
 
-    const brief = this.extractBrief(context.utterance);
-    const extracted = this.parseBrief(brief);
-    const teachAnswers = (context.metadata as any)?.teachAnswers || {};
-    const merged = this.mergeFromBriefAndAnswers(extracted, teachAnswers);
+    const rawBrief = this.extractBrief(context.utterance);
+    // T-0023: detect --deep / --quick / --standard flag, strip from brief.
+    const flagFromBrief = parseDeepFlag(rawBrief);
+    const flagFromMeta = (context.metadata as any)?.depth as
+      | 'quick'
+      | 'standard'
+      | 'deep'
+      | undefined;
+    const depth: 'quick' | 'standard' | 'deep' =
+      flagFromMeta ?? flagFromBrief.depth;
+    const brief = flagFromBrief.brief;
+    const isDeep = depth === 'deep';
 
-    const gaps = this.identifyGaps(merged);
+    const extracted = this.parseBrief(brief, { deep: isDeep });
+    const teachAnswers = (context.metadata as any)?.teachAnswers || {};
+    const merged = this.mergeFromBriefAndAnswers(extracted, teachAnswers, { deep: isDeep });
+
+    // T-0023: demote vague high-confidence answers in deep mode only. Standard
+    // (non-deep) mode keeps the pre-T-0023 behavior verbatim - "developers" and
+    // similar bare-word answers count as high confidence so existing teach flows
+    // continue to write PRODUCT.md without prompting for follow-ups. Deep mode
+    // is opt-in and runs the OMC-style weakest-dimension targeting.
+    if (isDeep) {
+      this.demoteVagueAnswers(merged, isDeep);
+    }
+
+    const gaps = this.identifyGaps(merged, { deep: isDeep });
+    const ambiguity = ambiguityScore(merged.confidence as any, this.fieldsForDepth(isDeep));
+
     if (gaps.length > 0 && !(context.metadata as any)?.skipInteractive) {
+      // T-0023: weakest-dimension targeting - sort gaps by ambiguity dimension
+      // so the user sees the highest-leverage question first.
+      const guidanceHeader = isDeep
+        ? [
+            'Deep interview mode: extracting 9 fields (5 core + 4 extended).',
+            `Current ambiguity: ${(ambiguity.ambiguity * 100).toFixed(0)}% (target: <=20%).`,
+            ambiguity.weakest
+              ? `Weakest dimension: ${ambiguity.weakest} (clarity: ${(ambiguity.perDimension[ambiguity.weakest] * 100).toFixed(0)}%).`
+              : 'All dimensions are clear.',
+            '',
+          ]
+        : [];
       return {
         flowId: 'teach' as any,
         flowName: 'Sidecoach Teach',
         status: 'pending' as any,
-        message: `Brief partially parsed. ${gaps.length} field(s) need answers.`,
+        message: `Brief partially parsed. ${gaps.length} field(s) need answers.${isDeep ? ' (deep interview mode)' : ''}`,
         guidance: [
+          ...guidanceHeader,
           'Brief extracted these fields:',
           ...this.summarizeExtracted(merged),
           '',
@@ -79,36 +133,106 @@ export class TeachCommandHandlerV2 {
           {
             type: 'reference',
             name: 'teach-state',
-            content: JSON.stringify({ extracted: merged, gaps }, null, 2),
-            description: 'Parsed brief state + outstanding gaps',
+            content: JSON.stringify({ extracted: merged, gaps, ambiguity, depth }, null, 2),
+            description: 'Parsed brief state + outstanding gaps + ambiguity score',
           },
         ],
       };
     }
 
-    const content = this.generateProductMd(merged);
+    const content = this.generateProductMd(merged, { deep: isDeep });
     fs.writeFileSync(productMdPath, content, 'utf-8');
+
+    // T-0023: structured validation after write.
+    const validation = validateProductMd(content, {
+      register: merged.register,
+      deep: isDeep,
+    });
+
+    const guidance: string[] = [
+      `Register: ${merged.register}`,
+      `Users: ${merged.users}`,
+      merged.register === 'brand' && merged.brandPersonality
+        ? `Brand personality: ${merged.brandPersonality}`
+        : '',
+      `Anti-references: ${(merged.antiReferences || []).join('; ')}`,
+      `Strategic principles: ${(merged.strategicPrinciples || []).join('; ')}`,
+    ].filter((s) => s.length > 0);
+
+    if (isDeep) {
+      if (merged.problem) guidance.push(`Problem: ${merged.problem}`);
+      if (merged.successMetrics?.length)
+        guidance.push(`Success metrics: ${merged.successMetrics.join('; ')}`);
+      if (merged.businessModel) guidance.push(`Business model: ${merged.businessModel}`);
+      if (merged.technicalConstraints?.length)
+        guidance.push(`Technical constraints: ${merged.technicalConstraints.join('; ')}`);
+      if (merged.brandVoice) guidance.push(`Brand voice: ${merged.brandVoice}`);
+      guidance.push('');
+      guidance.push(`Ambiguity: ${(ambiguity.ambiguity * 100).toFixed(0)}% (target: <=20%).`);
+      if (validation.warnings.length === 0) {
+        guidance.push('PRODUCT.md validation: clean.');
+      } else {
+        guidance.push(`PRODUCT.md validation: ${validation.warnings.length} warning(s):`);
+        for (const w of validation.warnings) guidance.push(`  - ${w}`);
+      }
+      // DESIGN.md handoff hint.
+      const designMdPath = path.join(projectPath, 'DESIGN.md');
+      if (!fs.existsSync(designMdPath)) {
+        guidance.push('');
+        guidance.push('Next step: PRODUCT.md is set. If the project has CSS, run /sidecoach document to write DESIGN.md.');
+      }
+    }
+
+    const checklist = [
+      { id: 'register', label: 'Register confirmed', required: true, completed: true },
+      { id: 'users', label: 'Users documented', required: true, completed: true },
+      { id: 'anti', label: 'Anti-references captured', required: true, completed: true },
+      { id: 'principles', label: 'Strategic principles documented', required: true, completed: true },
+    ];
+    if (isDeep) {
+      checklist.push(
+        { id: 'problem', label: 'Problem statement documented', required: true, completed: !!merged.problem },
+        { id: 'metrics', label: 'Success metrics defined', required: true, completed: (merged.successMetrics?.length ?? 0) > 0 },
+        { id: 'model', label: 'Business model captured', required: true, completed: !!merged.businessModel },
+        { id: 'tech', label: 'Technical constraints listed', required: true, completed: (merged.technicalConstraints?.length ?? 0) > 0 },
+      );
+      if (merged.register === 'brand') {
+        checklist.push({
+          id: 'voice',
+          label: 'Brand voice documented',
+          required: true,
+          completed: !!merged.brandVoice,
+        });
+      }
+      checklist.push({
+        id: 'validation',
+        label: `PRODUCT.md validation clean (${validation.warnings.length} warnings)`,
+        required: true,
+        completed: validation.ok,
+      });
+    }
 
     return {
       flowId: 'teach' as any,
       flowName: 'Sidecoach Teach',
       status: 'success',
-      message: `PRODUCT.md written to ${productMdPath} from brief + answers.`,
-      guidance: [
-        `Register: ${merged.register}`,
-        `Users: ${merged.users}`,
-        merged.register === 'brand' && merged.brandPersonality
-          ? `Brand personality: ${merged.brandPersonality}`
-          : '',
-        `Anti-references: ${(merged.antiReferences || []).join('; ')}`,
-        `Strategic principles: ${(merged.strategicPrinciples || []).join('; ')}`,
-      ].filter((s) => s.length > 0) as string[],
-      checklist: [
-        { id: 'register', label: 'Register confirmed', required: true, completed: true },
-        { id: 'users', label: 'Users documented', required: true, completed: true },
-        { id: 'anti', label: 'Anti-references captured', required: true, completed: true },
-        { id: 'principles', label: 'Strategic principles documented', required: true, completed: true },
-      ],
+      message: `PRODUCT.md written to ${productMdPath} from brief + answers.${isDeep ? ' (deep interview mode)' : ''}`,
+      guidance,
+      checklist,
+      artifacts: isDeep
+        ? [
+            {
+              type: 'reference',
+              name: 'teach-state',
+              content: JSON.stringify(
+                { extracted: merged, ambiguity, validation, depth },
+                null,
+                2,
+              ),
+              description: 'Final extraction + ambiguity score + validation result',
+            },
+          ]
+        : undefined,
     };
   }
 
@@ -125,12 +249,30 @@ export class TeachCommandHandlerV2 {
     return (utterance || '').replace(/^\/sidecoach\s+teach\s*/i, '').trim();
   }
 
-  private parseBrief(brief: string): TeachExtraction {
+  private fieldsForDepth(deep: boolean): DeepFieldId[] {
+    return deep ? DEEP_FIELDS : CORE_FIELDS;
+  }
+
+  private demoteVagueAnswers(merged: TeachExtraction, deep: boolean): void {
+    const fields = this.fieldsForDepth(deep);
+    for (const f of fields) {
+      // Skip brandPersonality/brandVoice if register != brand
+      if ((f === 'brandPersonality' || f === 'brandVoice') && merged.register !== 'brand') continue;
+      const value = (merged as any)[f];
+      if (merged.confidence[f] !== 'high') continue;
+      // For list-typed fields, vague-check the joined string.
+      const strValue = Array.isArray(value) ? value.join('; ') : value;
+      if (isVagueAnswer(f, strValue)) {
+        merged.confidence[f] = 'low';
+      }
+    }
+  }
+
+  private parseBrief(brief: string, opts: { deep?: boolean } = {}): TeachExtraction {
+    const fields = this.fieldsForDepth(!!opts.deep);
     const e: TeachExtraction = { confidence: {} };
     if (!brief) {
-      ['register', 'users', 'brandPersonality', 'antiReferences', 'strategicPrinciples'].forEach(
-        (f) => (e.confidence[f] = 'absent'),
-      );
+      fields.forEach((f) => (e.confidence[f] = 'absent'));
       return e;
     }
 
@@ -209,21 +351,88 @@ export class TeachCommandHandlerV2 {
       e.confidence.strategicPrinciples = 'absent';
     }
 
+    // T-0023 extended fields - only parsed in deep mode but always recorded
+    // in confidence map (absent) so identifyGaps can use them.
+    if (opts.deep) {
+      // Problem statement
+      const problemMatch =
+        brief.match(/problem:\s*([^.]+\.)/i) ||
+        brief.match(/(?:pain|frustration):\s*([^.]+\.)/i);
+      if (problemMatch) {
+        e.problem = problemMatch[1].trim().replace(/\.$/, '');
+        e.confidence.problem = 'high';
+      } else {
+        e.confidence.problem = 'absent';
+      }
+
+      // Success metrics
+      const metricsMatch =
+        brief.match(/success metrics?:\s*([^.]+\.)/i) ||
+        brief.match(/(?:kpis?|metrics?):\s*([^.]+\.)/i);
+      if (metricsMatch) {
+        const items = metricsMatch[1]
+          .split(/;|,/)
+          .map((s) => s.trim().replace(/\.$/, ''))
+          .filter((s) => s.length > 2);
+        e.successMetrics = items;
+        e.confidence.successMetrics = items.length > 0 ? 'high' : 'low';
+      } else {
+        e.confidence.successMetrics = 'absent';
+      }
+
+      // Business model
+      const modelMatch =
+        brief.match(/business model:\s*([^.]+\.)/i) ||
+        brief.match(/(?:monetization|pricing):\s*([^.]+\.)/i);
+      if (modelMatch) {
+        e.businessModel = modelMatch[1].trim().replace(/\.$/, '');
+        e.confidence.businessModel = 'high';
+      } else {
+        e.confidence.businessModel = 'absent';
+      }
+
+      // Technical constraints
+      const techMatch =
+        brief.match(/technical constraints?:\s*([^.]+\.)/i) ||
+        brief.match(/(?:browser|platform|stack)(?:\s+constraints?)?:\s*([^.]+\.)/i);
+      if (techMatch) {
+        const items = techMatch[1]
+          .split(/;|,/)
+          .map((s) => s.trim().replace(/\.$/, ''))
+          .filter((s) => s.length > 2);
+        e.technicalConstraints = items;
+        e.confidence.technicalConstraints = items.length > 0 ? 'high' : 'low';
+      } else {
+        e.confidence.technicalConstraints = 'absent';
+      }
+
+      // Brand voice (brand register only)
+      if (e.register === 'brand') {
+        const voiceMatch =
+          brief.match(/brand voice:\s*([^.]+\.)/i) ||
+          brief.match(/(?:vocabulary|word\s*choice):\s*([^.]+\.)/i);
+        if (voiceMatch) {
+          e.brandVoice = voiceMatch[1].trim().replace(/\.$/, '');
+          e.confidence.brandVoice = 'high';
+        } else {
+          e.confidence.brandVoice = 'absent';
+        }
+      } else {
+        e.confidence.brandVoice = 'absent';
+      }
+    }
+
     return e;
   }
 
   private mergeFromBriefAndAnswers(
     extracted: TeachExtraction,
     answers: Record<string, any>,
+    opts: { deep?: boolean } = {},
   ): TeachExtraction {
     const m: TeachExtraction = { ...extracted, confidence: { ...extracted.confidence } };
-    for (const key of [
-      'register',
-      'users',
-      'brandPersonality',
-      'antiReferences',
-      'strategicPrinciples',
-    ]) {
+    const keys = this.fieldsForDepth(!!opts.deep) as string[];
+    for (const key of keys) {
       if (answers[key] !== undefined && m.confidence[key] !== 'high') {
         (m as any)[key] = answers[key];
         m.confidence[key] = 'high';
@@ -232,28 +441,109 @@ export class TeachCommandHandlerV2 {
     return m;
   }
 
-  private identifyGaps(e: TeachExtraction): Gap[] {
+  private identifyGaps(e: TeachExtraction, opts: { deep?: boolean } = {}): Gap[] {
     const gaps: Gap[] = [];
     if (e.confidence.register !== 'high') {
-      gaps.push({ field: 'register', question: 'Brand or product register?' });
+      gaps.push({
+        field: 'register',
+        question:
+          e.confidence.register === 'low' && e.register
+            ? generateFollowUpQuestion('register', String(e.register))
+            : 'Brand or product register?',
+      });
     }
     if (e.confidence.users !== 'high') {
-      gaps.push({ field: 'users', question: 'Who are the primary users?' });
+      gaps.push({
+        field: 'users',
+        question:
+          e.confidence.users === 'low' && e.users
+            ? generateFollowUpQuestion('users', e.users)
+            : 'Who are the primary users?',
+      });
     }
     if (e.register === 'brand' && e.confidence.brandPersonality !== 'high') {
-      gaps.push({ field: 'brandPersonality', question: 'Brand personality / voice / tone?' });
+      gaps.push({
+        field: 'brandPersonality',
+        question:
+          e.confidence.brandPersonality === 'low' && e.brandPersonality
+            ? generateFollowUpQuestion('brandPersonality', e.brandPersonality)
+            : 'Brand personality / voice / tone?',
+      });
     }
     if (e.confidence.antiReferences !== 'high') {
       gaps.push({
         field: 'antiReferences',
-        question: 'Anti-references - what should this NOT look like?',
+        question:
+          e.confidence.antiReferences === 'low'
+            ? generateFollowUpQuestion('antiReferences', (e.antiReferences || []).join('; '))
+            : 'Anti-references - what should this NOT look like?',
       });
     }
     if (e.confidence.strategicPrinciples !== 'high') {
       gaps.push({
         field: 'strategicPrinciples',
-        question: 'Strategic principles - 2-4 guiding design principles?',
+        question:
+          e.confidence.strategicPrinciples === 'low'
+            ? generateFollowUpQuestion(
+                'strategicPrinciples',
+                (e.strategicPrinciples || []).join('; '),
+              )
+            : 'Strategic principles - 2-4 guiding design principles?',
       });
+    }
+
+    if (opts.deep) {
+      if (e.confidence.problem !== 'high') {
+        gaps.push({
+          field: 'problem',
+          question:
+            e.confidence.problem === 'low' && e.problem
+              ? generateFollowUpQuestion('problem', e.problem)
+              : 'Problem - what specific pain are we solving? (write in "users have to do X, costs them Y" form)',
+        });
+      }
+      if (e.confidence.successMetrics !== 'high') {
+        gaps.push({
+          field: 'successMetrics',
+          question:
+            e.confidence.successMetrics === 'low'
+              ? generateFollowUpQuestion(
+                  'successMetrics',
+                  (e.successMetrics || []).join('; '),
+                )
+              : 'Success metrics - 1-3 measurable numbers (count, %, ratio) you would check in 30 days?',
+        });
+      }
+      if (e.confidence.businessModel !== 'high') {
+        gaps.push({
+          field: 'businessModel',
+          question:
+            e.confidence.businessModel === 'low' && e.businessModel
+              ? generateFollowUpQuestion('businessModel', e.businessModel)
+              : 'Business model - free? paid (one-time / subscription)? B2B / B2C / internal? who pays?',
+        });
+      }
+      if (e.confidence.technicalConstraints !== 'high') {
+        gaps.push({
+          field: 'technicalConstraints',
+          question:
+            e.confidence.technicalConstraints === 'low'
+              ? generateFollowUpQuestion(
+                  'technicalConstraints',
+                  (e.technicalConstraints || []).join('; '),
+                )
+              : 'Technical constraints - browsers, accessibility tier, framework lock-in, performance budget?',
+        });
+      }
+      if (e.register === 'brand' && e.confidence.brandVoice !== 'high') {
+        gaps.push({
+          field: 'brandVoice',
+          question:
+            e.confidence.brandVoice === 'low' && e.brandVoice
+              ? generateFollowUpQuestion('brandVoice', e.brandVoice)
+              : 'Brand voice - 3 example sentences, most-used word, forbidden word?',
+        });
+      }
     }
     return gaps;
   }
@@ -269,10 +559,19 @@ export class TeachCommandHandlerV2 {
     if (e.strategicPrinciples && e.strategicPrinciples.length > 0) {
       out.push(`- strategic principles: ${e.strategicPrinciples.join('; ')}`);
     }
+    if (e.problem) out.push(`- problem: ${e.problem}`);
+    if (e.successMetrics && e.successMetrics.length > 0) {
+      out.push(`- success metrics: ${e.successMetrics.join('; ')}`);
+    }
+    if (e.businessModel) out.push(`- business model: ${e.businessModel}`);
+    if (e.technicalConstraints && e.technicalConstraints.length > 0) {
+      out.push(`- technical constraints: ${e.technicalConstraints.join('; ')}`);
+    }
+    if (e.brandVoice) out.push(`- brand voice: ${e.brandVoice}`);
     return out;
   }
 
-  private generateProductMd(e: TeachExtraction): string {
+  private generateProductMd(e: TeachExtraction, opts: { deep?: boolean } = {}): string {
     const lines: string[] = [];
     lines.push('# PRODUCT.md');
     lines.push('');
@@ -284,10 +583,22 @@ export class TeachCommandHandlerV2 {
     lines.push('');
     lines.push(e.users || '');
     lines.push('');
+    if (opts.deep && e.problem) {
+      lines.push('## Problem');
+      lines.push('');
+      lines.push(e.problem);
+      lines.push('');
+    }
     if (e.register === 'brand' && e.brandPersonality) {
       lines.push('## Brand Personality');
       lines.push('');
       lines.push(e.brandPersonality);
+      lines.push('');
+    }
+    if (opts.deep && e.register === 'brand' && e.brandVoice) {
+      lines.push('## Brand Voice');
+      lines.push('');
+      lines.push(e.brandVoice);
       lines.push('');
     }
     lines.push('## Anti-References');
@@ -304,6 +615,26 @@ export class TeachCommandHandlerV2 {
       lines.push(`- ${p}`);
     }
     lines.push('');
+    if (opts.deep) {
+      if (e.successMetrics && e.successMetrics.length > 0) {
+        lines.push('## Success Metrics');
+        lines.push('');
+        for (const m of e.successMetrics) lines.push(`- ${m}`);
+        lines.push('');
+      }
+      if (e.businessModel) {
+        lines.push('## Business Model');
+        lines.push('');
+        lines.push(e.businessModel);
+        lines.push('');
+      }
+      if (e.technicalConstraints && e.technicalConstraints.length > 0) {
+        lines.push('## Technical Constraints');
+        lines.push('');
+        for (const t of e.technicalConstraints) lines.push(`- ${t}`);
+        lines.push('');
+      }
+    }
     return lines.join('\n');
   }
 }

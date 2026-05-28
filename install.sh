@@ -1440,6 +1440,14 @@ PYMERGE
   else
     warn "python3 not found - cannot merge settings.json. Install python3 and re-run."
   fi
+
+  # T-0021: HUD monitoring pane. Symlink claude/hud.sh -> ~/.claude/hud.sh
+  # so `bash ~/.claude/hud.sh` works from any cwd. Read-only viewer; no
+  # state changes, no port binding, no node deps.
+  if [ -f "$REPO_DIR/claude/hud.sh" ]; then
+    chmod +x "$REPO_DIR/claude/hud.sh"
+    make_symlink "$REPO_DIR/claude/hud.sh" "$CLAUDE_DIR/hud.sh"
+  fi
 fi
 
 # ============================================================
@@ -2257,7 +2265,7 @@ if picked sidecoach; then
   ln -sf "$REPO_DIR/claude/skills/sidecoach/SKILL.md" \
          "$HOME/.claude/skills/sidecoach/SKILL.md"
 
-  for hook in sidecoach-sessionstart.sh sidecoach-postuserp.sh sidecoach-postresponse.sh sidecoach-keyword.sh; do
+  for hook in sidecoach-sessionstart.sh sidecoach-postuserp.sh sidecoach-postresponse.sh sidecoach-keyword.sh sidecoach-preamble.sh; do
     ln -sf "$REPO_DIR/claude/hooks/$hook" "$HOME/.claude/hooks/$hook"
     chmod +x "$HOME/.claude/hooks/$hook"
   done

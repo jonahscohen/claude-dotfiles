@@ -307,4 +307,75 @@ export async function run(): Promise<void> {
     const rep = (r.data as any).report;
     assert.strictEqual(rep.status, 'completed');
   });
+
+  // ------ state_set / state_get / state_delete / state_list_keys ------
+
+  await test('state_set then state_get round-trips a value', async () => {
+    // Use a fresh shared store for each round-trip test - other tests in this
+    // file don't touch state, but defensive reset prevents bleed.
+    const { resetSharedStore } = require('../../src/state-store');
+    resetSharedStore();
+    const set = pickHandler('sidecoach_state_set');
+    const get = pickHandler('sidecoach_state_get');
+    await set({ key: 'k', value: 'hello', ttlMs: 60_000 }, buildDeps(fakeRegistries()));
+    const r = await get({ key: 'k' }, buildDeps(fakeRegistries()));
+    assert.strictEqual((r.data as any).value, 'hello');
+  });
+
+  await test('state_get returns null for missing key (no throw)', async () => {
+    const { resetSharedStore } = require('../../src/state-store');
+    resetSharedStore();
+    const get = pickHandler('sidecoach_state_get');
+    const r = await get({ key: 'nope' }, buildDeps(fakeRegistries()));
+    assert.strictEqual((r.data as any).value, null);
+  });
+
+  await test('state_delete on missing returns deleted=false', async () => {
+    const { resetSharedStore } = require('../../src/state-store');
+    resetSharedStore();
+    const del = pickHandler('sidecoach_state_delete');
+    const r = await del({ key: 'gone' }, buildDeps(fakeRegistries()));
+    assert.strictEqual((r.data as any).deleted, false);
+  });
+
+  await test('state_list_keys reports empty after delete', async () => {
+    const { resetSharedStore } = require('../../src/state-store');
+    resetSharedStore();
+    const set = pickHandler('sidecoach_state_set');
+    const del = pickHandler('sidecoach_state_delete');
+    const list = pickHandler('sidecoach_state_list_keys');
+    await set({ key: 'a', value: 'v' }, buildDeps(fakeRegistries()));
+    await set({ key: 'b', value: 'v' }, buildDeps(fakeRegistries()));
+    await del({ key: 'a' }, buildDeps(fakeRegistries()));
+    const r = await list({}, buildDeps(fakeRegistries()));
+    const d = r.data as any;
+    assert.strictEqual(d.keys.length, 1);
+    assert.strictEqual(d.keys[0].key, 'b');
+  });
+
+  // ------ ast_grep ------
+  // We don't exercise the real CLI here - that's the integration tests' job.
+  // We only check that DEPENDENCY_MISSING surfaces as DOWNSTREAM_UNAVAILABLE
+  // (by stubbing PATH to something that won't have ast-grep).
+
+  await test('ast_grep returns DOWNSTREAM_UNAVAILABLE when binary missing', async () => {
+    const { _resetAstGrepProbe } = require('../../src/tools/ast-grep');
+    _resetAstGrepProbe();
+    const originalPath = process.env.PATH;
+    process.env.PATH = '/nonexistent-dir-xyz123';
+    try {
+      const h = pickHandler('sidecoach_ast_grep');
+      await h(
+        { pattern: 'console.log($X)', path: '.' },
+        buildDeps(fakeRegistries()),
+      );
+      assert.fail('expected throw');
+    } catch (e) {
+      assert.ok(e instanceof SidecoachToolError);
+      assert.strictEqual((e as SidecoachToolError).code, 'DOWNSTREAM_UNAVAILABLE');
+    } finally {
+      process.env.PATH = originalPath;
+      _resetAstGrepProbe();
+    }
+  });
 }
