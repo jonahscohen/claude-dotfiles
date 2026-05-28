@@ -6,7 +6,7 @@
 ## dotfiles
 ### Active
 - [ ] T-0001 [P2] 2026-05-25 research QuiverAI implementation methods
-- [ ] T-0006 [P3] 2026-05-27 second-fix-gate.sh EXEMPT list looks for `.claude/hooks/` (with leading dot) but the dotfiles source path is `claude/hooks/` (no dot). Edits to hook source files in this repo trip the gate as if they were code fixes. Fix: add `claude/hooks/` and `claude/skills/` substrings to EXEMPT, or use a regex that handles both leading-dot and no-leading-dot variants. Origin: t4-exempt-paths teammate side observation during T-0004 (2026-05-27).
+- [x] T-0006 [P3] 2026-05-27 DONE 2026-05-28 (Jonah) second-fix-gate.sh EXEMPT list now includes no-leading-dot source variants `claude/hooks/` and `claude/skills/` alongside the dotted `.claude/hooks/`/`.claude/skills/`, so edits to hook/skill source files in this repo no longer trip the gate as code fixes. EXEMPT_REGEX and all other behavior unchanged. Verified via 10-case membership check (false-positive case `claude/hooks/second-fix-gate.sh` now exempt; `src/app.ts` and `claude/settings.json` still fire). `bash -n` clean. Origin: t4-exempt-paths teammate side observation during T-0004 (2026-05-27).
 
 ## sidecoach
 ### Active

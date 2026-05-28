@@ -46,7 +46,13 @@ if not file_path:
 # Global project memory (~/.claude/projects/<project>/memory/) lives outside the
 # project tree so it doesn't match `.claude/memory/`. Match it with a regex so
 # we don't over-exempt the session UUID transcripts that sit alongside it.
-EXEMPT = [".claude/memory/", "MEMORY.md", ".claude/hooks/", ".claude/skills/"]
+# Both dotted (.claude/hooks/, .claude/skills/) and no-dot (claude/hooks/,
+# claude/skills/) variants are listed because the dotfiles repo stores hook and
+# skill source files under the no-dot path (claude/hooks/, claude/skills/), while
+# the installed symlink target uses the dotted path. The no-dot variant also
+# contains the dotted variant as a substring, so one entry would cover both, but
+# keeping both is explicit and harmless.
+EXEMPT = [".claude/memory/", "MEMORY.md", ".claude/hooks/", ".claude/skills/", "claude/hooks/", "claude/skills/"]
 EXEMPT_REGEX = re.compile(r"\.claude/projects/[^/]+/memory/")
 if any(e in file_path for e in EXEMPT) or EXEMPT_REGEX.search(file_path):
     print("{}"); sys.exit(0)
