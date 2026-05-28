@@ -7,6 +7,7 @@ import { ExtendedDomainValidator, DomainCheckContext } from './extended-domain-v
 import { EnhancedFlowExecutionContext } from './flow-execution-context-enhanced';
 import { findTokenLine } from './design-md-parser';
 
+import { applyModelSelection } from './model-routing';
 export class FlowSTypographyExcellenceHandler extends BaseFlowHandler {
   constructor() {
     super('flowS_typography_excellence' as any);
@@ -17,6 +18,9 @@ export class FlowSTypographyExcellenceHandler extends BaseFlowHandler {
   }
 
   async execute(context: FlowExecutionContext): Promise<FlowExecutionResult> {
+    // T-0012: per-flow model-tier routing. Stash selected model into context.metadata.
+    applyModelSelection(this.flowId, context);
+
     const enhancedContext = context as EnhancedFlowExecutionContext;
     try {
       const domainCheckContext: DomainCheckContext = {

@@ -6,6 +6,7 @@ import { ContextLoader, ProjectContext, Register } from './project-context';
 import { SHARED_DESIGN_LAWS, REGISTER_SPECIFIC_LAWS } from './design-laws';
 import { FlowMemoryBuilder } from './flow-memory-schema';
 import { EnhancedFlowExecutionContext } from './flow-execution-context-enhanced';
+import { applyModelSelection } from './model-routing';
 
 export interface BrandVerificationContext {
   projectContext: ProjectContext;
@@ -35,6 +36,9 @@ export class FlowABrandVerifyHandler extends BaseFlowHandler {
   }
 
   async execute(context: FlowExecutionContext): Promise<FlowExecutionResult> {
+    // T-0012: per-flow model-tier routing. Stash the selected model into
+    // context.metadata so downstream LLM-call sites use the right tier.
+    applyModelSelection(this.flowId, context);
     const projectPath = context.projectPath || process.cwd();
     const enhancedContext = context as EnhancedFlowExecutionContext;
 

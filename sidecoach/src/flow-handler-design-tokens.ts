@@ -11,6 +11,7 @@ import { TypographyValidator, typographyFindingsToGuidance } from './typography-
 import fs from 'fs';
 import path from 'path';
 
+import { applyModelSelection } from './model-routing';
 interface DesignTokenContext {
   tokenSections: string[];
   domainValidationResults: {
@@ -39,6 +40,9 @@ export class FlowFDesignTokensHandler extends BaseFlowHandler {
   }
 
   async execute(context: FlowExecutionContext): Promise<FlowExecutionResult> {
+    // T-0012: per-flow model-tier routing. Stash selected model into context.metadata.
+    applyModelSelection(this.flowId, context);
+
     const enhancedContext = context as EnhancedFlowExecutionContext;
     const projectPath = context.projectPath || process.cwd();
     const designMdPath = path.join(projectPath, 'DESIGN.md');

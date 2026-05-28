@@ -7,6 +7,7 @@ import { FlowMemoryBuilder } from './flow-memory-schema';
 import { ExtendedDomainValidator, DomainCheckContext } from './extended-domain-validator';
 import { EnhancedFlowExecutionContext } from './flow-execution-context-enhanced';
 
+import { applyModelSelection } from './model-routing';
 interface AccessibilityContext {
   wcagLevel: 'AA' | 'AAA';
   domainAuditResults: {
@@ -34,6 +35,9 @@ export class FlowIAccessibilityHandler extends BaseFlowHandler {
   }
 
   async execute(context: FlowExecutionContext): Promise<FlowExecutionResult> {
+    // T-0012: per-flow model-tier routing. Stash selected model into context.metadata.
+    applyModelSelection(this.flowId, context);
+
     const enhancedContext = context as EnhancedFlowExecutionContext;
     const register = context.projectContext?.register || 'product';
 

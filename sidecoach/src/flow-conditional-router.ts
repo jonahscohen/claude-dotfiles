@@ -72,9 +72,9 @@ export class FlowConditionalRouter {
   }
 
   // Feature availability conditions
-  static hasImprovTool(context: FlowExecutionContext): boolean {
-    // Check if improv is available in metadata or environment
-    return !!(context.metadata?.improveAvailable !== false);
+  static hasEndowTool(context: FlowExecutionContext): boolean {
+    // Check if endow is available in metadata or environment
+    return !!(context.metadata?.endowAvailable !== false);
   }
 
   static hasFigmaAccess(context: FlowExecutionContext): boolean {

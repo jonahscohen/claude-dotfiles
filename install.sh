@@ -84,7 +84,7 @@ DESCS=(
   "Gives Claude a voice via OpenAI text-to-speech API. Claude speaks short verbal summaries while keeping code and technical detail as text. Requires your own OpenAI API key stored in macOS Keychain (see docs). Starts muted - enable with voice-on in any terminal. Three mute controls: in-session (mute yourself), terminal alias (voice-on/voice-off), or manual file toggle. Does NOT work without an API key - this is not optional, it is required."
   "Adds the reflect skill and nudge hook. The reflect skill spawns 5 parallel analysis agents against your accumulated .claude/memory/ files to surface patterns, tensions, and gaps nobody explicitly noticed. Triggers naturally from conversation ('what patterns are you seeing?') or via /reflect. A SessionStart hook nudges you when enough new memories have accumulated since the last reflection. No external dependencies."
   "Sidecoach: invisible workflow automation triggered by natural conversation. No slash commands. Instead of slash commands, simply write naturally about your work ('make this feel better', 'design a component', 'review this') and Sidecoach detects your intent and guides you through the appropriate workflow. Daemon launches at session start and monitors messages silently. Provides 14 design/development flows covering polish, review, design, implementation, accessibility, refactoring, and iteration. Each flow returns tailored guidance, checklists (6-14 items), and next steps. Built via SessionStart hook (daemon launcher), PostUserPrompt hook (message intake), and PostResponse hook (result injection). Symlinks hooks into ~/.claude/hooks/ and compiles TypeScript orchestrator + 14 handlers."
-  "Adds the /task-list slash-command skill at ~/.claude/skills/task-list/. Manages a single TASKS.md at the dotfiles repo root, organized by area (sidecoach, improv, marketing-site, test-site-1, dotfiles) with Active/Blocked/Done sub-sections. Verbs: add, list, done, edit, remove, block, unblock, show. Area inferred from cwd; IDs monotonic T-NNNN. Always operates on the dotfiles TASKS.md regardless of where you invoke it from. No hooks, no external deps."
+  "Adds the /task-list slash-command skill at ~/.claude/skills/task-list/. Manages a single TASKS.md at the dotfiles repo root, organized by area (sidecoach, endow, marketing-site, test-site-1, dotfiles) with Active/Blocked/Done sub-sections. Verbs: add, list, done, edit, remove, block, unblock, show. Area inferred from cwd; IDs monotonic T-NNNN. Always operates on the dotfiles TASKS.md regardless of where you invoke it from. No hooks, no external deps."
 )
 FILES=(
   # brain
@@ -138,11 +138,11 @@ PICKS=(1 1 1 1 1 1 1 1 1 1 1 1 1 1)
 # the maintainer passes --personal (undocumented, undocumented-on-purpose).
 # Lets one human keep cross-machine sync for ghostty/shaders without exposing
 # them as Yes&-team defaults.
-PERSONAL_KEYS=(ghostty shaders improv)
+PERSONAL_KEYS=(ghostty shaders endow)
 PERSONAL_TITLES=(
   "Ghostty terminal look"
   "Ghostty visual effects (shaders)"
-  "Improv visual design tool"
+  "Endow visual design tool"
 )
 PERSONAL_DESCS=(
   "Personal: Ghostty terminal appearance (PolySans Neutral Mono font, custom 256-color palette, transparency, blur)."
@@ -152,12 +152,12 @@ PERSONAL_DESCS=(
 PERSONAL_FILES=(
   "~/.config/ghostty/config (copy)"
   "~/.config/ghostty/shaders/ (symlinks)"
-  "~/.claude/improv/ (server + core + adapters)\n~/.claude/skills/improv/SKILL.md\n~/.claude.json (MCP registration)"
+  "~/.claude/endow/ (server + core + adapters)\n~/.claude/skills/endow/SKILL.md\n~/.claude.json (MCP registration)"
 )
 PERSONAL_DIRS=(
   "$REPO_DIR/ghostty"
   "$REPO_DIR/ghostty/shaders"
-  "$REPO_DIR/improv"
+  "$REPO_DIR/endow"
 )
 PERSONAL_PICKS=(1 1 1)
 
@@ -561,7 +561,7 @@ detect_component() {
     voice-output) [ -d "$CLAUDE_DIR/voice-output" ] && echo active || echo not-installed ;;
     reflect)    [ -f "$CLAUDE_DIR/skills/reflect/SKILL.md" ] && echo active || echo not-installed ;;
     task-list)  [ -f "$CLAUDE_DIR/skills/task-list/SKILL.md" ] && echo active || echo not-installed ;;
-    improv)     [ -d "$CLAUDE_DIR/improv" ] && echo active || echo not-installed ;;
+    endow)     [ -d "$CLAUDE_DIR/endow" ] && echo active || echo not-installed ;;
     *)          echo not-installed ;;
   esac
 }
@@ -824,16 +824,16 @@ with open(p, 'w') as f: json.dump(d, f, indent=2); f.write('\n')
   fi
 }
 
-deactivate_improv() {
-  rm -rf "$CLAUDE_DIR/improv"
-  rm -rf "$CLAUDE_DIR/skills/improv"
+deactivate_endow() {
+  rm -rf "$CLAUDE_DIR/endow"
+  rm -rf "$CLAUDE_DIR/skills/endow"
   # Remove MCP server from ~/.claude.json
   if command -v python3 >/dev/null 2>&1 && [ -f "$HOME/.claude.json" ]; then
     python3 -c "
 import json
 p = '$HOME/.claude.json'
 with open(p) as f: d = json.load(f)
-d.get('mcpServers', {}).pop('improv', None)
+d.get('mcpServers', {}).pop('endow', None)
 with open(p, 'w') as f: json.dump(d, f, indent=2); f.write('\n')
 "
   fi
@@ -918,7 +918,7 @@ deactivate_component() {
     voice-output) deactivate_voice_output ;;
     reflect)    deactivate_reflect ;;
     task-list)  deactivate_task_list ;;
-    improv) deactivate_improv ;;
+    endow) deactivate_endow ;;
   esac
 }
 
@@ -2234,13 +2234,13 @@ if picked task-list; then
 fi
 
 # ============================================================
-# 16. Improv (visual micro-adjustment MCP tool)
+# 16. Endow (visual micro-adjustment MCP tool)
 # ============================================================
 
-if picked improv; then
-  info "Installing Improv..."
-  bash "$REPO_DIR/improv/install.sh"
-  ok "Improv installed"
+if picked endow; then
+  info "Installing Endow..."
+  bash "$REPO_DIR/endow/install.sh"
+  ok "Endow installed"
 fi
 
 # ============================================================
@@ -2257,9 +2257,15 @@ if picked sidecoach; then
   ln -sf "$REPO_DIR/claude/skills/sidecoach/SKILL.md" \
          "$HOME/.claude/skills/sidecoach/SKILL.md"
 
-  for hook in sidecoach-sessionstart.sh sidecoach-postuserp.sh sidecoach-postresponse.sh; do
+  for hook in sidecoach-sessionstart.sh sidecoach-postuserp.sh sidecoach-postresponse.sh sidecoach-keyword.sh; do
     ln -sf "$REPO_DIR/claude/hooks/$hook" "$HOME/.claude/hooks/$hook"
     chmod +x "$HOME/.claude/hooks/$hook"
+  done
+
+  # Verb + mode registries consumed by sidecoach-keyword.sh (T-0008 + T-0011).
+  # Symlinked (not chmod'd) - they're data files, not executables.
+  for registry in sidecoach-verbs.json sidecoach-modes.json; do
+    ln -sf "$REPO_DIR/claude/hooks/$registry" "$HOME/.claude/hooks/$registry"
   done
 
   node -e "

@@ -1,0 +1,1298 @@
+{
+  "runId": "2026-05-28T07:44:20.951Z",
+  "modelTiers": {
+    "haiku": "claude-haiku-4-5-20251001",
+    "sonnet": "claude-sonnet-4-6",
+    "opus": "claude-opus-4-7"
+  },
+  "fixtures": [
+    {
+      "name": "brand-studio",
+      "category": "brand",
+      "flows": [
+        {
+          "flowId": "flowJ_tactical_polish",
+          "status": "success",
+          "retryStateCount": 1,
+          "tierUsed": "opus",
+          "modelId": "claude-opus-4-7",
+          "polishStandard": {
+            "passed": 15,
+            "failed": 7,
+            "passRate": 0.6818181818181818,
+            "criticalViolations": 2
+          },
+          "extendedDomain": {
+            "passed": 41,
+            "failed": 96,
+            "passRate": 0.29927007299270075,
+            "byDomain": {
+              "polish": {
+                "passed": 11,
+                "failed": 11,
+                "passRate": 0.5
+              },
+              "typography": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "color": {
+                "passed": 3,
+                "failed": 13,
+                "passRate": 0.188
+              },
+              "spatial": {
+                "passed": 6,
+                "failed": 8,
+                "passRate": 0.429
+              },
+              "motion": {
+                "passed": 4,
+                "failed": 11,
+                "passRate": 0.267
+              },
+              "interaction": {
+                "passed": 2,
+                "failed": 9,
+                "passRate": 0.182
+              },
+              "responsive": {
+                "passed": 2,
+                "failed": 10,
+                "passRate": 0.16699999999999998
+              },
+              "ux-writing": {
+                "passed": 1,
+                "failed": 10,
+                "passRate": 0.091
+              },
+              "performance": {
+                "passed": 4,
+                "failed": 5,
+                "passRate": 0.444
+              },
+              "data-visualization": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "internationalization": {
+                "passed": 2,
+                "failed": 5,
+                "passRate": 0.28600000000000003
+              }
+            }
+          },
+          "taste": {
+            "violations": []
+          },
+          "latencyMs": 7,
+          "tokensInput": 1201,
+          "tokensOutput": 401,
+          "estimatedCost": 0.048089999999999994
+        },
+        {
+          "flowId": "flowK_multi_lens_audit",
+          "status": "success",
+          "retryStateCount": 1,
+          "tierUsed": "sonnet",
+          "modelId": "claude-sonnet-4-6",
+          "polishStandard": {
+            "passed": 15,
+            "failed": 7,
+            "passRate": 0.6818181818181818,
+            "criticalViolations": 2
+          },
+          "extendedDomain": {
+            "passed": 41,
+            "failed": 96,
+            "passRate": 0.29927007299270075,
+            "byDomain": {
+              "polish": {
+                "passed": 11,
+                "failed": 11,
+                "passRate": 0.5
+              },
+              "typography": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "color": {
+                "passed": 3,
+                "failed": 13,
+                "passRate": 0.188
+              },
+              "spatial": {
+                "passed": 6,
+                "failed": 8,
+                "passRate": 0.429
+              },
+              "motion": {
+                "passed": 4,
+                "failed": 11,
+                "passRate": 0.267
+              },
+              "interaction": {
+                "passed": 2,
+                "failed": 9,
+                "passRate": 0.182
+              },
+              "responsive": {
+                "passed": 2,
+                "failed": 10,
+                "passRate": 0.16699999999999998
+              },
+              "ux-writing": {
+                "passed": 1,
+                "failed": 10,
+                "passRate": 0.091
+              },
+              "performance": {
+                "passed": 4,
+                "failed": 5,
+                "passRate": 0.444
+              },
+              "data-visualization": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "internationalization": {
+                "passed": 2,
+                "failed": 5,
+                "passRate": 0.28600000000000003
+              }
+            }
+          },
+          "taste": {
+            "violations": []
+          },
+          "latencyMs": 1,
+          "tokensInput": 1201,
+          "tokensOutput": 401,
+          "estimatedCost": 0.009618
+        },
+        {
+          "flowId": "flowL_design_critique",
+          "status": "success",
+          "retryStateCount": 1,
+          "tierUsed": "opus",
+          "modelId": "claude-opus-4-7",
+          "polishStandard": {
+            "passed": 15,
+            "failed": 7,
+            "passRate": 0.6818181818181818,
+            "criticalViolations": 2
+          },
+          "extendedDomain": {
+            "passed": 41,
+            "failed": 96,
+            "passRate": 0.29927007299270075,
+            "byDomain": {
+              "polish": {
+                "passed": 11,
+                "failed": 11,
+                "passRate": 0.5
+              },
+              "typography": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "color": {
+                "passed": 3,
+                "failed": 13,
+                "passRate": 0.188
+              },
+              "spatial": {
+                "passed": 6,
+                "failed": 8,
+                "passRate": 0.429
+              },
+              "motion": {
+                "passed": 4,
+                "failed": 11,
+                "passRate": 0.267
+              },
+              "interaction": {
+                "passed": 2,
+                "failed": 9,
+                "passRate": 0.182
+              },
+              "responsive": {
+                "passed": 2,
+                "failed": 10,
+                "passRate": 0.16699999999999998
+              },
+              "ux-writing": {
+                "passed": 1,
+                "failed": 10,
+                "passRate": 0.091
+              },
+              "performance": {
+                "passed": 4,
+                "failed": 5,
+                "passRate": 0.444
+              },
+              "data-visualization": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "internationalization": {
+                "passed": 2,
+                "failed": 5,
+                "passRate": 0.28600000000000003
+              }
+            }
+          },
+          "taste": {
+            "violations": []
+          },
+          "latencyMs": 1,
+          "tokensInput": 1201,
+          "tokensOutput": 401,
+          "estimatedCost": 0.048089999999999994
+        }
+      ]
+    },
+    {
+      "name": "form-stress",
+      "category": "accessibility",
+      "flows": [
+        {
+          "flowId": "flowJ_tactical_polish",
+          "status": "success",
+          "retryStateCount": 1,
+          "tierUsed": "opus",
+          "modelId": "claude-opus-4-7",
+          "polishStandard": {
+            "passed": 15,
+            "failed": 7,
+            "passRate": 0.6818181818181818,
+            "criticalViolations": 2
+          },
+          "extendedDomain": {
+            "passed": 42,
+            "failed": 95,
+            "passRate": 0.30656934306569344,
+            "byDomain": {
+              "polish": {
+                "passed": 11,
+                "failed": 11,
+                "passRate": 0.5
+              },
+              "typography": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "color": {
+                "passed": 3,
+                "failed": 13,
+                "passRate": 0.188
+              },
+              "spatial": {
+                "passed": 7,
+                "failed": 7,
+                "passRate": 0.5
+              },
+              "motion": {
+                "passed": 4,
+                "failed": 11,
+                "passRate": 0.267
+              },
+              "interaction": {
+                "passed": 2,
+                "failed": 9,
+                "passRate": 0.182
+              },
+              "responsive": {
+                "passed": 2,
+                "failed": 10,
+                "passRate": 0.16699999999999998
+              },
+              "ux-writing": {
+                "passed": 1,
+                "failed": 10,
+                "passRate": 0.091
+              },
+              "performance": {
+                "passed": 4,
+                "failed": 5,
+                "passRate": 0.444
+              },
+              "data-visualization": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "internationalization": {
+                "passed": 2,
+                "failed": 5,
+                "passRate": 0.28600000000000003
+              }
+            }
+          },
+          "taste": {
+            "violations": []
+          },
+          "latencyMs": 3,
+          "tokensInput": 1378,
+          "tokensOutput": 460,
+          "estimatedCost": 0.055170000000000004
+        },
+        {
+          "flowId": "flowK_multi_lens_audit",
+          "status": "success",
+          "retryStateCount": 1,
+          "tierUsed": "sonnet",
+          "modelId": "claude-sonnet-4-6",
+          "polishStandard": {
+            "passed": 15,
+            "failed": 7,
+            "passRate": 0.6818181818181818,
+            "criticalViolations": 2
+          },
+          "extendedDomain": {
+            "passed": 42,
+            "failed": 95,
+            "passRate": 0.30656934306569344,
+            "byDomain": {
+              "polish": {
+                "passed": 11,
+                "failed": 11,
+                "passRate": 0.5
+              },
+              "typography": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "color": {
+                "passed": 3,
+                "failed": 13,
+                "passRate": 0.188
+              },
+              "spatial": {
+                "passed": 7,
+                "failed": 7,
+                "passRate": 0.5
+              },
+              "motion": {
+                "passed": 4,
+                "failed": 11,
+                "passRate": 0.267
+              },
+              "interaction": {
+                "passed": 2,
+                "failed": 9,
+                "passRate": 0.182
+              },
+              "responsive": {
+                "passed": 2,
+                "failed": 10,
+                "passRate": 0.16699999999999998
+              },
+              "ux-writing": {
+                "passed": 1,
+                "failed": 10,
+                "passRate": 0.091
+              },
+              "performance": {
+                "passed": 4,
+                "failed": 5,
+                "passRate": 0.444
+              },
+              "data-visualization": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "internationalization": {
+                "passed": 2,
+                "failed": 5,
+                "passRate": 0.28600000000000003
+              }
+            }
+          },
+          "taste": {
+            "violations": []
+          },
+          "latencyMs": 0,
+          "tokensInput": 1378,
+          "tokensOutput": 460,
+          "estimatedCost": 0.011034
+        },
+        {
+          "flowId": "flowL_design_critique",
+          "status": "success",
+          "retryStateCount": 1,
+          "tierUsed": "opus",
+          "modelId": "claude-opus-4-7",
+          "polishStandard": {
+            "passed": 15,
+            "failed": 7,
+            "passRate": 0.6818181818181818,
+            "criticalViolations": 2
+          },
+          "extendedDomain": {
+            "passed": 42,
+            "failed": 95,
+            "passRate": 0.30656934306569344,
+            "byDomain": {
+              "polish": {
+                "passed": 11,
+                "failed": 11,
+                "passRate": 0.5
+              },
+              "typography": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "color": {
+                "passed": 3,
+                "failed": 13,
+                "passRate": 0.188
+              },
+              "spatial": {
+                "passed": 7,
+                "failed": 7,
+                "passRate": 0.5
+              },
+              "motion": {
+                "passed": 4,
+                "failed": 11,
+                "passRate": 0.267
+              },
+              "interaction": {
+                "passed": 2,
+                "failed": 9,
+                "passRate": 0.182
+              },
+              "responsive": {
+                "passed": 2,
+                "failed": 10,
+                "passRate": 0.16699999999999998
+              },
+              "ux-writing": {
+                "passed": 1,
+                "failed": 10,
+                "passRate": 0.091
+              },
+              "performance": {
+                "passed": 4,
+                "failed": 5,
+                "passRate": 0.444
+              },
+              "data-visualization": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "internationalization": {
+                "passed": 2,
+                "failed": 5,
+                "passRate": 0.28600000000000003
+              }
+            }
+          },
+          "taste": {
+            "violations": []
+          },
+          "latencyMs": 1,
+          "tokensInput": 1378,
+          "tokensOutput": 460,
+          "estimatedCost": 0.055170000000000004
+        }
+      ]
+    },
+    {
+      "name": "mixed-portfolio",
+      "category": "mixed",
+      "flows": [
+        {
+          "flowId": "flowJ_tactical_polish",
+          "status": "success",
+          "retryStateCount": 1,
+          "tierUsed": "opus",
+          "modelId": "claude-opus-4-7",
+          "polishStandard": {
+            "passed": 16,
+            "failed": 6,
+            "passRate": 0.7272727272727273,
+            "criticalViolations": 2
+          },
+          "extendedDomain": {
+            "passed": 42,
+            "failed": 95,
+            "passRate": 0.30656934306569344,
+            "byDomain": {
+              "polish": {
+                "passed": 12,
+                "failed": 10,
+                "passRate": 0.545
+              },
+              "typography": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "color": {
+                "passed": 3,
+                "failed": 13,
+                "passRate": 0.188
+              },
+              "spatial": {
+                "passed": 6,
+                "failed": 8,
+                "passRate": 0.429
+              },
+              "motion": {
+                "passed": 4,
+                "failed": 11,
+                "passRate": 0.267
+              },
+              "interaction": {
+                "passed": 2,
+                "failed": 9,
+                "passRate": 0.182
+              },
+              "responsive": {
+                "passed": 2,
+                "failed": 10,
+                "passRate": 0.16699999999999998
+              },
+              "ux-writing": {
+                "passed": 1,
+                "failed": 10,
+                "passRate": 0.091
+              },
+              "performance": {
+                "passed": 4,
+                "failed": 5,
+                "passRate": 0.444
+              },
+              "data-visualization": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "internationalization": {
+                "passed": 2,
+                "failed": 5,
+                "passRate": 0.28600000000000003
+              }
+            }
+          },
+          "taste": {
+            "violations": []
+          },
+          "latencyMs": 2,
+          "tokensInput": 1440,
+          "tokensOutput": 480,
+          "estimatedCost": 0.057600000000000005
+        },
+        {
+          "flowId": "flowK_multi_lens_audit",
+          "status": "success",
+          "retryStateCount": 1,
+          "tierUsed": "sonnet",
+          "modelId": "claude-sonnet-4-6",
+          "polishStandard": {
+            "passed": 16,
+            "failed": 6,
+            "passRate": 0.7272727272727273,
+            "criticalViolations": 2
+          },
+          "extendedDomain": {
+            "passed": 42,
+            "failed": 95,
+            "passRate": 0.30656934306569344,
+            "byDomain": {
+              "polish": {
+                "passed": 12,
+                "failed": 10,
+                "passRate": 0.545
+              },
+              "typography": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "color": {
+                "passed": 3,
+                "failed": 13,
+                "passRate": 0.188
+              },
+              "spatial": {
+                "passed": 6,
+                "failed": 8,
+                "passRate": 0.429
+              },
+              "motion": {
+                "passed": 4,
+                "failed": 11,
+                "passRate": 0.267
+              },
+              "interaction": {
+                "passed": 2,
+                "failed": 9,
+                "passRate": 0.182
+              },
+              "responsive": {
+                "passed": 2,
+                "failed": 10,
+                "passRate": 0.16699999999999998
+              },
+              "ux-writing": {
+                "passed": 1,
+                "failed": 10,
+                "passRate": 0.091
+              },
+              "performance": {
+                "passed": 4,
+                "failed": 5,
+                "passRate": 0.444
+              },
+              "data-visualization": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "internationalization": {
+                "passed": 2,
+                "failed": 5,
+                "passRate": 0.28600000000000003
+              }
+            }
+          },
+          "taste": {
+            "violations": []
+          },
+          "latencyMs": 0,
+          "tokensInput": 1440,
+          "tokensOutput": 480,
+          "estimatedCost": 0.011519999999999999
+        },
+        {
+          "flowId": "flowL_design_critique",
+          "status": "success",
+          "retryStateCount": 1,
+          "tierUsed": "opus",
+          "modelId": "claude-opus-4-7",
+          "polishStandard": {
+            "passed": 16,
+            "failed": 6,
+            "passRate": 0.7272727272727273,
+            "criticalViolations": 2
+          },
+          "extendedDomain": {
+            "passed": 42,
+            "failed": 95,
+            "passRate": 0.30656934306569344,
+            "byDomain": {
+              "polish": {
+                "passed": 12,
+                "failed": 10,
+                "passRate": 0.545
+              },
+              "typography": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "color": {
+                "passed": 3,
+                "failed": 13,
+                "passRate": 0.188
+              },
+              "spatial": {
+                "passed": 6,
+                "failed": 8,
+                "passRate": 0.429
+              },
+              "motion": {
+                "passed": 4,
+                "failed": 11,
+                "passRate": 0.267
+              },
+              "interaction": {
+                "passed": 2,
+                "failed": 9,
+                "passRate": 0.182
+              },
+              "responsive": {
+                "passed": 2,
+                "failed": 10,
+                "passRate": 0.16699999999999998
+              },
+              "ux-writing": {
+                "passed": 1,
+                "failed": 10,
+                "passRate": 0.091
+              },
+              "performance": {
+                "passed": 4,
+                "failed": 5,
+                "passRate": 0.444
+              },
+              "data-visualization": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "internationalization": {
+                "passed": 2,
+                "failed": 5,
+                "passRate": 0.28600000000000003
+              }
+            }
+          },
+          "taste": {
+            "violations": []
+          },
+          "latencyMs": 0,
+          "tokensInput": 1440,
+          "tokensOutput": 480,
+          "estimatedCost": 0.057600000000000005
+        }
+      ]
+    },
+    {
+      "name": "saas-dashboard",
+      "category": "product",
+      "flows": [
+        {
+          "flowId": "flowJ_tactical_polish",
+          "status": "success",
+          "retryStateCount": 1,
+          "tierUsed": "opus",
+          "modelId": "claude-opus-4-7",
+          "polishStandard": {
+            "passed": 15,
+            "failed": 7,
+            "passRate": 0.6818181818181818,
+            "criticalViolations": 2
+          },
+          "extendedDomain": {
+            "passed": 42,
+            "failed": 95,
+            "passRate": 0.30656934306569344,
+            "byDomain": {
+              "polish": {
+                "passed": 11,
+                "failed": 11,
+                "passRate": 0.5
+              },
+              "typography": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "color": {
+                "passed": 3,
+                "failed": 13,
+                "passRate": 0.188
+              },
+              "spatial": {
+                "passed": 7,
+                "failed": 7,
+                "passRate": 0.5
+              },
+              "motion": {
+                "passed": 4,
+                "failed": 11,
+                "passRate": 0.267
+              },
+              "interaction": {
+                "passed": 2,
+                "failed": 9,
+                "passRate": 0.182
+              },
+              "responsive": {
+                "passed": 2,
+                "failed": 10,
+                "passRate": 0.16699999999999998
+              },
+              "ux-writing": {
+                "passed": 1,
+                "failed": 10,
+                "passRate": 0.091
+              },
+              "performance": {
+                "passed": 4,
+                "failed": 5,
+                "passRate": 0.444
+              },
+              "data-visualization": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "internationalization": {
+                "passed": 2,
+                "failed": 5,
+                "passRate": 0.28600000000000003
+              }
+            }
+          },
+          "taste": {
+            "violations": [
+              {
+                "ruleId": "taste/hex-in-interactive-state",
+                "severity": "error",
+                "category": "design-tokens",
+                "message": ":hover/:active state uses hardcoded hex (#1D4ED8) while the file defines CSS custom properties. Derive the interactive state from a token (e.g. var(--c-brand-red-hover)) so theming and dark mode propagate. Selector: \"button.primary:hover\""
+              }
+            ]
+          },
+          "latencyMs": 2,
+          "tokensInput": 1259,
+          "tokensOutput": 420,
+          "estimatedCost": 0.050385
+        },
+        {
+          "flowId": "flowK_multi_lens_audit",
+          "status": "success",
+          "retryStateCount": 1,
+          "tierUsed": "sonnet",
+          "modelId": "claude-sonnet-4-6",
+          "polishStandard": {
+            "passed": 15,
+            "failed": 7,
+            "passRate": 0.6818181818181818,
+            "criticalViolations": 2
+          },
+          "extendedDomain": {
+            "passed": 42,
+            "failed": 95,
+            "passRate": 0.30656934306569344,
+            "byDomain": {
+              "polish": {
+                "passed": 11,
+                "failed": 11,
+                "passRate": 0.5
+              },
+              "typography": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "color": {
+                "passed": 3,
+                "failed": 13,
+                "passRate": 0.188
+              },
+              "spatial": {
+                "passed": 7,
+                "failed": 7,
+                "passRate": 0.5
+              },
+              "motion": {
+                "passed": 4,
+                "failed": 11,
+                "passRate": 0.267
+              },
+              "interaction": {
+                "passed": 2,
+                "failed": 9,
+                "passRate": 0.182
+              },
+              "responsive": {
+                "passed": 2,
+                "failed": 10,
+                "passRate": 0.16699999999999998
+              },
+              "ux-writing": {
+                "passed": 1,
+                "failed": 10,
+                "passRate": 0.091
+              },
+              "performance": {
+                "passed": 4,
+                "failed": 5,
+                "passRate": 0.444
+              },
+              "data-visualization": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "internationalization": {
+                "passed": 2,
+                "failed": 5,
+                "passRate": 0.28600000000000003
+              }
+            }
+          },
+          "taste": {
+            "violations": [
+              {
+                "ruleId": "taste/hex-in-interactive-state",
+                "severity": "error",
+                "category": "design-tokens",
+                "message": ":hover/:active state uses hardcoded hex (#1D4ED8) while the file defines CSS custom properties. Derive the interactive state from a token (e.g. var(--c-brand-red-hover)) so theming and dark mode propagate. Selector: \"button.primary:hover\""
+              }
+            ]
+          },
+          "latencyMs": 0,
+          "tokensInput": 1259,
+          "tokensOutput": 420,
+          "estimatedCost": 0.010077
+        },
+        {
+          "flowId": "flowL_design_critique",
+          "status": "success",
+          "retryStateCount": 1,
+          "tierUsed": "opus",
+          "modelId": "claude-opus-4-7",
+          "polishStandard": {
+            "passed": 15,
+            "failed": 7,
+            "passRate": 0.6818181818181818,
+            "criticalViolations": 2
+          },
+          "extendedDomain": {
+            "passed": 42,
+            "failed": 95,
+            "passRate": 0.30656934306569344,
+            "byDomain": {
+              "polish": {
+                "passed": 11,
+                "failed": 11,
+                "passRate": 0.5
+              },
+              "typography": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "color": {
+                "passed": 3,
+                "failed": 13,
+                "passRate": 0.188
+              },
+              "spatial": {
+                "passed": 7,
+                "failed": 7,
+                "passRate": 0.5
+              },
+              "motion": {
+                "passed": 4,
+                "failed": 11,
+                "passRate": 0.267
+              },
+              "interaction": {
+                "passed": 2,
+                "failed": 9,
+                "passRate": 0.182
+              },
+              "responsive": {
+                "passed": 2,
+                "failed": 10,
+                "passRate": 0.16699999999999998
+              },
+              "ux-writing": {
+                "passed": 1,
+                "failed": 10,
+                "passRate": 0.091
+              },
+              "performance": {
+                "passed": 4,
+                "failed": 5,
+                "passRate": 0.444
+              },
+              "data-visualization": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "internationalization": {
+                "passed": 2,
+                "failed": 5,
+                "passRate": 0.28600000000000003
+              }
+            }
+          },
+          "taste": {
+            "violations": [
+              {
+                "ruleId": "taste/hex-in-interactive-state",
+                "severity": "error",
+                "category": "design-tokens",
+                "message": ":hover/:active state uses hardcoded hex (#1D4ED8) while the file defines CSS custom properties. Derive the interactive state from a token (e.g. var(--c-brand-red-hover)) so theming and dark mode propagate. Selector: \"button.primary:hover\""
+              }
+            ]
+          },
+          "latencyMs": 0,
+          "tokensInput": 1259,
+          "tokensOutput": 420,
+          "estimatedCost": 0.050385
+        }
+      ]
+    },
+    {
+      "name": "scroll-landing",
+      "category": "motion",
+      "flows": [
+        {
+          "flowId": "flowJ_tactical_polish",
+          "status": "success",
+          "retryStateCount": 1,
+          "tierUsed": "opus",
+          "modelId": "claude-opus-4-7",
+          "polishStandard": {
+            "passed": 16,
+            "failed": 6,
+            "passRate": 0.7272727272727273,
+            "criticalViolations": 2
+          },
+          "extendedDomain": {
+            "passed": 42,
+            "failed": 95,
+            "passRate": 0.30656934306569344,
+            "byDomain": {
+              "polish": {
+                "passed": 12,
+                "failed": 10,
+                "passRate": 0.545
+              },
+              "typography": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "color": {
+                "passed": 3,
+                "failed": 13,
+                "passRate": 0.188
+              },
+              "spatial": {
+                "passed": 6,
+                "failed": 8,
+                "passRate": 0.429
+              },
+              "motion": {
+                "passed": 4,
+                "failed": 11,
+                "passRate": 0.267
+              },
+              "interaction": {
+                "passed": 2,
+                "failed": 9,
+                "passRate": 0.182
+              },
+              "responsive": {
+                "passed": 2,
+                "failed": 10,
+                "passRate": 0.16699999999999998
+              },
+              "ux-writing": {
+                "passed": 1,
+                "failed": 10,
+                "passRate": 0.091
+              },
+              "performance": {
+                "passed": 4,
+                "failed": 5,
+                "passRate": 0.444
+              },
+              "data-visualization": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "internationalization": {
+                "passed": 2,
+                "failed": 5,
+                "passRate": 0.28600000000000003
+              }
+            }
+          },
+          "taste": {
+            "violations": []
+          },
+          "latencyMs": 2,
+          "tokensInput": 1286,
+          "tokensOutput": 429,
+          "estimatedCost": 0.051465000000000004
+        },
+        {
+          "flowId": "flowK_multi_lens_audit",
+          "status": "success",
+          "retryStateCount": 1,
+          "tierUsed": "sonnet",
+          "modelId": "claude-sonnet-4-6",
+          "polishStandard": {
+            "passed": 16,
+            "failed": 6,
+            "passRate": 0.7272727272727273,
+            "criticalViolations": 2
+          },
+          "extendedDomain": {
+            "passed": 42,
+            "failed": 95,
+            "passRate": 0.30656934306569344,
+            "byDomain": {
+              "polish": {
+                "passed": 12,
+                "failed": 10,
+                "passRate": 0.545
+              },
+              "typography": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "color": {
+                "passed": 3,
+                "failed": 13,
+                "passRate": 0.188
+              },
+              "spatial": {
+                "passed": 6,
+                "failed": 8,
+                "passRate": 0.429
+              },
+              "motion": {
+                "passed": 4,
+                "failed": 11,
+                "passRate": 0.267
+              },
+              "interaction": {
+                "passed": 2,
+                "failed": 9,
+                "passRate": 0.182
+              },
+              "responsive": {
+                "passed": 2,
+                "failed": 10,
+                "passRate": 0.16699999999999998
+              },
+              "ux-writing": {
+                "passed": 1,
+                "failed": 10,
+                "passRate": 0.091
+              },
+              "performance": {
+                "passed": 4,
+                "failed": 5,
+                "passRate": 0.444
+              },
+              "data-visualization": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "internationalization": {
+                "passed": 2,
+                "failed": 5,
+                "passRate": 0.28600000000000003
+              }
+            }
+          },
+          "taste": {
+            "violations": []
+          },
+          "latencyMs": 0,
+          "tokensInput": 1286,
+          "tokensOutput": 429,
+          "estimatedCost": 0.010293
+        },
+        {
+          "flowId": "flowL_design_critique",
+          "status": "success",
+          "retryStateCount": 1,
+          "tierUsed": "opus",
+          "modelId": "claude-opus-4-7",
+          "polishStandard": {
+            "passed": 16,
+            "failed": 6,
+            "passRate": 0.7272727272727273,
+            "criticalViolations": 2
+          },
+          "extendedDomain": {
+            "passed": 42,
+            "failed": 95,
+            "passRate": 0.30656934306569344,
+            "byDomain": {
+              "polish": {
+                "passed": 12,
+                "failed": 10,
+                "passRate": 0.545
+              },
+              "typography": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "color": {
+                "passed": 3,
+                "failed": 13,
+                "passRate": 0.188
+              },
+              "spatial": {
+                "passed": 6,
+                "failed": 8,
+                "passRate": 0.429
+              },
+              "motion": {
+                "passed": 4,
+                "failed": 11,
+                "passRate": 0.267
+              },
+              "interaction": {
+                "passed": 2,
+                "failed": 9,
+                "passRate": 0.182
+              },
+              "responsive": {
+                "passed": 2,
+                "failed": 10,
+                "passRate": 0.16699999999999998
+              },
+              "ux-writing": {
+                "passed": 1,
+                "failed": 10,
+                "passRate": 0.091
+              },
+              "performance": {
+                "passed": 4,
+                "failed": 5,
+                "passRate": 0.444
+              },
+              "data-visualization": {
+                "passed": 3,
+                "failed": 7,
+                "passRate": 0.3
+              },
+              "internationalization": {
+                "passed": 2,
+                "failed": 5,
+                "passRate": 0.28600000000000003
+              }
+            }
+          },
+          "taste": {
+            "violations": []
+          },
+          "latencyMs": 0,
+          "tokensInput": 1286,
+          "tokensOutput": 429,
+          "estimatedCost": 0.051465000000000004
+        }
+      ]
+    }
+  ],
+  "totals": {
+    "passRateAvg": 0.6999999999999998,
+    "criticalViolations": 30,
+    "estimatedCost": 0.577962,
+    "flowCount": 15
+  },
+  "harnessVersion": "b0a66e312a61"
+}

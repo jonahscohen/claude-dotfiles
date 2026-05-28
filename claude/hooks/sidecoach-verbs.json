@@ -1,0 +1,164 @@
+{
+  "_meta": {
+    "purpose": "Canonical sidecoach verb registry. Consumed by sidecoach-keyword.sh (UserPromptSubmit hook) for verb-intent detection, and by the marketing-site cheatsheet generator (T-0010) for documentation rendering.",
+    "source": "claude/skills/sidecoach/SKILL.md (22 verbs)",
+    "matching_rules": "Each verb is matched with hyphen-aware word boundaries: (?<![\\w-])PATTERN(?![\\w-]), case-insensitive. Informational framings (what is X / how to use X / how do I X / X is a / tell me about X / explain X / define X) suppress all firing. Code fences, inline backticks, URLs, XML tag bodies, and transcript markers are stripped from the prompt before matching.",
+    "tie_break": "On multiple matches, pick the first verb in this list order."
+  },
+  "verbs": [
+    {
+      "verb": "shape",
+      "pattern": "shape",
+      "phase": "shape-strategy",
+      "description": "Plan design approach before building; runs exploration and rapid iteration",
+      "oneLineExplanation": "Plans a feature's design approach before any code is written"
+    },
+    {
+      "verb": "onboard",
+      "pattern": "onboard",
+      "phase": "shape-strategy",
+      "description": "First-run flows, empty states, activation patterns",
+      "oneLineExplanation": "Designs first-run experiences, empty states, and activation funnels"
+    },
+    {
+      "verb": "craft",
+      "pattern": "craft",
+      "phase": "build",
+      "description": "Build a new component from scratch with tokens, implementation, and motion",
+      "oneLineExplanation": "Builds a net-new component end-to-end including tokens and motion"
+    },
+    {
+      "verb": "animate",
+      "pattern": "animate",
+      "phase": "build",
+      "description": "Implement production animation with exponential easing and reduced-motion support",
+      "oneLineExplanation": "Adds production-grade motion with exponential easing and reduced-motion fallbacks"
+    },
+    {
+      "verb": "bolder",
+      "pattern": "bolder",
+      "phase": "build",
+      "description": "Increase visual weight, contrast, and presence",
+      "oneLineExplanation": "Pushes a design toward more visual weight, contrast, and presence"
+    },
+    {
+      "verb": "colorize",
+      "pattern": "colorize",
+      "phase": "build",
+      "description": "Color refinement and palette application",
+      "oneLineExplanation": "Applies and refines color and palette decisions on a target"
+    },
+    {
+      "verb": "delight",
+      "pattern": "delight",
+      "phase": "build",
+      "description": "Add personality, micro-interactions, and joy",
+      "oneLineExplanation": "Adds personality, micro-interactions, and joyful detail to a target"
+    },
+    {
+      "verb": "layout",
+      "pattern": "layout",
+      "phase": "build",
+      "description": "Restructure spatial relationships and visual hierarchy",
+      "oneLineExplanation": "Reworks spatial relationships, hierarchy, and structural composition"
+    },
+    {
+      "verb": "overdrive",
+      "pattern": "overdrive",
+      "phase": "build",
+      "description": "Amplify a design to maximum expressive effect",
+      "oneLineExplanation": "Amplifies design expression to its maximum useful intensity"
+    },
+    {
+      "verb": "typeset",
+      "pattern": "typeset",
+      "phase": "build",
+      "description": "Refine the type system, font pairing, scale, readability",
+      "oneLineExplanation": "Refines typography, font pairing, scale, and readability"
+    },
+    {
+      "verb": "clarify",
+      "pattern": "clarify",
+      "phase": "build",
+      "description": "Make design language explicit and unambiguous",
+      "oneLineExplanation": "Removes ambiguity from design language, labels, and intent"
+    },
+    {
+      "verb": "audit",
+      "pattern": "audit",
+      "phase": "review",
+      "description": "5-dimension technical audit: a11y, performance, theming, responsive, anti-patterns",
+      "oneLineExplanation": "Runs a 5-dimension technical scan for accessibility, performance, theming, responsive, and anti-patterns"
+    },
+    {
+      "verb": "critique",
+      "pattern": "critique",
+      "phase": "review",
+      "description": "Independent design review covering heuristics, cognitive load, and emotional journey",
+      "oneLineExplanation": "Runs an independent design review across heuristics, cognitive load, and emotion"
+    },
+    {
+      "verb": "polish",
+      "pattern": "polish",
+      "phase": "review",
+      "description": "16-point tactical refinement (concentric radius, optical alignment, scale-on-press, more)",
+      "oneLineExplanation": "Applies the 16-point tactical refinement checklist as a final-alignment pass"
+    },
+    {
+      "verb": "harden",
+      "pattern": "harden",
+      "phase": "review",
+      "description": "Production-readiness sweep: error states, edge cases, i18n, a11y",
+      "oneLineExplanation": "Sweeps a target for production readiness across errors, edge cases, i18n, and a11y"
+    },
+    {
+      "verb": "adapt",
+      "pattern": "adapt",
+      "phase": "review",
+      "description": "Responsive design across all breakpoints",
+      "oneLineExplanation": "Adapts a target across all responsive breakpoints and touch targets"
+    },
+    {
+      "verb": "optimize",
+      "pattern": "optimize",
+      "phase": "review",
+      "description": "Performance and efficiency improvements",
+      "oneLineExplanation": "Tunes a target for performance, efficiency, and runtime cost"
+    },
+    {
+      "verb": "quieter",
+      "pattern": "quieter",
+      "phase": "tone",
+      "description": "Reduce noise and visual complexity",
+      "oneLineExplanation": "Reduces visual noise and decorative complexity"
+    },
+    {
+      "verb": "distill",
+      "pattern": "distill",
+      "phase": "tone",
+      "description": "Extract and preserve only essential elements",
+      "oneLineExplanation": "Strips a target to only its essential elements"
+    },
+    {
+      "verb": "document",
+      "pattern": "document",
+      "phase": "docs",
+      "description": "Generate the Google-spec DESIGN.md from project HTML/CSS",
+      "oneLineExplanation": "Generates a Google-spec DESIGN.md from a project's existing HTML and CSS"
+    },
+    {
+      "verb": "extract",
+      "pattern": "extract",
+      "phase": "docs",
+      "description": "Extract design tokens from existing implementation into DESIGN.md",
+      "oneLineExplanation": "Pulls reusable tokens and components out of implementation into DESIGN.md"
+    },
+    {
+      "verb": "live",
+      "pattern": "live",
+      "phase": "tactical",
+      "description": "Live browser iteration and real-time refinement",
+      "oneLineExplanation": "Iterates on a target live in the browser with real-time refinement"
+    }
+  ]
+}

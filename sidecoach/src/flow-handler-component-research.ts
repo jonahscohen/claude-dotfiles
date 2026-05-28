@@ -10,6 +10,7 @@ import { FlowMemoryBuilder } from './flow-memory-schema';
 import { ExtendedDomainValidator, DomainCheckContext, DomainValidationReport } from './extended-domain-validator';
 import { EnhancedFlowExecutionContext } from './flow-execution-context-enhanced';
 
+import { applyModelSelection } from './model-routing';
 export interface ComponentResearchContext {
   componentPatterns: string[];
   interactionRules: string[];
@@ -41,6 +42,9 @@ export class FlowBComponentResearchHandler extends BaseFlowHandler {
   }
 
   async execute(context: FlowExecutionContext): Promise<FlowExecutionResult> {
+    // T-0012: per-flow model-tier routing. Stash selected model into context.metadata.
+    applyModelSelection(this.flowId, context);
+
     const enhancedContext = context as EnhancedFlowExecutionContext;
     const brandPersonality = context.projectContext?.product?.brandPersonality || context.projectContext?.product?.brand_personality;
     const designApproach = context.projectContext?.design?.components?.approach || 'undefined';

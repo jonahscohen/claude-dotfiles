@@ -15,6 +15,7 @@ import { getMotionIdiom } from './motion-stack-idioms';
 // literally the bounce curve Emil bans in the absorbed library.
 import { loadPrescribedEasings, loadBannedEasings } from './reference-loader';
 
+import { applyModelSelection } from './model-routing';
 interface MotionIntegrationContext {
   motionDomainRules: string[];
   motionIntensity: 'restrained' | 'playful' | 'ambitious';
@@ -46,6 +47,9 @@ export class FlowHMotionIntegrationHandler extends BaseFlowHandler {
   }
 
   async execute(context: FlowExecutionContext): Promise<FlowExecutionResult> {
+    // T-0012: per-flow model-tier routing. Stash selected model into context.metadata.
+    applyModelSelection(this.flowId, context);
+
     const enhancedContext = context as EnhancedFlowExecutionContext;
     const brandPersonality = context.projectContext?.product?.brandPersonality || context.projectContext?.product?.brand_personality;
     const register = context.projectContext?.register || 'product';

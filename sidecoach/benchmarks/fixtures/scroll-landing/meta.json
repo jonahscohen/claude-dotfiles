@@ -1,0 +1,5 @@
+{
+  "category": "motion",
+  "emphasis": "scroll-driven-animation",
+  "notes": "Scroll-driven landing with Lenis + ScrollTrigger reveals. Tests motion validators and reduced-motion gates."
+}

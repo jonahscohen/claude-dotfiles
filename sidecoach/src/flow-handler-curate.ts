@@ -5,6 +5,7 @@ import { BaseFlowHandler, FlowExecutionContext, FlowExecutionResult } from './fl
 import { FlowMemoryBuilder } from './flow-memory-schema';
 import { EnhancedFlowExecutionContext } from './flow-execution-context-enhanced';
 
+import { applyModelSelection } from './model-routing';
 export class FlowUCurateHandler extends BaseFlowHandler {
   constructor() {
     super('flowU_curate' as any);
@@ -15,6 +16,9 @@ export class FlowUCurateHandler extends BaseFlowHandler {
   }
 
   async execute(context: FlowExecutionContext): Promise<FlowExecutionResult> {
+    // T-0012: per-flow model-tier routing. Stash selected model into context.metadata.
+    applyModelSelection(this.flowId, context);
+
     const enhancedContext = context as EnhancedFlowExecutionContext;
     try {
       const checklist = this.createChecklist([

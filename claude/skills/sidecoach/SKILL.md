@@ -1,15 +1,32 @@
 ---
 name: sidecoach
-description: The design orchestration system for claude-dotfiles. 36 flows, two parallel command surfaces (phase commands + 22 verb commands), plus teach/document setup commands and a help command. Use for all design work: /sidecoach craft <feature>, /sidecoach shape <feature>, /sidecoach polish <target>, /sidecoach audit <target>, /sidecoach animate <target>, /sidecoach critique <target>, /sidecoach teach, /sidecoach document, /sidecoach list, /sidecoach help <verb>. Also triggers on: brand verification, component research, font pairing, motion patterns, design tokens, accessibility audit, responsive design, typography, clone/implement a design, colorize, delight, bolder, overdrive, quieter, distill, clarify, optimize, harden, adapt, live iteration, onboarding flows.
+description: The design orchestration system for claude-dotfiles. 26 flows, two parallel command surfaces (phase commands + 22 verb commands), plus teach/document setup commands and a help command. Use for all design work: /sidecoach craft <feature>, /sidecoach shape <feature>, /sidecoach polish <target>, /sidecoach audit <target>, /sidecoach animate <target>, /sidecoach critique <target>, /sidecoach teach, /sidecoach document, /sidecoach list, /sidecoach help <verb>. Also triggers on: brand verification, component research, font pairing, motion patterns, design tokens, accessibility audit, responsive design, typography, clone/implement a design, colorize, delight, bolder, overdrive, quieter, distill, clarify, optimize, harden, adapt, live iteration, onboarding flows.
 ---
 
 # Sidecoach - Design Intelligence Orchestration
 
-Sidecoach is the design workflow layer built into this Claude Code installation. It provides 36 intelligent flows covering every phase of design work, with full orchestration, memory, and validation.
+For a single-page reference covering every verb and flow at a glance, see [CHEATSHEET.md](./CHEATSHEET.md).
 
-Two command surfaces share the same flow chains:
+Sidecoach is the design workflow layer built into this Claude Code installation. It provides 26 intelligent flows (post-T-0015 cull, 2026-05-28) covering every phase of design work, with full orchestration, memory, and validation.
+
+Three command surfaces share the same flow chains:
 - **Phase commands** - sidecoach native vocabulary grouped by phase (research / craft / review / special).
 - **Verb commands** - 22 verb commands that mirror the canonical design verb vocabulary 1:1 and route to the same underlying flows. The orchestrator appends per-verb guidance (canonical reference sections plus sidecoach extensions) so output speaks the verb language while keeping sidecoach's validators, BuildReport, taste validation, and memory.
+- **Modes** - 5 sticky one-word "shape of work" keywords that bundle 3-5 verbs into a recognizable arc (analogs of oh-my-claudecode's autopilot/ralph/ultrawork, but design-coded). Magic-keyword triggerable via the same `sidecoach-keyword.sh` hook that handles verbs.
+
+## Modes
+
+Modes name the shape of work itself, not a single step. Each mode is a curated chain of verbs. Type a mode word in any prompt (`forge the homepage`, `kiln this release`) and the UserPromptSubmit hook injects the chain so the receiving session runs the verbs in order. Modes take precedence over verbs - if a prompt contains both, the mode wins because its chain already names the lower-level verbs.
+
+| Mode | Shape of work | Verb chain |
+|---|---|---|
+| `forge` | Build something new from raw to working | shape -> craft -> polish |
+| `kiln` | Fire-harden a built thing for production | audit -> critique -> harden -> adapt -> polish |
+| `bloom` | Add joy, color, motion, personality | colorize -> delight -> animate -> polish |
+| `canvas` | Live in-browser visual iteration | live -> colorize -> polish -> critique |
+| `trim` | Strip a busy UI back to essentials | quieter -> distill -> clarify -> polish |
+
+Source of truth: `sidecoach/src/modes.ts` (TypeScript registry with FlowId chains) mirrored by `claude/hooks/sidecoach-modes.json` (consumed by the bash hook).
 
 ## Invoking the Engine
 
@@ -37,6 +54,22 @@ echo "$RESULT" | node -e "
 ```
 
 ## Commands
+
+### Entry-command routing (pick one before writing code)
+
+| User's intent | Command |
+|---|---|
+| Net-new feature or page, build from scratch | `/sidecoach craft <feature>` |
+| Plan the design only, no code yet | `/sidecoach shape <feature>` |
+| Add motion, color, personality, or boldness | `/sidecoach animate`, `colorize`, `delight`, `bolder`, `overdrive` |
+| Tone down a loud or over-stimulated UI | `/sidecoach quieter` or `distill` |
+| Fix typography, spacing, layout, responsive, copy, perf | `/sidecoach typeset`, `layout`, `adapt`, `clarify`, `optimize` |
+| Production-ready sweep (errors, i18n, edge cases) | `/sidecoach harden` |
+| First-run flows, empty states, activation | `/sidecoach onboard` |
+| Pull reusable tokens and components into the design system | `/sidecoach extract` |
+| Iterate visually on elements in a live browser | `/sidecoach live` |
+
+When unsure, run `/sidecoach list` for the full menu. Once an entry command is loaded, let its reference file drive. Do not improvise around it.
 
 ### Setup and Strategy
 | Command | What it does |
@@ -125,3 +158,54 @@ If `PRODUCT.md` is missing or a stub (under 200 characters, contains `[TODO]` ma
 If `DESIGN.md` is missing and the project already has HTML and CSS, run `/sidecoach document`. It scans the project for color tokens, font families, type sizes, and spacing tokens, then writes a Google-spec DESIGN.md (YAML token frontmatter plus the six-section markdown body in canonical order).
 
 Sidecoach without project context produces generic output.
+
+## DESIGN.md format (Google spec)
+
+When writing or updating a project's `DESIGN.md` (via `/sidecoach document`, `/sidecoach extract`, or by hand), conform to the [google-labs-code/design.md](https://github.com/google-labs-code/design.md) spec:
+
+- **YAML frontmatter** for tokens: colors, typography, rounded, spacing, components with `{token.path}` references.
+- **Markdown prose body** for rationale.
+- **Sections in canonical order:** Overview, Colors, Typography, Layout, Elevation, Shapes, Components, Do's and Don'ts.
+
+After writing or modifying the file, run `npx @google/design.md lint DESIGN.md` and resolve every error or warning (broken token references, WCAG contrast failures, schema violations) before reporting done. Generated UI code must reference tokens via the `{path.to.token}` form rather than hard-coding hex values, so the design system stays the single source of truth.
+
+## QA Gate Triad (for substantive UI changes)
+
+The global Verification Protocol still applies. In addition, any substantive UI change (new feature, redesign, significant component edit) must pass this full pipeline before reporting completion:
+
+1. **`/sidecoach audit <target>`** - 5-dimension technical scan (a11y, performance, theming, responsive, anti-patterns). Address all Critical and High findings.
+2. **`/sidecoach critique <target>`** - design review via independent sub-agents (AI-slop detection, Nielsen heuristics, cognitive load, emotional journey). Address anything above "minor".
+3. **`/sidecoach polish <target>`** - final alignment pass against the project's design system. Must run last.
+4. **`make-interfaces-feel-better` 14-point checklist** - concentric radius, optical alignment, shadows over borders, split/staggered enters, subtle exits, tabular nums, font smoothing, balanced text wrap, image outlines, scale-on-press, `initial={false}` on AnimatePresence, no `transition: all`, sparse `will-change`, 40x40 hit areas. Record changes in its before/after table format grouped by principle.
+5. **`npx @google/design.md lint DESIGN.md`** - if the project has a DESIGN.md, lint must pass with zero errors and warnings.
+
+Trivial edits (one-line copy tweak, named-token swap) can skip the gate. Anything where the aesthetic result is in question must run all five. "I'll skip polish because it probably looks fine" is not a valid judgment.
+
+## Tactical layer (make-interfaces-feel-better)
+
+Sits between Sidecoach's strategy (PRODUCT.md, register, anti-references) and DESIGN.md's tokens. Auto-triggers on UI keywords (border radius, animation, optical alignment, hover state, tabular numbers, etc.) and supplies 16 specific tactical rules with exact values: `scale(0.96)` on press, concentric border radius (`outer = inner + padding`), icon swaps via opacity+scale+blur, image outlines `rgba(0,0,0,0.1)` never tinted, hit areas at least 40x40px, `transition: all` banned, `font-variant-numeric: tabular-nums` on dynamic numbers, `text-wrap: balance` on headings. Full reference at `~/.claude/skills/make-interfaces-feel-better/`.
+
+Apply during implementation, not as a separate pass. If the skill auto-triggers, follow it and address every applicable item from the checklist. If you're modifying UI but the skill did NOT auto-trigger, manually invoke `/make-interfaces-feel-better` before reporting done. When summarizing UI changes in PR descriptions or session memory, use the skill's before/after table format grouped by principle.
+
+## What sidecoach is NOT for
+
+Backend logic, non-UI refactors, build-tool work, infrastructure changes. Do not load `/sidecoach` for those.
+
+## Where sidecoach sits in the design stack
+
+```
+Orchestrator:  /design-build (runs strategy -> research -> type -> motion -> build -> QA as ONE sequence)
+Strategy:      /sidecoach (23 commands, PRODUCT.md + DESIGN.md)
+Research:      component-gallery-reference (60 types, 95 systems)
+Typography:    fontshare-reference (fontshare.com catalog, integrates with sidecoach's reflex-reject list)
+References:    design-references (personal catalog, auto-consults) + /curate (capture wizard)
+Motion:        motion-reference (GSAP + Lenis canonical patterns)
+Tactical:      make-interfaces-feel-better (16 CSS polish rules)
+Social:        /social-media (13 platforms, specs + validation)
+Effects:       /visual-effects (14 shaders + 25 FX + post-processing)
+Icons:         /icon-source (8 libraries, selection protocol)
+Team:          /design-team (16 roles, 4-phase sprints, CD review gate)
+Tokens:        DESIGN.md (Google spec, linted)
+Brand:         PRODUCT.md (register, users, anti-references)
+Verification:  cmux + Chrome MCP + QA gate pipeline
+```

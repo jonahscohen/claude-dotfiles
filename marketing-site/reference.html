@@ -4,11 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>reference - the full kit and kaboodle | claude-dotfiles</title>
-  <meta name="description" content="The comprehensive reference for every component of claude-dotfiles. Tab through improv, sidecoach, memory, cmux, voice, discord, hooks, and validation-guard." />
+  <meta name="description" content="The comprehensive reference for every component of claude-dotfiles. Tab through endow, sidecoach, beats, cmux, voice, discord, hooks, and validation-guard." />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
 
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
   <script>
@@ -31,14 +31,15 @@
   <div class="container">
     <header class="topbar">
       <a class="wordmark" href="index.html" aria-label="Yes&amp; - claude-dotfiles">
-        <img class="wordmark__img wordmark__img--light" src="assets/yes-and-logo-light.webp" alt="Yes&amp;" width="86" height="42" />
-        <img class="wordmark__img wordmark__img--dark" src="assets/yes-and-logo-dark.webp" alt="" aria-hidden="true" width="86" height="42" />
+        <img class="wordmark__img wordmark__img--light" src="assets/and-dev-black.svg" alt="and-dev - claude-dotfiles" width="150" height="54" />
+        <img class="wordmark__img wordmark__img--dark" src="assets/and-dev-white.svg" alt="" aria-hidden="true" width="150" height="54" />
       </a>
       <div class="topbar__cluster">
         <nav aria-label="Primary" id="primary-nav">
-          <a href="improv.html">improv</a>
+          <a href="endow.html">endow</a>
           <a href="sidecoach.html">sidecoach</a>
-          <a href="memory.html">memory</a>
+          <a href="cheatsheet.html">cheatsheet</a>
+          <a href="beats.html">beats</a>
           <a href="reference.html" aria-current="page">reference</a>
           <a href="https://github.com/jonahscohen/claude-dotfiles" rel="noreferrer noopener">GitHub</a>
         </nav>
@@ -80,9 +81,9 @@
       <div class="container">
         <div class="reference">
           <nav class="reference__tabs" role="tablist" aria-label="Component reference">
-            <button class="reference__tab" role="tab" aria-selected="true" aria-controls="panel-improv" id="tab-improv" data-tab="improv">improv</button>
+            <button class="reference__tab" role="tab" aria-selected="true" aria-controls="panel-endow" id="tab-endow" data-tab="endow">endow</button>
             <button class="reference__tab" role="tab" aria-selected="false" aria-controls="panel-sidecoach" id="tab-sidecoach" data-tab="sidecoach">sidecoach</button>
-            <button class="reference__tab" role="tab" aria-selected="false" aria-controls="panel-memory" id="tab-memory" data-tab="memory">memory</button>
+            <button class="reference__tab" role="tab" aria-selected="false" aria-controls="panel-memory" id="tab-memory" data-tab="memory">beats</button>
             <button class="reference__tab" role="tab" aria-selected="false" aria-controls="panel-cmux" id="tab-cmux" data-tab="cmux">cmux</button>
             <button class="reference__tab" role="tab" aria-selected="false" aria-controls="panel-voice" id="tab-voice" data-tab="voice">voice</button>
             <button class="reference__tab" role="tab" aria-selected="false" aria-controls="panel-discord" id="tab-discord" data-tab="discord">discord</button>
@@ -92,38 +93,38 @@
 
           <div class="reference__panels">
 
-            <!-- improv -->
-            <section class="reference__panel" id="panel-improv" role="tabpanel" aria-labelledby="tab-improv" data-active="true">
+            <!-- endow -->
+            <section class="reference__panel" id="panel-endow" role="tabpanel" aria-labelledby="tab-endow" data-active="true">
               <header>
-                <h2>improv</h2>
-                <p>A two-pane visual editor that watches your live UI. Direct manipulation in the browser, no synthetic events, your dev server stays the source of truth.</p>
+                <h2>endow</h2>
+                <p>A microadjustment toolbar for Claude Code. Queue changes through prompt mode or manipulate mode; Claude works the scene in the background and refreshes the browser when done.</p>
               </header>
 
               <h3>Install</h3>
-              <pre><code>./install.sh --only improv</code></pre>
-              <p>The installer wires the editor extension, the MCP server registration in <code>~/.claude/settings.json</code>, and the watch loop. Symlinks the source into <code>~/.claude/skills/improv/</code> so future dotfiles pulls pick up upstream changes.</p>
+              <pre><code>./install.sh --only endow</code></pre>
+              <p>The installer wires the toolbar, the MCP server registration in <code>~/.claude/settings.json</code>, and the queue. Symlinks the source into <code>~/.claude/skills/endow/</code> so future dotfiles pulls pick up upstream changes.</p>
 
               <h3>How it works</h3>
-              <p>Two surfaces: the browser preview (a regular iframe pointed at your dev server) and the property panel (an inspector docked to the right edge). The editor extension lights up an element on click and translates property-panel writes into live CSS through your dev server's hot module reload.</p>
-              <p>The MCP server exposes a small tool set to Claude: <code>get_selection</code>, <code>apply_changes</code>, <code>watch</code>, <code>respond</code>. These are what let Claude see what you're staring at and act on it without a screenshot round-trip.</p>
+              <p>Two modes share one queue. Prompt mode lets you select an element and type the change as plain English ("heavier heading," "tighter padding"). Manipulate mode lets you select an element and reach for the exact property to change (font weight, color, radius, spacing, shadow). Either way, the change lands in the queue scoped to the element you picked.</p>
+              <p>Hand the queue to Claude. It works through the whole stack in the background, through your real source code and your real build pipeline. The browser refreshes when the scene is done. The MCP server exposes the toolbar's state to Claude (selection, queue contents, dev server connection) so it can act without a screenshot round-trip.</p>
 
               <h3>Commands</h3>
               <ul>
-                <li><code>improv start</code> - boots the preview pane and registers the watch loop with the running session</li>
-                <li><code>improv stop</code> - tears down the loop and unregisters the watch</li>
-                <li><code>improv status</code> - prints the current selection, queue length, and connection state</li>
+                <li><code>endow start</code> - mounts the toolbar over your dev server and registers it with the running session</li>
+                <li><code>endow stop</code> - tears down the toolbar and clears the queue</li>
+                <li><code>endow status</code> - prints the current selection, queue length, and connection state</li>
               </ul>
 
               <h3>Posture</h3>
               <ul>
-                <li>No synthetic events - clicks are real clicks, keypresses are real keypresses</li>
+                <li>No live mutation - changes never go directly to the DOM; every change is queued and applied by Claude through your real source code</li>
                 <li>No imposed design system - reads your DESIGN.md tokens, falls back to free input with a console warning</li>
-                <li>No remote - the editor runs in your browser against your dev server; nothing leaves the machine</li>
-                <li>Selection survives context compactions and session restarts</li>
+                <li>No remote - the toolbar runs in your browser against your dev server; nothing leaves the machine</li>
+                <li>Selection and queue survive context compactions and session restarts</li>
               </ul>
 
               <h3>Source</h3>
-              <p><a href="https://github.com/jonahscohen/claude-dotfiles/tree/main/improv" rel="noreferrer noopener">github.com/jonahscohen/claude-dotfiles/tree/main/improv</a></p>
+              <p><a href="https://github.com/jonahscohen/claude-dotfiles/tree/main/endow" rel="noreferrer noopener">github.com/jonahscohen/claude-dotfiles/tree/main/endow</a></p>
             </section>
 
             <!-- sidecoach -->
@@ -175,10 +176,10 @@
               <p><a href="https://github.com/jonahscohen/claude-dotfiles/tree/main/sidecoach" rel="noreferrer noopener">github.com/jonahscohen/claude-dotfiles/tree/main/sidecoach</a></p>
             </section>
 
-            <!-- memory -->
+            <!-- beats -->
             <section class="reference__panel" id="panel-memory" role="tabpanel" aria-labelledby="tab-memory">
               <header>
-                <h2>memory</h2>
+                <h2>beats</h2>
                 <p>A layered, file-based memory system. Five durability levels, typed frontmatter, a small relationship graph, indexed in a file you actually read.</p>
               </header>
 
@@ -216,7 +217,7 @@
               </ul>
 
               <h3>Source</h3>
-              <p><a href="memory.html">The memory subpage</a> covers the layered system in more depth.</p>
+              <p><a href="beats.html">The beats subpage</a> covers the layered system in more depth.</p>
               <p><a href="https://github.com/jonahscohen/claude-dotfiles/tree/main/claude/memory" rel="noreferrer noopener">github.com/jonahscohen/claude-dotfiles/tree/main/claude/memory</a></p>
             </section>
 
@@ -377,9 +378,9 @@ voice off</code></pre>
         <span>Yes<span style="color: var(--color-red); font-style: italic;">&amp;</span> claude-dotfiles. Open source, MIT.</span>
         <nav aria-label="Footer">
           <a href="index.html">Home</a>
-          <a href="improv.html">improv</a>
+          <a href="endow.html">endow</a>
           <a href="sidecoach.html">sidecoach</a>
-          <a href="memory.html">memory</a>
+          <a href="beats.html">beats</a>
           <a href="https://github.com/jonahscohen/claude-dotfiles" rel="noreferrer noopener">GitHub</a>
         </nav>
       </div>

@@ -11,6 +11,7 @@ import { FlowMemoryBuilder } from './flow-memory-schema';
 import { ExtendedDomainValidator, DomainCheckContext } from './extended-domain-validator';
 import { EnhancedFlowExecutionContext } from './flow-execution-context-enhanced';
 
+import { applyModelSelection } from './model-routing';
 export interface DesignReferenceContext {
   referencesFound: number;
   colorDomainRules: string[];
@@ -43,6 +44,9 @@ export class FlowDReferenceSearchHandler extends BaseFlowHandler {
   }
 
   async execute(context: FlowExecutionContext): Promise<FlowExecutionResult> {
+    // T-0012: per-flow model-tier routing. Stash selected model into context.metadata.
+    applyModelSelection(this.flowId, context);
+
     const register = context.projectContext?.register || 'product';
     const designApproach = context.projectContext?.design?.visual?.approach || 'modern';
 

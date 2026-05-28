@@ -12,6 +12,7 @@ import {
 } from './landing-composition-data';
 import { FlowMemoryBuilder } from './flow-memory-schema';
 
+import { applyModelSelection } from './model-routing';
 export class FlowWLandingCompositionHandler extends BaseFlowHandler {
   constructor() {
     super('flowW_landing_composition');
@@ -23,6 +24,9 @@ export class FlowWLandingCompositionHandler extends BaseFlowHandler {
   }
 
   async execute(context: FlowExecutionContext): Promise<FlowExecutionResult> {
+    // T-0012: per-flow model-tier routing. Stash selected model into context.metadata.
+    applyModelSelection(this.flowId, context);
+
     const register = ((context.projectContext as any)?.register as Register) || 'product';
     const taxonomy = getSectionTaxonomy(register);
     const rhythm = getRhythmRules(register);

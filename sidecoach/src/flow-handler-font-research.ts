@@ -10,6 +10,7 @@ import { FlowMemoryBuilder } from './flow-memory-schema';
 import { ExtendedDomainValidator, DomainCheckContext } from './extended-domain-validator';
 import { EnhancedFlowExecutionContext } from './flow-execution-context-enhanced';
 
+import { applyModelSelection } from './model-routing';
 export interface FontResearchContext {
   brandPersonality?: string;
   typographyApproach?: string;
@@ -33,6 +34,9 @@ export class FlowCFontResearchHandler extends BaseFlowHandler {
   }
 
   async execute(context: FlowExecutionContext): Promise<FlowExecutionResult> {
+    // T-0012: per-flow model-tier routing. Stash selected model into context.metadata.
+    applyModelSelection(this.flowId, context);
+
     const enhancedContext = context as EnhancedFlowExecutionContext;
     const brandPersonality = context.projectContext?.product?.brandPersonality || context.projectContext?.product?.brand_personality;
     const typographyApproach = context.projectContext?.design?.typography?.approach || 'undefined';

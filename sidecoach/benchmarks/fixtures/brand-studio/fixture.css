@@ -1,0 +1,71 @@
+/* brand-studio fixture - typography-heavy editorial styles */
+:root {
+  --color-ink: #0F0E0C;
+  --color-cream: #F2EFE6;
+  --color-accent: #B23A14;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-4: 16px;
+  --space-8: 32px;
+  --radius-md: 8px;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+}
+
+body {
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 17px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: 'GT Sectra', 'Source Serif 4', Charter, Georgia, serif;
+  text-wrap: balance;
+}
+
+button {
+  background: var(--color-ink);
+  color: var(--color-cream);
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  cursor: pointer;
+  min-width: 40px;
+  min-height: 40px;
+  transition: background-color 200ms var(--ease-out), transform 200ms var(--ease-out);
+}
+
+button:active {
+  transform: scale(0.96);
+}
+
+button:hover {
+  background: rgba(15,14,12,0.92);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.metric {
+  font-variant-numeric: tabular-nums;
+}
+
+.surface {
+  background: #FBF8F0;
+  border: 1px solid rgba(15,14,12,0.08);
+  box-shadow: 0 1px 2px rgba(15,14,12,0.06);
+  border-radius: 12px;
+  padding: var(--space-4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

@@ -1,6 +1,6 @@
 // Dogfood runner: drives sidecoach end-to-end on the claude-dotfiles marketing site brief.
-// Brief: a brand-new marketing landing page for claude-dotfiles that advertises improv,
-// sidecoach, and memory tools, with links to two sub-pages (improv marketing + sidecoach
+// Brief: a brand-new marketing landing page for claude-dotfiles that advertises endow,
+// sidecoach, and memory tools, with links to two sub-pages (endow marketing + sidecoach
 // marketing). Use existing claude-dotfiles DESIGN.md tokens. New fonts selected by sidecoach.
 
 import { FlowExecutionEngine } from './sidecoach-orchestrator';
@@ -9,7 +9,7 @@ import * as fs from 'fs';
 const projectPath = '/Users/spare3/Documents/Github/claude-dotfiles';
 const outputFile = '/tmp/sidecoach-dogfood-output.md';
 
-const brief = `Build a brand new marketing landing page for claude-dotfiles. The page advertises three primary products - improv, sidecoach, and the memory tools - and mentions other tools (Discord chat agent, voice output, voice transcription, cmux browser pane, reflect, design references). The index page links to two sub-pages: one marketing improv specifically, one marketing sidecoach specifically. Use the existing claude-dotfiles DESIGN.md tokens for colors and brand materials. New typefaces should be selected by the system (fontshare). Aesthetic register: brand (not product). Tone: professional, technical, restrained.`;
+const brief = `Build a brand new marketing landing page for claude-dotfiles. The page advertises three primary products - endow, sidecoach, and the memory tools - and mentions other tools (Discord chat agent, voice output, voice transcription, cmux browser pane, reflect, design references). The index page links to two sub-pages: one marketing endow specifically, one marketing sidecoach specifically. Use the existing claude-dotfiles DESIGN.md tokens for colors and brand materials. New typefaces should be selected by the system (fontshare). Aesthetic register: brand (not product). Tone: professional, technical, restrained.`;
 
 interface Section {
   flow: string;

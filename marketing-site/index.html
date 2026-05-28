@@ -4,11 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>claude-dotfiles - tools for working with Claude Code</title>
-  <meta name="description" content="A toolkit for Claude Code: improv for visual micro-adjustment, sidecoach for design orchestration, memory for cross-session continuity, plus a half-dozen other tools that keep the loop tight." />
+  <meta name="description" content="A toolkit for Claude Code: endow for visual micro-adjustment, sidecoach for design orchestration, beats for cross-session continuity, plus a half-dozen other tools that keep the loop tight." />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
 
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
   <script>
@@ -31,14 +31,15 @@
   <div class="container">
     <header class="topbar">
       <a class="wordmark" href="index.html" aria-label="Yes&amp; - claude-dotfiles">
-        <img class="wordmark__img wordmark__img--light" src="assets/yes-and-logo-light.webp" alt="Yes&amp;" width="86" height="42" />
-        <img class="wordmark__img wordmark__img--dark" src="assets/yes-and-logo-dark.webp" alt="" aria-hidden="true" width="86" height="42" />
+        <img class="wordmark__img wordmark__img--light" src="assets/and-dev-black.svg" alt="and-dev - claude-dotfiles" width="150" height="54" />
+        <img class="wordmark__img wordmark__img--dark" src="assets/and-dev-white.svg" alt="" aria-hidden="true" width="150" height="54" />
       </a>
       <div class="topbar__cluster">
         <nav aria-label="Primary" id="primary-nav">
-          <a href="improv.html">improv</a>
+          <a href="endow.html">endow</a>
           <a href="sidecoach.html">sidecoach</a>
-          <a href="memory.html">memory</a>
+          <a href="cheatsheet.html">cheatsheet</a>
+          <a href="beats.html">beats</a>
           <a href="reference.html">reference</a>
           <a href="https://github.com/jonahscohen/claude-dotfiles" rel="noreferrer noopener">GitHub</a>
         </nav>
@@ -92,13 +93,13 @@
         </p>
 
         <div class="toolkit">
-          <a class="tool-card" href="improv.html">
+          <a class="tool-card" href="endow.html">
             <span class="tool-card__tag">visual</span>
-            <h3 class="tool-card__name">improv</h3>
+            <h3 class="tool-card__name">endow</h3>
             <p class="tool-card__desc">
-              A two-pane editor that watches your live UI. Pick a region, change a value, see the result. The point is to short-circuit the screenshot-and-describe loop when you and Claude are nudging the same component for the tenth time.
+              A microadjustment toolbar for Claude Code. Pick an element, queue a change through prompt mode or manipulate mode, and Claude works the scene in the background. The browser refreshes when it's done.
             </p>
-            <span class="tool-card__cta">See improv -&gt;</span>
+            <span class="tool-card__cta">See endow -&gt;</span>
           </a>
 
           <a class="tool-card" href="sidecoach.html">
@@ -110,13 +111,13 @@
             <span class="tool-card__cta">See sidecoach -&gt;</span>
           </a>
 
-          <a class="tool-card" href="memory.html">
+          <a class="tool-card" href="beats.html">
             <span class="tool-card__tag">continuity</span>
-            <h3 class="tool-card__name">memory</h3>
+            <h3 class="tool-card__name">beats</h3>
             <p class="tool-card__desc">
               A layered memory system Claude writes to per task and reads on every session start. Survives compactions, forks across machines through the dotfiles repo, indexed by a single MEMORY.md you actually read.
             </p>
-            <span class="tool-card__cta">See memory -&gt;</span>
+            <span class="tool-card__cta">See beats -&gt;</span>
           </a>
         </div>
       </div>
@@ -174,7 +175,7 @@
         <div class="feature-row">
           <h3 class="feature-row__title">Components stand alone.</h3>
           <div class="feature-row__body">
-            <p>The components are independent. Install <code>improv</code> without <code>sidecoach</code>. Disable <code>voice</code> if you don't want the TTS bill. The installer breaks each piece out so you can opt in component by component.</p>
+            <p>The components are independent. Install <code>endow</code> without <code>sidecoach</code>. Disable <code>voice</code> if you don't want the TTS bill. The installer breaks each piece out so you can opt in component by component.</p>
           </div>
         </div>
 

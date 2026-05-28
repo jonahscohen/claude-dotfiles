@@ -6,6 +6,7 @@ import { FlowMemoryBuilder } from './flow-memory-schema';
 import { ExtendedDomainValidator, DomainCheckContext } from './extended-domain-validator';
 import { EnhancedFlowExecutionContext } from './flow-execution-context-enhanced';
 
+import { applyModelSelection } from './model-routing';
 export class FlowVAllSevenQAHandler extends BaseFlowHandler {
   constructor() {
     super('flowV_all_seven_qa' as any);
@@ -16,6 +17,9 @@ export class FlowVAllSevenQAHandler extends BaseFlowHandler {
   }
 
   async execute(context: FlowExecutionContext): Promise<FlowExecutionResult> {
+    // T-0012: per-flow model-tier routing. Stash selected model into context.metadata.
+    applyModelSelection(this.flowId, context);
+
     const enhancedContext = context as EnhancedFlowExecutionContext;
     try {
       // Comprehensive validation across all 7 design domains

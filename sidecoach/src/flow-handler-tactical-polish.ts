@@ -10,6 +10,16 @@ import { ExtendedDomainValidator, DomainCheckContext, DomainValidationReport } f
 import { PolishStandardValidator } from './polish-standard-validator';
 import { scanForLinguisticBans, findingsToGuidance, linguisticBanToValidationResult, LinguisticBanReport, LinguisticFinding } from './linguistic-ban-validator';
 import { scanForAbsoluteBans, banFindingsToGuidance, absoluteBanToValidationResult, AbsoluteBanReport } from './absolute-ban-detector';
+import { applyModelSelection } from './model-routing';
+import {
+  readRetryConfig,
+  readRetryState,
+  evaluateHaltConditions,
+  computeErrorSignature,
+  recordIteration,
+  buildHaltResult,
+  attachRetryStateToResult,
+} from './retry-control';
 
 /**
  * Read CSS files in a project directory and return each rule as a string.
@@ -164,7 +174,21 @@ export class FlowJTacticalPolishHandler extends BaseFlowHandler {
   }
 
   async execute(context: FlowExecutionContext): Promise<FlowExecutionResult> {
+    // T-0012: per-flow model-tier routing. Stash selected model into context.metadata.
+    applyModelSelection(this.flowId, context);
+
     try {
+      // T-0009: Phase-gated retry control. Check halt conditions BEFORE
+      // running validators. If the orchestrator has been hammering this
+      // handler past maxCycles or against an identical-error signature,
+      // bail out with a structured halt result.
+      const retryConfig = readRetryConfig(context);
+      const retryState = readRetryState(context);
+      const haltDecision = evaluateHaltConditions(retryState, retryConfig);
+      if (haltDecision.halt) {
+        return buildHaltResult(this.flowId, this.getFlowName(), haltDecision, 'polish-standard', `[${this.flowId}]`);
+      }
+
       // Build DomainCheckContext from execution context
       // Extract available data from metadata or use defaults.
       // Round 2 (R4): if metadata.cssRules is not provided, read the
@@ -383,6 +407,22 @@ export class FlowJTacticalPolishHandler extends BaseFlowHandler {
         summary: `Copy across ${linguisticScan.perFile.size} files: ${linguisticP0} P0 templates, ${linguisticP1} P1 slop words`,
       }));
       result.validationResults.push(absoluteBanToValidationResult(absoluteBanScan));
+
+      // T-0009: Phase-gated retry control. Compute the error signature from
+      // the validator that drives this handler (Polish Standard is the
+      // primary signal; failed rule IDs identify the specific failure set).
+      // Append to retry state and ship it back via executionMetadata so the
+      // next invocation can decide whether to halt.
+      const failedRuleIds = polishReport.results
+        .filter((r: any) => !r.passed)
+        .map((r: any) => String(r.ruleId));
+      const errorSignature = computeErrorSignature({
+        validator: 'polish-standard',
+        failedRules: failedRuleIds,
+        filePath: context.projectPath || '',
+      });
+      const nextState = recordIteration(retryState, errorSignature);
+      attachRetryStateToResult(result, nextState, retryConfig);
 
       return result;
     } catch (err) {

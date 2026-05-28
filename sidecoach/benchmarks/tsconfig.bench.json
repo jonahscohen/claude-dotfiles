@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "outDir": "../dist-bench",
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "noEmit": true
+  },
+  "include": [
+    "../src/**/*",
+    "./runner/**/*",
+    "../src/__tests__/t13-bench-harness.test.ts"
+  ],
+  "exclude": ["../node_modules", "../dist"]
+}

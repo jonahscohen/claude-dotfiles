@@ -8,7 +8,7 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
 
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
   <script>
@@ -31,14 +31,15 @@
   <div class="container">
     <header class="topbar">
       <a class="wordmark" href="index.html" aria-label="Yes&amp; - claude-dotfiles">
-        <img class="wordmark__img wordmark__img--light" src="assets/yes-and-logo-light.webp" alt="Yes&amp;" width="86" height="42" />
-        <img class="wordmark__img wordmark__img--dark" src="assets/yes-and-logo-dark.webp" alt="" aria-hidden="true" width="86" height="42" />
+        <img class="wordmark__img wordmark__img--light" src="assets/and-dev-black.svg" alt="and-dev - claude-dotfiles" width="150" height="54" />
+        <img class="wordmark__img wordmark__img--dark" src="assets/and-dev-white.svg" alt="" aria-hidden="true" width="150" height="54" />
       </a>
       <div class="topbar__cluster">
         <nav aria-label="Primary" id="primary-nav">
-          <a href="improv.html">improv</a>
+          <a href="endow.html">endow</a>
           <a href="sidecoach.html" aria-current="page">sidecoach</a>
-          <a href="memory.html">memory</a>
+          <a href="cheatsheet.html">cheatsheet</a>
+          <a href="beats.html">beats</a>
           <a href="reference.html">reference</a>
           <a href="https://github.com/jonahscohen/claude-dotfiles" rel="noreferrer noopener">GitHub</a>
         </nav>
@@ -147,6 +148,26 @@
       </div>
     </section>
 
+    <section class="section section--paper">
+      <div class="container">
+        <p class="section__eyebrow">Modes</p>
+        <h2 class="section__title">Five sticky words for the shape of work.</h2>
+        <p class="section__lede">
+          Verbs are single steps. Modes are bundles. Type one of these in a prompt and sidecoach runs the curated chain.
+        </p>
+
+        <pre><code>forge the homepage          # shape -&gt; craft -&gt; polish
+kiln this release            # audit -&gt; critique -&gt; harden -&gt; adapt -&gt; polish
+bloom the dashboard          # colorize -&gt; delight -&gt; animate -&gt; polish
+canvas the pricing page      # live -&gt; colorize -&gt; polish -&gt; critique
+trim the settings panel      # quieter -&gt; distill -&gt; clarify -&gt; polish</code></pre>
+
+        <p style="margin-top: var(--space-6); color: var(--text-secondary); max-width: 56ch;">
+          Modes are magic-keyword triggered by the same <code>UserPromptSubmit</code> hook that catches verbs. Mode beats verb if both appear in the prompt - the mode's chain already names the verbs.
+        </p>
+      </div>
+    </section>
+
     <section class="section section--ink">
       <div class="container">
         <p class="section__eyebrow">Why it exists</p>
@@ -213,8 +234,8 @@ echo "## Register\n\n**Brand**\n\n## Primary Users\n..." > PRODUCT.md
         <span>Yes<span style="color: var(--color-red); font-style: italic;">&amp;</span> claude-dotfiles. Open source, MIT.</span>
         <nav aria-label="Footer">
           <a href="index.html">Home</a>
-          <a href="improv.html">improv</a>
-          <a href="memory.html">memory</a>
+          <a href="endow.html">endow</a>
+          <a href="beats.html">beats</a>
           <a href="reference.html">reference</a>
           <a href="https://github.com/jonahscohen/claude-dotfiles" rel="noreferrer noopener">GitHub</a>
         </nav>

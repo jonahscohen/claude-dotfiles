@@ -3,6 +3,16 @@
 
 import { BaseFlowHandler, FlowExecutionContext, FlowExecutionResult } from './flow-handler';
 import { FlowMemoryBuilder } from './flow-memory-schema';
+import { applyModelSelection } from './model-routing';
+import {
+  readRetryConfig,
+  readRetryState,
+  evaluateHaltConditions,
+  computeErrorSignature,
+  recordIteration,
+  buildHaltResult,
+  attachRetryStateToResult,
+} from './retry-control';
 
 interface AuditDimension {
   name: string;
@@ -21,7 +31,20 @@ export class FlowKMultiLensAuditHandler extends BaseFlowHandler {
   }
 
   async execute(context: FlowExecutionContext): Promise<FlowExecutionResult> {
+    // T-0012: per-flow model-tier routing. Stash selected model into context.metadata.
+    applyModelSelection(this.flowId, context);
+
     try {
+      // T-0009: Phase-gated retry control. Halt BEFORE doing work if the
+      // orchestrator has looped past maxCycles or against an identical-error
+      // signature.
+      const retryConfig = readRetryConfig(context);
+      const retryState = readRetryState(context);
+      const haltDecision = evaluateHaltConditions(retryState, retryConfig);
+      if (haltDecision.halt) {
+        return buildHaltResult(this.flowId, this.getFlowName(), haltDecision, 'multi-lens-audit', `[${this.flowId}]`);
+      }
+
       const dimensions: AuditDimension[] = [
         {
           name: 'Accessibility (a11y)',
@@ -154,7 +177,7 @@ export class FlowKMultiLensAuditHandler extends BaseFlowHandler {
         .addValidation('Multi-lens audit', 'warning', 'Manual testing required for a11y, performance, theming, responsive')
         .addArtifact('audit-checklist', 5);
 
-      return {
+      const auditResult: FlowExecutionResult = {
         flowId: this.flowId,
         flowName: this.getFlowName(),
         status: 'success',
@@ -175,6 +198,23 @@ export class FlowKMultiLensAuditHandler extends BaseFlowHandler {
         ],
         memory: memoryBuilder.build(),
       };
+
+      // T-0009: Phase-gated retry control. The audit's "failed rules" are the
+      // dimensions that did not pass (warning + fail). Hash the failure set
+      // into a signature so identical failure patterns across iterations
+      // trigger the halt.
+      const failedDimensionIds = dimensions
+        .filter((d) => d.status !== 'pass')
+        .map((d) => d.name);
+      const errorSignature = computeErrorSignature({
+        validator: 'multi-lens-audit',
+        failedRules: failedDimensionIds,
+        filePath: context.projectPath || '',
+      });
+      const nextState = recordIteration(retryState, errorSignature);
+      attachRetryStateToResult(auditResult, nextState, retryConfig);
+
+      return auditResult;
     } catch (err) {
       const memory = new FlowMemoryBuilder(this.flowId, this.getFlowName())
         .setStatus('error')

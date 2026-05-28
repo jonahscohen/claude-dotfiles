@@ -12,6 +12,7 @@ import { BaseFlowHandler, FlowExecutionContext, FlowExecutionResult } from './fl
 import { FlowMemoryBuilder } from './flow-memory-schema';
 import { loadCanonical, loadBreakpointTable } from './reference-loader';
 
+import { applyModelSelection } from './model-routing';
 export class FlowMResponsiveValidationHandler extends BaseFlowHandler {
   constructor() {
     super('flowM_responsive_validation');
@@ -22,6 +23,9 @@ export class FlowMResponsiveValidationHandler extends BaseFlowHandler {
   }
 
   async execute(context: FlowExecutionContext): Promise<FlowExecutionResult> {
+    // T-0012: per-flow model-tier routing. Stash selected model into context.metadata.
+    applyModelSelection(this.flowId, context);
+
     try {
       // Load the canonical reference. Soft-fails to null if the file is
       // somehow missing on disk; the handler still produces useful guidance

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Operations console</title>
+  <link rel="stylesheet" href="fixture.css">
+</head>
+<body>
+  <main>
+    <div class="surface">
+      <table class="table" aria-label="Active services">
+        <thead>
+          <tr><th>Service</th><th>p95 latency</th><th>Error rate</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>api-gateway</td><td class="metric">142ms</td><td class="metric">0.04%</td><td>OK</td></tr>
+          <tr><td>auth-service</td><td class="metric">88ms</td><td class="metric">0.02%</td><td>OK</td></tr>
+        </tbody>
+      </table>
+      <button class="primary" type="button">Acknowledge</button>
+    </div>
+  </main>
+</body>
+</html>

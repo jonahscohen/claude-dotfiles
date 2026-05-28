@@ -1,0 +1,5 @@
+{
+  "category": "accessibility",
+  "emphasis": "wcag-aa-forms",
+  "notes": "Government-style intake form. Tests accessibility validators - WCAG AA contrast, 44px targets, error patterns, focus rings."
+}

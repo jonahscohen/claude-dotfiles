@@ -9,6 +9,7 @@ import { EnhancedFlowExecutionContext } from './flow-execution-context-enhanced'
 import { createIconSourceReference, buildIconSourceArtifactContent } from './icon-source-reference';
 import { findTokenLine } from './design-md-parser';
 
+import { applyModelSelection } from './model-routing';
 interface ComponentImplementationContext {
   interactionDomainRules: string[];
   writingDomainRules: string[];
@@ -34,6 +35,9 @@ export class FlowGComponentImplementationHandler extends BaseFlowHandler {
   }
 
   async execute(context: FlowExecutionContext): Promise<FlowExecutionResult> {
+    // T-0012: per-flow model-tier routing. Stash selected model into context.metadata.
+    applyModelSelection(this.flowId, context);
+
     const enhancedContext = context as EnhancedFlowExecutionContext;
     const componentName = (context.metadata?.componentName as string) || 'button';
     const register = context.projectContext?.register || 'product';
