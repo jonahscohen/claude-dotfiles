@@ -1724,6 +1724,12 @@ if picked cmux; then
   chmod +x "$REPO_DIR/claude/toggle-resume.sh"
   make_symlink "$REPO_DIR/claude/toggle-resume.sh" "$CLAUDE_DIR/toggle-resume.sh"
 
+  # Team-reaper: SessionStart + SessionEnd hook that removes orphaned team
+  # records (~/.claude/teams + ~/.claude/tasks) so finished/wedged teams do not
+  # linger as phantom workspaces. Never touches memory/beats.
+  chmod +x "$REPO_DIR/claude/hooks/team-reaper.sh"
+  make_symlink "$REPO_DIR/claude/hooks/team-reaper.sh" "$CLAUDE_DIR/hooks/team-reaper.sh"
+
   # JSON-merge resume hooks into settings.json
   if command -v python3 >/dev/null 2>&1; then
     python3 -c "
@@ -1749,6 +1755,15 @@ entry = entries[0]
 hook_list = entry.setdefault('hooks', [])
 if not any(h.get('command') == TOGGLE_CMD for h in hook_list):
     hook_list.append(TOGGLE_HOOK)
+
+# SessionStart + SessionEnd: team-reaper (mode passed as the first arg)
+REAP_START_CMD = '~/.claude/hooks/team-reaper.sh session-start'
+REAP_END_CMD = '~/.claude/hooks/team-reaper.sh session-end'
+for event, cmd in (('SessionStart', REAP_START_CMD), ('SessionEnd', REAP_END_CMD)):
+    entries = hooks.setdefault(event, [{}])
+    hook_list = entries[0].setdefault('hooks', [])
+    if not any(h.get('command') == cmd for h in hook_list):
+        hook_list.append({'type': 'command', 'command': cmd, 'timeout': 5})
 
 with open(p, 'w') as f: json.dump(d, f, indent=2); f.write('\n')
 "

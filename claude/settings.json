@@ -117,6 +117,12 @@
             "command": "~/.claude/hooks/voice-mandate.sh",
             "timeout": 5,
             "statusMessage": "Checking voice output..."
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/team-reaper.sh session-start",
+            "timeout": 5,
+            "statusMessage": "Reaping orphaned teams..."
           }
         ]
       },
@@ -360,6 +366,11 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/resume-guard.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/team-reaper.sh session-end",
             "timeout": 5
           }
         ]
