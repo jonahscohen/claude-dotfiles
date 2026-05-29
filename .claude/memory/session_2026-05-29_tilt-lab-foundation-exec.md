@@ -9,9 +9,9 @@ Collaborator: Jonah. 2026-05-29. Executing docs/superpowers/plans/2026-05-29-til
 
 ## Task progress
 - [x] Task 1 scaffold: tilt-lab/{package.json, tsconfig.json (resolveJsonModule on), vitest.config.ts (happy-dom), .gitignore}. npm install OK (node_modules present; 6 npm-audit vulns in dev deps vitest/esbuild/happy-dom - noted, not chased, dev-only). 
-- [ ] Task 2 types.ts
-- [ ] Task 3 manifest.ts validateManifest
-- [ ] Task 4 stack.ts validateStack + orderLayers
+- [x] Task 2 types.ts (Effect/Manifest/LayerRole/ParamSpec/LayerConfig/EffectOpts/EffectFactory). tsc clean.
+- [x] Task 3 manifest.ts validateManifest - 4 tests green.
+- [x] Task 4 stack.ts validateStack + orderLayers - 7 tests green (bg max1, post max1, mid/pointer stackable, stable role-order sort). 11/11 across both files.
 - [ ] Task 5 element.ts defineEffectElement
 - [ ] Task 6 compositor.ts Compositor + tilt-stack
 - [ ] Task 7 effects/gradient reference effect
