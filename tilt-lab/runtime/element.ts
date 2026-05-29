@@ -27,6 +27,7 @@ export function defineEffectElement(manifest: Manifest, factory: EffectFactory):
     private ro?: ResizeObserver;
     private reduced = false;
     private pointer?: PointerTracker;
+    private onLeave?: () => void;
 
     connectedCallback() {
       this.canvas = document.createElement('canvas');
@@ -49,6 +50,10 @@ export function defineEffectElement(manifest: Manifest, factory: EffectFactory):
       // Pointer-driven effects get pointer moves relative to this element.
       if (this.effect.onPointer) {
         this.pointer = new PointerTracker(this);
+      }
+      if (this.effect.onPointerLeave) {
+        this.onLeave = () => this.effect.onPointerLeave!();
+        this.addEventListener('pointerleave', this.onLeave);
       }
 
       this.ro = new ResizeObserver(() => this.syncSize());
@@ -86,6 +91,7 @@ export function defineEffectElement(manifest: Manifest, factory: EffectFactory):
     disconnectedCallback() {
       cancelAnimationFrame(this.raf);
       this.pointer?.dispose();
+      if (this.onLeave) this.removeEventListener('pointerleave', this.onLeave);
       this.ro?.disconnect();
       this.effect.dispose();
     }

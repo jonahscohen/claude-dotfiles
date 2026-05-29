@@ -181,6 +181,12 @@ export function createCursorTrailEffect(): Effect {
       // there is nothing to advance on the canvas clock.
     },
 
+    onPointerLeave() {
+      // Original unlumen behavior: wipe the trail when the pointer leaves.
+      clearTrail();
+      lastPos = null;
+    },
+
     resize() {
       // The overlay is inset:0 and tracks the host automatically.
     },

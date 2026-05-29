@@ -49,6 +49,8 @@ export interface Effect {
   dispose(): void;
   /** Optional: pointer-driven effects receive pointer moves (canvas-relative coords). */
   onPointer?(x: number, y: number): void;
+  /** Optional: pointer-driven effects are told when the pointer leaves the host. */
+  onPointerLeave?(): void;
   /** Optional: DOM/R3F effects render into a host subtree instead of the canvas. */
   mount?(host: HTMLElement, opts: EffectOpts): void;
 }

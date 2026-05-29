@@ -37,11 +37,18 @@ export class Compositor {
       this.root.style.position = 'relative';
     }
     this.pointer = new PointerTracker(this.root);
+    this.root.addEventListener('pointerleave', this.onLeave);
     if (typeof ResizeObserver !== 'undefined') {
       this.ro = new ResizeObserver(() => this.resize());
       this.ro.observe(this.root);
     }
   }
+
+  private onLeave = () => {
+    for (const { effect } of this.layers) {
+      effect.onPointerLeave?.();
+    }
+  };
 
   setLayers(configs: LayerConfig[]): void {
     this.clear();
@@ -118,6 +125,7 @@ export class Compositor {
   dispose(): void {
     this.clear();
     this.ro?.disconnect();
+    this.root.removeEventListener('pointerleave', this.onLeave);
     this.pointer.dispose();
   }
 }
