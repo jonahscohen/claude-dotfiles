@@ -16,5 +16,8 @@ Collaborator: Jonah. 2026-05-29. User chose "build prep + dispatch the team."
 ## Next: dispatch tilt-acquire team (Task 5)
 One agent per lane reads its recon report + the gradient reference + the template, ports verbatim into runtime/effects/<id>/{index.ts,manifest.json,index.test.ts}, runs vitest for its own effects, does NOT touch runtime/index.ts (registry centralized in Task 6 to avoid write conflicts). Canonical inventory + skips per the synthesis beat. Then Task 6: I register all in index.ts + integration test + build + smoke.
 
+## Task 5 dispatched
+Team tilt-acquire (5 teammates acquire-a..e) working 9 lane tasks from the shared TaskList (lane 1 regent +solver, 2 paper, 4 cobe, 5 casberry, 6 cursor-trail DOM, 7 aurora, 8a/8b motion-core, 9 ascii; lane 3 skipped as swirl dup). Shared brief docs/superpowers/tilt-lab-recon/ACQUIRE-BRIEF.md. Teammates: write effect dirs only, no runtime/index.ts edits, no commits/beats (team-lead does Task 6 registration + commits). Headless-GL-guard mandated so conformance tests pass in happy-dom.
+
 ## Files
 - tilt-lab/runtime/types.ts (addendum), runtime/pointer.ts + .test.ts (new), runtime/element.ts (wiring), package.json (deps), runtime/effects/_TEMPLATE.test.ts.md (new)
