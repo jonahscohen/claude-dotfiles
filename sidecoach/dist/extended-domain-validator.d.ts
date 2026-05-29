@@ -10,6 +10,7 @@ export interface DomainCheckContext {
     htmlElement?: HTMLElement;
     computedStyle?: CSSStyleDeclaration;
     cssRules?: string[];
+    html?: string;
     componentTree?: Record<string, any>;
     designTokens?: Record<string, any>;
     typography?: TypographyMetrics;

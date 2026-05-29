@@ -99,14 +99,18 @@ export class FlowGComponentImplementationHandler extends BaseFlowHandler {
       const interactionDomainRules = ExtendedDomainValidator.getRulesByDomain('interaction');
       const writingDomainRules = ExtendedDomainValidator.getRulesByDomain('writing');
       const responsiveDomainRules = ExtendedDomainValidator.getRulesByDomain('responsive');
+      // T-0030: forms domain consulted on component build (Vercel web-interface-guidelines)
+      const formsDomainRules = ExtendedDomainValidator.getRulesByDomain('forms');
 
       const interactionPassRate = extendedValidationReport.passRateByDomain['interaction'] || '0%';
       const writingPassRate = extendedValidationReport.passRateByDomain['writing'] || '0%';
       const responsivePassRate = extendedValidationReport.passRateByDomain['responsive'] || '0%';
+      const formsPassRate = extendedValidationReport.passRateByDomain['forms'] || '0%';
 
       const interactionPassed = Math.round((parseFloat(interactionPassRate) / 100) * interactionDomainRules.length);
       const writingPassed = Math.round((parseFloat(writingPassRate) / 100) * writingDomainRules.length);
       const responsivePassed = Math.round((parseFloat(responsivePassRate) / 100) * responsiveDomainRules.length);
+      const formsPassed = Math.round((parseFloat(formsPassRate) / 100) * formsDomainRules.length);
 
       // Build checklist
       const checklist = this.createChecklist([
@@ -116,6 +120,7 @@ export class FlowGComponentImplementationHandler extends BaseFlowHandler {
         { label: 'Interaction domain validation', required: false, description: `${interactionPassed}/${interactionDomainRules.length} rules passing (${interactionPassRate})` },
         { label: 'Writing domain validation', required: false, description: `${writingPassed}/${writingDomainRules.length} rules passing (${writingPassRate})` },
         { label: 'Responsive domain validation', required: false, description: `${responsivePassed}/${responsiveDomainRules.length} rules passing (${responsivePassRate})` },
+        { label: 'Forms domain validation (if component has inputs)', required: false, description: `${formsPassed}/${formsDomainRules.length} rules passing (${formsPassRate})` },
         { label: 'Implement ARIA labels for interactive states', required: true, description: '8 states with labels' },
         { label: 'Keyboard navigation support (default, hover, focus, active, disabled)', required: true, description: 'All keyboard-navigable states' },
         { label: 'Copy validation (error, loading, success messages)', required: true, description: 'Verb+object, helpful language' },
@@ -155,6 +160,9 @@ export class FlowGComponentImplementationHandler extends BaseFlowHandler {
         '',
         'Writing Domain (Semantic Copy):',
         ...writingDomain.rules.map((r) => `- ${r}`),
+        '',
+        'Forms Domain (apply when the component has inputs) - Vercel web-interface-guidelines:',
+        ...formsDomainRules.map((r) => `- ${r.name}: ${r.description}`),
         '',
         'Component States to Implement:',
         ...componentStates.map((state) => {
@@ -197,6 +205,7 @@ export class FlowGComponentImplementationHandler extends BaseFlowHandler {
         .addMetric('interaction-domain-validation', interactionPassed, 'pass', interactionDomainRules.length)
         .addMetric('writing-domain-validation', writingPassed, 'pass', writingDomainRules.length)
         .addMetric('responsive-domain-validation', responsivePassed, 'pass', responsiveDomainRules.length)
+        .addMetric('forms-domain-validation', formsPassed, 'pass', formsDomainRules.length)
         .addMetric('aria-labels-count', ariaLabelCount, 'pass', componentStates.length)
         .addMetric('keyboard-nav-count', keyboardNavCount, 'pass', componentStates.length - 1)
         .addMetric('semantic-copy-count', semanticCopyCount, 'pass', 3)
@@ -235,6 +244,12 @@ export class FlowGComponentImplementationHandler extends BaseFlowHandler {
             'Writing Domain Rules',
             writingDomain.rules.join('\n'),
             'Semantic copy, helpful errors, button labels (verb+object)'
+          ),
+          this.createArtifact(
+            'reference',
+            'Forms Domain Rules',
+            formsDomainRules.map((r) => `${r.id} ${r.name}: ${r.description}`).join('\n'),
+            'Form/input best practices from Vercel web-interface-guidelines (autocomplete, type/inputmode, paste, inline errors, labels, submit gating)'
           ),
           this.createArtifact(
             'template',

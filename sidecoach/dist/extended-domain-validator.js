@@ -4,6 +4,48 @@
 // Validates UI implementations against comprehensive design system
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ExtendedDomainValidator = void 0;
+// T-0030: shared helpers for the forms domain. They assemble a lowercase
+// haystack from whatever markup/style channels are available (raw html,
+// cssRules, a live htmlElement) so each rule can degrade gracefully when a
+// given channel is missing - matching how existing rules tolerate absent ctx.
+function formsHaystack(ctx) {
+    const parts = [];
+    if (ctx.html)
+        parts.push(ctx.html);
+    if (ctx.cssRules?.length)
+        parts.push(ctx.cssRules.join('\n'));
+    if (ctx.htmlElement) {
+        try {
+            parts.push(ctx.htmlElement.outerHTML || '');
+        }
+        catch { /* no DOM */ }
+    }
+    return parts.join('\n').toLowerCase();
+}
+function hasFormMarkup(ctx) {
+    return /<input\b|<textarea\b|<select\b|<form\b|<label\b/.test(formsHaystack(ctx));
+}
+// T-0031: shared helpers for gesture/drag motion rules. Drag physics lives in
+// JS (pointer events), so the haystack pulls from raw html (inline scripts),
+// cssRules, and the componentTree. Rules are N/A (pass) when no drag/gesture
+// interaction is detected, and only assert physics correctness when one is.
+function gestureHaystack(ctx) {
+    const parts = [];
+    if (ctx.html)
+        parts.push(ctx.html);
+    if (ctx.cssRules?.length)
+        parts.push(ctx.cssRules.join('\n'));
+    if (ctx.componentTree) {
+        try {
+            parts.push(JSON.stringify(ctx.componentTree));
+        }
+        catch { /* circular */ }
+    }
+    return parts.join('\n').toLowerCase();
+}
+function hasDragInteraction(ctx) {
+    return /pointerdown|pointermove|ondrag|draggable|dragstart|swipe|gsap\.draggable|setpointercapture|touch-action/.test(gestureHaystack(ctx));
+}
 // 112-Point Domain Validation Rules
 const DOMAIN_RULES = [
     // Polish Standard Rules (22) - baseline from polish-standard-validator.ts
@@ -1188,6 +1230,134 @@ const DOMAIN_RULES = [
             remediation: 'Add @media (prefers-reduced-motion: reduce) { animation: none; transition: none; }'
         })
     },
+    // T-0031: Gesture / Drag Physics (6 rules, motion domain) - drag physics math
+    // from mblode/agent-skills @ ui-animation (MIT). Library-agnostic pointer-event
+    // physics; Framer Motion has been translated to vanilla pointer events / GSAP.
+    // See reference/_extracted/local-skills/motion-reference/GESTURE-DRAG-PHYSICS.md
+    {
+        id: 'MOTION_GESTURE_001',
+        domain: 'motion',
+        name: 'Pointer Capture on Drag',
+        description: 'Drag handlers call setPointerCapture so the gesture keeps tracking outside the element',
+        severity: 'high',
+        checkFunction: (ctx) => {
+            if (!hasDragInteraction(ctx)) {
+                return { ruleId: 'MOTION_GESTURE_001', domain: 'motion', passed: true, message: 'No drag interaction detected (rule N/A)' };
+            }
+            const h = gestureHaystack(ctx);
+            return {
+                ruleId: 'MOTION_GESTURE_001',
+                domain: 'motion',
+                passed: h.includes('setpointercapture'),
+                message: h.includes('setpointercapture') ? 'Drag uses setPointerCapture' : 'Drag handler should call setPointerCapture on pointerdown',
+                remediation: 'On pointerdown: el.setPointerCapture(e.pointerId) so pointermove/up keep firing when the pointer leaves the element bounds'
+            };
+        }
+    },
+    {
+        id: 'MOTION_GESTURE_002',
+        domain: 'motion',
+        name: 'Multi-Touch Lockout',
+        description: 'Ignore the second pointerId so a two-finger touch does not corrupt drag state',
+        severity: 'medium',
+        checkFunction: (ctx) => {
+            if (!hasDragInteraction(ctx)) {
+                return { ruleId: 'MOTION_GESTURE_002', domain: 'motion', passed: true, message: 'No drag interaction detected (rule N/A)' };
+            }
+            const h = gestureHaystack(ctx);
+            const passed = h.includes('pointerid') && (h.includes('activepointer') || h.includes('!== null') || h.includes('return'));
+            return {
+                ruleId: 'MOTION_GESTURE_002',
+                domain: 'motion',
+                passed,
+                message: passed ? 'Drag locks to a single pointerId' : 'Drag should lock to the first pointerId and ignore subsequent pointers',
+                remediation: 'Store the first e.pointerId on pointerdown; in pointermove/up, early-return when e.pointerId !== the stored id'
+            };
+        }
+    },
+    {
+        id: 'MOTION_GESTURE_003',
+        domain: 'motion',
+        name: 'Boundary Damping (no hard stop)',
+        description: 'Past-boundary offset uses exponential damping max*(1-exp(-offset/max)), not a hard clamp',
+        severity: 'medium',
+        checkFunction: (ctx) => {
+            if (!hasDragInteraction(ctx)) {
+                return { ruleId: 'MOTION_GESTURE_003', domain: 'motion', passed: true, message: 'No drag interaction detected (rule N/A)' };
+            }
+            const h = gestureHaystack(ctx);
+            const damped = h.includes('math.exp') || h.includes('exp(-') || h.includes('damp') || h.includes('rubber');
+            return {
+                ruleId: 'MOTION_GESTURE_003',
+                domain: 'motion',
+                passed: damped,
+                message: damped ? 'Boundary uses friction/damping' : 'Boundary should resist with damping, not a hard stop',
+                remediation: 'Beyond a bound, apply resistance: damped = max * (1 - Math.exp(-offset / max)) instead of clamping offset to max'
+            };
+        }
+    },
+    {
+        id: 'MOTION_GESTURE_004',
+        domain: 'motion',
+        name: 'Velocity-Based Dismissal',
+        description: 'Dismissal fires on velocity (>0.11 px/ms) with a minimum travel distance (20px), not distance alone',
+        severity: 'medium',
+        checkFunction: (ctx) => {
+            if (!hasDragInteraction(ctx)) {
+                return { ruleId: 'MOTION_GESTURE_004', domain: 'motion', passed: true, message: 'No drag interaction detected (rule N/A)' };
+            }
+            const h = gestureHaystack(ctx);
+            const passed = h.includes('velocity');
+            return {
+                ruleId: 'MOTION_GESTURE_004',
+                domain: 'motion',
+                passed,
+                message: passed ? 'Dismissal considers velocity' : 'Flick-to-dismiss should use velocity, not distance alone',
+                remediation: 'Track velocity = deltaPx / deltaMs; dismiss when velocity > 0.11 AND travel > 20px so a fast short flick still dismisses'
+            };
+        }
+    },
+    {
+        id: 'MOTION_GESTURE_005',
+        domain: 'motion',
+        name: 'Momentum Direction Continuity',
+        description: 'On release the element continues in the drag direction (momentum), it does not snap backward',
+        severity: 'low',
+        checkFunction: (ctx) => {
+            if (!hasDragInteraction(ctx)) {
+                return { ruleId: 'MOTION_GESTURE_005', domain: 'motion', passed: true, message: 'No drag interaction detected (rule N/A)' };
+            }
+            const h = gestureHaystack(ctx);
+            const passed = h.includes('momentum') || h.includes('inertia') || (h.includes('velocity') && h.includes('pointerup'));
+            return {
+                ruleId: 'MOTION_GESTURE_005',
+                domain: 'motion',
+                passed,
+                message: passed ? 'Release carries momentum' : 'Release should carry momentum in the drag direction',
+                remediation: 'On pointerup, project the final velocity into the settle animation so motion continues in the gesture direction rather than reversing'
+            };
+        }
+    },
+    {
+        id: 'MOTION_GESTURE_006',
+        domain: 'motion',
+        name: 'Touch Action Declared',
+        description: 'Draggable surfaces set touch-action (e.g. none/pan-y) so the browser does not steal the gesture for scroll',
+        severity: 'medium',
+        checkFunction: (ctx) => {
+            if (!hasDragInteraction(ctx)) {
+                return { ruleId: 'MOTION_GESTURE_006', domain: 'motion', passed: true, message: 'No drag interaction detected (rule N/A)' };
+            }
+            const h = gestureHaystack(ctx);
+            return {
+                ruleId: 'MOTION_GESTURE_006',
+                domain: 'motion',
+                passed: h.includes('touch-action'),
+                message: h.includes('touch-action') ? 'touch-action declared on draggable surface' : 'Draggable surface should declare touch-action',
+                remediation: 'Add touch-action: none (or pan-y for vertical-only) to the draggable element so the browser yields the gesture to your pointer handlers'
+            };
+        }
+    },
     // Interaction Domain (15 rules: 4 from Polish + 11 extensions)
     {
         id: 'INTERACT_001',
@@ -2058,6 +2228,425 @@ const DOMAIN_RULES = [
             message: 'Pluralization should follow language-specific rules',
             remediation: 'Use ICU MessageFormat or i18next for CLDR-compliant pluralization'
         })
+    },
+    // T-0030: Forms Domain (20 rules) - sourced from Vercel Labs
+    // web-interface-guidelines (MIT, 2025). Rules scan available markup/style;
+    // when no form markup is present a rule reports N/A (pass) rather than a
+    // false violation. See reference/_extracted/external/vercel-web-interface-guidelines/
+    {
+        id: 'FORMS_001',
+        domain: 'forms',
+        name: 'Autocomplete and Meaningful Name',
+        description: 'Inputs declare autocomplete and a meaningful name attribute',
+        severity: 'high',
+        checkFunction: (ctx) => {
+            if (!hasFormMarkup(ctx))
+                return { ruleId: 'FORMS_001', domain: 'forms', passed: true, message: 'No form markup detected (rule N/A)' };
+            const h = formsHaystack(ctx);
+            const passed = h.includes('autocomplete') && /name\s*=/.test(h);
+            return {
+                ruleId: 'FORMS_001',
+                domain: 'forms',
+                passed,
+                message: passed ? 'Inputs declare autocomplete + name' : 'Inputs need autocomplete and a meaningful name attribute',
+                remediation: 'Add autocomplete (e.g. autocomplete="email") and a meaningful name to every input so browsers/password managers can assist'
+            };
+        }
+    },
+    {
+        id: 'FORMS_002',
+        domain: 'forms',
+        name: 'Correct Input Type',
+        description: 'Use the correct input type (email, tel, url, number) for the data',
+        severity: 'high',
+        checkFunction: (ctx) => {
+            if (!hasFormMarkup(ctx))
+                return { ruleId: 'FORMS_002', domain: 'forms', passed: true, message: 'No form markup detected (rule N/A)' };
+            const h = formsHaystack(ctx);
+            const usesTyped = /type\s*=\s*["'](email|tel|url|number|search|date|password)["']/.test(h);
+            const onlyText = /type\s*=\s*["']text["']/.test(h);
+            return {
+                ruleId: 'FORMS_002',
+                domain: 'forms',
+                passed: usesTyped || !onlyText,
+                message: usesTyped ? 'Specific input types used' : 'Inputs should use a specific type, not type="text" for everything',
+                remediation: 'Use type="email" | "tel" | "url" | "number" etc. so the browser surfaces the right keyboard and validation'
+            };
+        }
+    },
+    {
+        id: 'FORMS_003',
+        domain: 'forms',
+        name: 'Inputmode Declared',
+        description: 'Fields set inputmode to summon the correct mobile keyboard',
+        severity: 'medium',
+        checkFunction: (ctx) => {
+            if (!hasFormMarkup(ctx))
+                return { ruleId: 'FORMS_003', domain: 'forms', passed: true, message: 'No form markup detected (rule N/A)' };
+            const h = formsHaystack(ctx);
+            const numericIntent = h.includes('otp') || h.includes('one-time-code') || /type\s*=\s*["'](tel|number)["']/.test(h);
+            const passed = h.includes('inputmode') || !numericIntent;
+            return {
+                ruleId: 'FORMS_003',
+                domain: 'forms',
+                passed,
+                message: passed ? 'inputmode declared where needed' : 'Numeric/code fields should declare inputmode',
+                remediation: 'Add inputmode (e.g. inputmode="numeric" for codes, "decimal" for money) to control the mobile keyboard independent of type'
+            };
+        }
+    },
+    {
+        id: 'FORMS_004',
+        domain: 'forms',
+        name: 'Never Block Paste',
+        description: 'Do not cancel paste with onPaste + preventDefault',
+        severity: 'high',
+        checkFunction: (ctx) => {
+            if (!hasFormMarkup(ctx))
+                return { ruleId: 'FORMS_004', domain: 'forms', passed: true, message: 'No form markup detected (rule N/A)' };
+            const h = formsHaystack(ctx);
+            const blocksPaste = /on?paste[^>]*preventdefault/.test(h.replace(/\s+/g, '')) || (h.includes('onpaste') && h.includes('preventdefault'));
+            return {
+                ruleId: 'FORMS_004',
+                domain: 'forms',
+                passed: !blocksPaste,
+                message: blocksPaste ? 'Paste appears to be blocked' : 'Paste is not blocked',
+                remediation: 'Never call preventDefault() in an onPaste handler - blocking paste breaks password managers and accessibility'
+            };
+        }
+    },
+    {
+        id: 'FORMS_005',
+        domain: 'forms',
+        name: 'Spellcheck Off for Codes',
+        description: 'Disable spellcheck on email, code, and username fields',
+        severity: 'medium',
+        checkFunction: (ctx) => {
+            if (!hasFormMarkup(ctx))
+                return { ruleId: 'FORMS_005', domain: 'forms', passed: true, message: 'No form markup detected (rule N/A)' };
+            const h = formsHaystack(ctx);
+            const sensitive = /type\s*=\s*["']email["']/.test(h) || h.includes('username') || h.includes('one-time-code') || h.includes('otp');
+            const passed = !sensitive || h.includes('spellcheck="false"') || h.includes('spellcheck={false}') || h.includes('spellcheck=false');
+            return {
+                ruleId: 'FORMS_005',
+                domain: 'forms',
+                passed,
+                message: passed ? 'Spellcheck disabled on code-like fields' : 'Email/code/username fields should disable spellcheck',
+                remediation: 'Set spellCheck={false} on email, code, and username inputs to avoid red squiggles on valid values'
+            };
+        }
+    },
+    {
+        id: 'FORMS_006',
+        domain: 'forms',
+        name: 'Submit Stays Enabled Until Request',
+        description: 'Keep submit enabled until submission starts; disable only during the in-flight request with a spinner',
+        severity: 'high',
+        checkFunction: (ctx) => {
+            if (!hasFormMarkup(ctx))
+                return { ruleId: 'FORMS_006', domain: 'forms', passed: true, message: 'No form markup detected (rule N/A)' };
+            const h = formsHaystack(ctx);
+            const hasSubmit = h.includes('type="submit"') || h.includes("type='submit'") || h.includes('type={"submit"}');
+            const inflightGated = h.includes('issubmitting') || h.includes('isloading') || h.includes('pending') || h.includes('isvalid') === false;
+            const passed = !hasSubmit || inflightGated || !h.includes('disabled');
+            return {
+                ruleId: 'FORMS_006',
+                domain: 'forms',
+                passed,
+                message: passed ? 'Submit gating ties to in-flight state' : 'Submit should disable only during the in-flight request',
+                remediation: 'Disable submit on isSubmitting/isPending (not on validity); show a spinner while the request is in flight'
+            };
+        }
+    },
+    {
+        id: 'FORMS_007',
+        domain: 'forms',
+        name: 'Idempotent Submission',
+        description: 'Guard against duplicate submits with an idempotency key while the request is in flight',
+        severity: 'medium',
+        checkFunction: (ctx) => {
+            if (!hasFormMarkup(ctx))
+                return { ruleId: 'FORMS_007', domain: 'forms', passed: true, message: 'No form markup detected (rule N/A)' };
+            const h = formsHaystack(ctx);
+            const passed = h.includes('idempotency') || h.includes('issubmitting') || h.includes('ispending') || h.includes('isloading');
+            return {
+                ruleId: 'FORMS_007',
+                domain: 'forms',
+                passed,
+                message: passed ? 'Duplicate-submit guard present' : 'Submission should be guarded against duplicates',
+                remediation: 'Disable the control during the request and include an idempotency key so a double-click cannot create two records'
+            };
+        }
+    },
+    {
+        id: 'FORMS_008',
+        domain: 'forms',
+        name: 'Inline Errors',
+        description: 'Show errors next to their fields, not only in a toast or alert',
+        severity: 'high',
+        checkFunction: (ctx) => {
+            if (!hasFormMarkup(ctx))
+                return { ruleId: 'FORMS_008', domain: 'forms', passed: true, message: 'No form markup detected (rule N/A)' };
+            const h = formsHaystack(ctx);
+            const passed = h.includes('aria-invalid') || h.includes('aria-describedby') || /class\s*=\s*["'][^"']*error/.test(h) || h.includes('field-error');
+            return {
+                ruleId: 'FORMS_008',
+                domain: 'forms',
+                passed,
+                message: passed ? 'Errors rendered inline at the field' : 'Errors should appear inline next to the field',
+                remediation: 'Render the validation message adjacent to the field and link it with aria-describedby; do not rely on a toast alone'
+            };
+        }
+    },
+    {
+        id: 'FORMS_009',
+        domain: 'forms',
+        name: 'Focus First Error on Submit',
+        description: 'On a failed submit, move focus to the first errored field',
+        severity: 'high',
+        checkFunction: (ctx) => {
+            if (!hasFormMarkup(ctx))
+                return { ruleId: 'FORMS_009', domain: 'forms', passed: true, message: 'No form markup detected (rule N/A)' };
+            const h = formsHaystack(ctx);
+            const passed = (h.includes('focus') && (h.includes('error') || h.includes('invalid'))) || h.includes('setfocus') || h.includes('scrollintoview');
+            return {
+                ruleId: 'FORMS_009',
+                domain: 'forms',
+                passed,
+                message: passed ? 'Focus moves to the first error' : 'On submit failure, focus the first errored field',
+                remediation: 'After validation fails, call .focus() on the first invalid control so keyboard and screen-reader users land on the problem'
+            };
+        }
+    },
+    {
+        id: 'FORMS_010',
+        domain: 'forms',
+        name: 'Placeholder Shows Example with Ellipsis',
+        description: 'Placeholders end with an ellipsis and show an example pattern',
+        severity: 'low',
+        checkFunction: (ctx) => {
+            if (!hasFormMarkup(ctx))
+                return { ruleId: 'FORMS_010', domain: 'forms', passed: true, message: 'No form markup detected (rule N/A)' };
+            const h = formsHaystack(ctx);
+            const hasPlaceholder = h.includes('placeholder');
+            const passed = !hasPlaceholder || h.includes('…') || /placeholder\s*=\s*["'][^"']*\.\.\.["']/.test(h);
+            return {
+                ruleId: 'FORMS_010',
+                domain: 'forms',
+                passed,
+                message: passed ? 'Placeholders use example + ellipsis' : 'Placeholders should show an example and end with an ellipsis',
+                remediation: 'Write placeholders as examples ending in an ellipsis, e.g. placeholder="you@example.com…" - never use them as a substitute for a label'
+            };
+        }
+    },
+    {
+        id: 'FORMS_011',
+        domain: 'forms',
+        name: 'No Password Manager on Non-Auth Fields',
+        description: 'Use autocomplete="off" or one-time-code so password managers do not hijack non-auth inputs',
+        severity: 'medium',
+        checkFunction: (ctx) => {
+            if (!hasFormMarkup(ctx))
+                return { ruleId: 'FORMS_011', domain: 'forms', passed: true, message: 'No form markup detected (rule N/A)' };
+            const h = formsHaystack(ctx);
+            const reservedName = /name\s*=\s*["']password["']/.test(h) && !h.includes('type="password"');
+            const passed = !reservedName && (!h.includes('search') || h.includes('autocomplete="off"') || h.includes('autocomplete'));
+            return {
+                ruleId: 'FORMS_011',
+                domain: 'forms',
+                passed,
+                message: passed ? 'Non-auth fields avoid password-manager triggers' : 'Non-auth fields should avoid reserved names / set autocomplete="off"',
+                remediation: 'For non-auth inputs (Search, etc.) avoid reserved names like "password"; use autocomplete="off" or autocomplete="one-time-code" for OTP fields'
+            };
+        }
+    },
+    {
+        id: 'FORMS_012',
+        domain: 'forms',
+        name: 'Trim Trailing Whitespace',
+        description: 'Trim values on submit so IME/autocomplete trailing spaces do not cause confusing errors',
+        severity: 'medium',
+        checkFunction: (ctx) => {
+            if (!hasFormMarkup(ctx))
+                return { ruleId: 'FORMS_012', domain: 'forms', passed: true, message: 'No form markup detected (rule N/A)' };
+            const h = gestureHaystack(ctx);
+            const passed = h.includes('.trim(');
+            return {
+                ruleId: 'FORMS_012',
+                domain: 'forms',
+                passed,
+                message: passed ? 'Values are trimmed' : 'Submitted values should be trimmed',
+                remediation: 'Trim the value before validation/submit - text replacements and expansions often append trailing whitespace that triggers false errors'
+            };
+        }
+    },
+    {
+        id: 'FORMS_013',
+        domain: 'forms',
+        name: 'Warn on Unsaved Changes',
+        description: 'Warn before navigating away from a dirty form (beforeunload or router guard)',
+        severity: 'medium',
+        checkFunction: (ctx) => {
+            if (!hasFormMarkup(ctx))
+                return { ruleId: 'FORMS_013', domain: 'forms', passed: true, message: 'No form markup detected (rule N/A)' };
+            const h = gestureHaystack(ctx);
+            const passed = h.includes('beforeunload') || h.includes('isdirty') || h.includes('unsaved') || h.includes('useblocker') || h.includes('router guard') || h.includes('routerguard');
+            return {
+                ruleId: 'FORMS_013',
+                domain: 'forms',
+                passed,
+                message: passed ? 'Unsaved-changes guard present' : 'A dirty form should warn before navigation',
+                remediation: 'Track a dirty flag and add a beforeunload listener or router guard to confirm before discarding unsaved changes'
+            };
+        }
+    },
+    {
+        id: 'FORMS_014',
+        domain: 'forms',
+        name: 'Enter Submits, Cmd/Ctrl+Enter in Textarea',
+        description: 'Enter submits a single-control form; in a textarea, Enter inserts a newline and Cmd/Ctrl+Enter submits',
+        severity: 'medium',
+        checkFunction: (ctx) => {
+            if (!hasFormMarkup(ctx))
+                return { ruleId: 'FORMS_014', domain: 'forms', passed: true, message: 'No form markup detected (rule N/A)' };
+            const h = gestureHaystack(ctx);
+            const hasTextarea = h.includes('<textarea') || h.includes('textarea');
+            // A native <form> gives Enter-submit for free; only flag when a textarea
+            // exists without an explicit Cmd/Ctrl+Enter submit handler.
+            const passed = !hasTextarea || h.includes('metakey') || h.includes('ctrlkey') || h.includes('cmd+enter') || h.includes('⌘');
+            return {
+                ruleId: 'FORMS_014',
+                domain: 'forms',
+                passed,
+                message: passed ? 'Keyboard submit semantics handled' : 'Textarea should submit on Cmd/Ctrl+Enter (Enter inserts newline)',
+                remediation: 'Let Enter submit single-control forms; in a <textarea>, Enter adds a newline and (e.metaKey || e.ctrlKey) && Enter submits'
+            };
+        }
+    },
+    {
+        id: 'FORMS_015',
+        domain: 'forms',
+        name: 'Shared Hit Target for Checkbox/Radio',
+        description: 'Checkbox/radio and its label share a single hit target with no dead zones',
+        severity: 'high',
+        checkFunction: (ctx) => {
+            if (!hasFormMarkup(ctx))
+                return { ruleId: 'FORMS_015', domain: 'forms', passed: true, message: 'No form markup detected (rule N/A)' };
+            const h = formsHaystack(ctx);
+            const hasChoice = /type\s*=\s*["'](checkbox|radio)["']/.test(h);
+            const associated = h.includes('<label') && (h.includes('htmlfor') || h.includes('for=') || /<label[^>]*>[\s\S]*<input/.test(h));
+            const passed = !hasChoice || associated;
+            return {
+                ruleId: 'FORMS_015',
+                domain: 'forms',
+                passed,
+                message: passed ? 'Checkbox/radio shares its label hit target' : 'Checkbox/radio must share a single hit target with its label',
+                remediation: 'Wrap the control in its <label> (or link via htmlFor) so clicking the text toggles the control - no dead zones between them'
+            };
+        }
+    },
+    {
+        id: 'FORMS_016',
+        domain: 'forms',
+        name: 'Label on Every Control',
+        description: 'Every form control has an associated label for assistive tech',
+        severity: 'critical',
+        checkFunction: (ctx) => {
+            if (!hasFormMarkup(ctx))
+                return { ruleId: 'FORMS_016', domain: 'forms', passed: true, message: 'No form markup detected (rule N/A)' };
+            const h = formsHaystack(ctx);
+            const passed = h.includes('<label') || h.includes('aria-label') || h.includes('aria-labelledby');
+            return {
+                ruleId: 'FORMS_016',
+                domain: 'forms',
+                passed,
+                message: passed ? 'Controls are labelled' : 'Every control needs an associated label',
+                remediation: 'Give each control a <label> (htmlFor/id or wrapping) or an aria-label/aria-labelledby - a placeholder is not a label'
+            };
+        }
+    },
+    {
+        id: 'FORMS_017',
+        domain: 'forms',
+        name: 'Do Not Pre-Disable Submit',
+        description: 'Allow submitting an incomplete form so validation feedback can surface',
+        severity: 'medium',
+        checkFunction: (ctx) => {
+            if (!hasFormMarkup(ctx))
+                return { ruleId: 'FORMS_017', domain: 'forms', passed: true, message: 'No form markup detected (rule N/A)' };
+            const h = formsHaystack(ctx);
+            const disablesOnInvalid = h.includes('disabled={!isvalid}') || h.includes('disabled={!valid}') || h.includes('disabled={!isdirty}') || h.includes('disabled={!formvalid}');
+            return {
+                ruleId: 'FORMS_017',
+                domain: 'forms',
+                passed: !disablesOnInvalid,
+                message: disablesOnInvalid ? 'Submit appears pre-disabled on validity' : 'Submit is not pre-disabled on validity',
+                remediation: 'Do not disable submit based on form validity; let the user submit and surface inline validation on the attempt'
+            };
+        }
+    },
+    {
+        id: 'FORMS_018',
+        domain: 'forms',
+        name: 'Error Association (aria)',
+        description: 'Errored fields set aria-invalid and link the message via aria-describedby',
+        severity: 'high',
+        checkFunction: (ctx) => {
+            if (!hasFormMarkup(ctx))
+                return { ruleId: 'FORMS_018', domain: 'forms', passed: true, message: 'No form markup detected (rule N/A)' };
+            const h = formsHaystack(ctx);
+            const mentionsError = h.includes('error') || h.includes('invalid');
+            const passed = !mentionsError || (h.includes('aria-invalid') && h.includes('aria-describedby'));
+            return {
+                ruleId: 'FORMS_018',
+                domain: 'forms',
+                passed,
+                message: passed ? 'Errors associated via aria' : 'Errored fields should set aria-invalid + aria-describedby',
+                remediation: 'On error set aria-invalid="true" and point aria-describedby at the message id so screen readers announce the failure'
+            };
+        }
+    },
+    {
+        id: 'FORMS_019',
+        domain: 'forms',
+        name: 'No Placeholder-as-Label',
+        description: 'A visible label is present; the placeholder is only an example, never the label',
+        severity: 'high',
+        checkFunction: (ctx) => {
+            if (!hasFormMarkup(ctx))
+                return { ruleId: 'FORMS_019', domain: 'forms', passed: true, message: 'No form markup detected (rule N/A)' };
+            const h = formsHaystack(ctx);
+            const hasPlaceholder = h.includes('placeholder');
+            const hasLabel = h.includes('<label') || h.includes('aria-label') || h.includes('aria-labelledby');
+            const passed = !hasPlaceholder || hasLabel;
+            return {
+                ruleId: 'FORMS_019',
+                domain: 'forms',
+                passed,
+                message: passed ? 'Label present alongside placeholder' : 'Placeholder must not stand in for a label',
+                remediation: 'Keep a persistent visible label; the placeholder disappears on input and cannot serve as the accessible name'
+            };
+        }
+    },
+    {
+        id: 'FORMS_020',
+        domain: 'forms',
+        name: 'Autofocus Used Sparingly',
+        description: 'autofocus only on desktop for a single primary input; avoid on mobile',
+        severity: 'low',
+        checkFunction: (ctx) => {
+            if (!hasFormMarkup(ctx))
+                return { ruleId: 'FORMS_020', domain: 'forms', passed: true, message: 'No form markup detected (rule N/A)' };
+            const h = formsHaystack(ctx);
+            const autofocusCount = (h.match(/autofocus/g) || []).length;
+            return {
+                ruleId: 'FORMS_020',
+                domain: 'forms',
+                passed: autofocusCount <= 1,
+                message: autofocusCount <= 1 ? 'Autofocus used sparingly' : `Autofocus appears ${autofocusCount} times`,
+                remediation: 'Use autoFocus on at most one primary input, desktop-only; avoid it on mobile where it forces the keyboard open'
+            };
+        }
     }
 ];
 class ExtendedDomainValidator {
@@ -2073,6 +2662,7 @@ class ExtendedDomainValidator {
         const designTokensEmpty = !ctx.designTokens || Object.keys(ctx.designTokens).length === 0;
         const cssRulesEmpty = !ctx.cssRules || ctx.cssRules.length === 0;
         const anyOtherInput = !!ctx.htmlElement ||
+            !!ctx.html || // T-0030: raw markup counts as real input (forms domain)
             !!ctx.computedStyle ||
             !!ctx.colors ||
             !!ctx.typography ||
@@ -2122,7 +2712,7 @@ class ExtendedDomainValidator {
             passRateByDomain,
             criticalViolations: critical,
             results,
-            summary: `Extended Domain Validation: ${passed}/${DOMAIN_RULES.length} rules passed (${passRate}%) across 10 domains`
+            summary: `Extended Domain Validation: ${passed}/${DOMAIN_RULES.length} rules passed (${passRate}%) across ${domains.length} domains`
         };
     }
     static getDomains() {
@@ -2132,7 +2722,10 @@ class ExtendedDomainValidator {
         return DOMAIN_RULES.filter(r => r.domain === domain);
     }
     static getSummary() {
-        return 'Sidecoach Extended Domain Framework: 112 rules across 10 design domains (22 Polish + 90 Domain Extensions)';
+        // T-0030/T-0031: rule count and domain count are derived so they stay
+        // accurate as domains (e.g. forms) and rules (e.g. gesture) are added.
+        const domainCount = new Set(DOMAIN_RULES.map((r) => r.domain)).size;
+        return `Sidecoach Extended Domain Framework: ${DOMAIN_RULES.length} rules across ${domainCount} design domains`;
     }
 }
 exports.ExtendedDomainValidator = ExtendedDomainValidator;
