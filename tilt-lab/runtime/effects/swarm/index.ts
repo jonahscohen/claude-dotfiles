@@ -41,6 +41,23 @@ interface SwarmParams {
   glowAlpha: number;
 }
 
+// The 5 built-in scene presets, verbatim from the regent original
+// (app/(app)/tools/swarm/presets.ts). scene selects color + alpha palette.
+const SWARM_PRESETS: {
+  idleColor: string;
+  swarmColor: string;
+  bgColor: string;
+  idleAlpha: number;
+  swarmAlpha: number;
+  glowAlpha: number;
+}[] = [
+  { idleColor: '#ffffff', swarmColor: '#ffffff', bgColor: '#060608', idleAlpha: 0.08, swarmAlpha: 0.55, glowAlpha: 0.15 }, // Ghost Grid
+  { idleColor: '#66bbdd', swarmColor: '#00d4ff', bgColor: '#010102', idleAlpha: 0.08, swarmAlpha: 0.6, glowAlpha: 0.2 }, // Regent
+  { idleColor: '#cc6644', swarmColor: '#ff4422', bgColor: '#0a0404', idleAlpha: 0.08, swarmAlpha: 0.55, glowAlpha: 0.18 }, // Ember
+  { idleColor: '#44cc66', swarmColor: '#00ff66', bgColor: '#020804', idleAlpha: 0.06, swarmAlpha: 0.55, glowAlpha: 0.2 }, // Phosphor
+  { idleColor: '#9966cc', swarmColor: '#cc44ff', bgColor: '#060410', idleAlpha: 0.07, swarmAlpha: 0.55, glowAlpha: 0.18 }, // Violet Haze
+];
+
 function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace('#', '');
   const v = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
@@ -160,6 +177,8 @@ export function createSwarmEffect(): Effect {
         dead = true;
         return;
       }
+      // scene applies a preset palette first; explicit color/alpha params override.
+      if ('scene' in opts.params) this.setParam('scene', opts.params.scene);
       for (const k of Object.keys(p) as (keyof SwarmParams)[]) {
         if (k in opts.params) this.setParam(k, opts.params[k]);
       }
@@ -244,6 +263,18 @@ export function createSwarmEffect(): Effect {
 
     setParam(key: string, value: unknown) {
       switch (key) {
+        case 'scene': {
+          const preset = SWARM_PRESETS[Number(value)];
+          if (preset) {
+            p.idleColor = preset.idleColor;
+            p.swarmColor = preset.swarmColor;
+            p.bgColor = preset.bgColor;
+            p.idleAlpha = preset.idleAlpha;
+            p.swarmAlpha = preset.swarmAlpha;
+            p.glowAlpha = preset.glowAlpha;
+          }
+          break;
+        }
         case 'gridSpacing':
           p.gridSpacing = Math.max(1, Number(value));
           break;

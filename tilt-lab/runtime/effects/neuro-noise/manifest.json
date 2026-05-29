@@ -13,7 +13,12 @@
     { "name": "scale", "type": "range", "default": 1, "min": 0.01, "max": 4, "step": 0.01 },
     { "name": "rotation", "type": "range", "default": 0, "min": 0, "max": 360, "step": 1 },
     { "name": "offsetX", "type": "range", "default": 0, "min": -1, "max": 1, "step": 0.01 },
-    { "name": "offsetY", "type": "range", "default": 0, "min": -1, "max": 1, "step": 0.01 }
+    { "name": "offsetY", "type": "range", "default": 0, "min": -1, "max": 1, "step": 0.01 },
+    { "name": "originX", "type": "range", "default": 0.5, "min": 0, "max": 1, "step": 0.01 },
+    { "name": "originY", "type": "range", "default": 0.5, "min": 0, "max": 1, "step": 0.01 },
+    { "name": "worldWidth", "type": "range", "default": 0, "min": 0, "max": 5000, "step": 1 },
+    { "name": "worldHeight", "type": "range", "default": 0, "min": 0, "max": 5000, "step": 1 },
+    { "name": "fit", "type": "select", "default": "none", "options": ["none", "contain", "cover"] }
   ],
   "requiredAssets": [],
   "origin": "https://github.com/paper-design/shaders (@paper-design/shaders 0.0.76)",

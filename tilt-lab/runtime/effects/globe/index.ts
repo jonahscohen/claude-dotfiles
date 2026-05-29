@@ -15,6 +15,21 @@ import type { Effect, EffectOpts } from '../../types';
 
 type GlobeHandle = ReturnType<typeof createGlobe>;
 
+/** A cobe marker: a lat/lng dot drawn on the globe surface. */
+interface GlobeMarker {
+  location: [number, number];
+  size: number;
+  color?: [number, number, number];
+}
+
+// cobe's canonical demo markers (San Francisco + New York City). This is the
+// real default marker set shown on cobe.vercel.app, restored verbatim so the
+// `markers` option is not dropped.
+const DEFAULT_MARKERS: GlobeMarker[] = [
+  { location: [37.7595, -122.4367], size: 0.03 },
+  { location: [40.7128, -74.006], size: 0.1 },
+];
+
 function hexToRgb(hex: string): [number, number, number] {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
   if (!m) return [1, 1, 1];
@@ -31,7 +46,13 @@ export function createGlobeEffect(): Effect {
   let speed = 0.3; // radians/second of auto-rotation
   let basePhi = 0;
   let clockPhi = 0;
-  let theta = 0.3;
+  let theta = 0;
+
+  // cobe `offset` ([x, y] in backing-store pixels, default [0, 0]) and the
+  // `markers` array. Both are full createGlobe options restored here.
+  let offsetX = 0;
+  let offsetY = 0;
+  let markers: GlobeMarker[] = DEFAULT_MARKERS;
 
   // Live param changes queued for the next render pass.
   const pending: Record<string, unknown> = {};
@@ -70,7 +91,10 @@ export function createGlobeEffect(): Effect {
       const p = opts.params;
       speed = Number(p.speed ?? 0.3);
       basePhi = Number(p.phi ?? 0);
-      theta = Number(p.theta ?? 0.3);
+      theta = Number(p.theta ?? 0);
+      offsetX = Number(p.offsetX ?? 0);
+      offsetY = Number(p.offsetY ?? 0);
+      markers = Array.isArray(p.markers) ? (p.markers as GlobeMarker[]) : DEFAULT_MARKERS;
 
       const cw = c.clientWidth || c.width || 300;
       const ch = c.clientHeight || c.height || 150;
@@ -90,10 +114,11 @@ export function createGlobeEffect(): Effect {
         mapBaseBrightness: Number(p.mapBaseBrightness ?? 0),
         opacity: Number(p.opacity ?? 1),
         scale: Number(p.scale ?? 1),
-        baseColor: hexToRgb(String(p.baseColor ?? '#346df0')),
-        markerColor: hexToRgb(String(p.markerColor ?? '#ff7a00')),
-        glowColor: hexToRgb(String(p.glowColor ?? '#aab6ff')),
-        markers: [],
+        offset: [offsetX, offsetY],
+        baseColor: hexToRgb(String(p.baseColor ?? '#4d4d4d')),
+        markerColor: hexToRgb(String(p.markerColor ?? '#1accff')),
+        glowColor: hexToRgb(String(p.glowColor ?? '#ffffff')),
+        markers,
         onRender: onRenderBridge,
       });
 
@@ -127,6 +152,20 @@ export function createGlobeEffect(): Effect {
           break;
         case 'theta':
           theta = Number(value);
+          break;
+        case 'offsetX':
+          offsetX = Number(value);
+          pending.offset = [offsetX, offsetY];
+          break;
+        case 'offsetY':
+          offsetY = Number(value);
+          pending.offset = [offsetX, offsetY];
+          break;
+        case 'markers':
+          if (Array.isArray(value)) {
+            markers = value as GlobeMarker[];
+            pending.markers = markers;
+          }
           break;
         case 'baseColor':
         case 'markerColor':

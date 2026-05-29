@@ -19,6 +19,9 @@ const DURATION_MS = 400;
 interface TrailNode {
   el: HTMLElement;
   removeTimer: number | null;
+  // Each node keeps its OWN rotation so its exit tween rotates by its own value
+  // (rotation * 0.5), matching the original component (not the new spawn's).
+  rotation: number;
 }
 
 export function createCursorTrailEffect(): Effect {
@@ -54,17 +57,34 @@ export function createCursorTrailEffect(): Effect {
     trail.length = 0;
   }
 
-  function exitNode(node: TrailNode, rotation: number) {
-    // Exit tween: opacity 0, scale 0.3, rotate*0.5, blur(4px).
+  function exitNode(node: TrailNode) {
+    // Exit tween: opacity 0, scale 0.3, rotate*0.5, blur(4px) - using the node's
+    // OWN rotation, exactly as the original component's exit variant does.
     node.el.style.opacity = '0';
     node.el.style.filter = 'blur(4px)';
-    node.el.style.transform = `translate(-50%, -50%) rotate(${rotation * 0.5}deg) scale(0.3)`;
+    node.el.style.transform = `translate(-50%, -50%) rotate(${node.rotation * 0.5}deg) scale(0.3)`;
     if (typeof setTimeout !== 'undefined') {
       node.removeTimer = setTimeout(() => {
         node.el.remove();
       }, DURATION_MS) as unknown as number;
     } else {
       node.el.remove();
+    }
+  }
+
+  // Re-derive each live item's resting scale from its age, matching the
+  // original's per-render scale = 0.6 + 0.4 * (1 - age / trailLength). The
+  // newest item is excluded - its enter tween (rAF below) sets its own scale.
+  function rescaleLiveTrail(except: TrailNode) {
+    const total = trail.length;
+    for (let i = 0; i < total; i++) {
+      const node = trail[i];
+      if (node === except) continue;
+      const age = total - 1 - i;
+      const scale = 0.6 + 0.4 * (1 - age / p.trailLength);
+      node.el.style.opacity = '1';
+      node.el.style.filter = 'none';
+      node.el.style.transform = `translate(-50%, -50%) rotate(${node.rotation}deg) scale(${scale})`;
     }
   }
 
@@ -128,12 +148,23 @@ export function createCursorTrailEffect(): Effect {
 
       container.appendChild(wrap);
 
-      const node: TrailNode = { el: wrap, removeTimer: null };
+      const node: TrailNode = { el: wrap, removeTimer: null, rotation };
       trail.push(node);
 
-      // Per-item age scale, computed for the newest item (age 0).
+      // Cap the trail length: oldest items animate out and are removed.
+      while (trail.length > p.trailLength) {
+        const oldest = trail.shift();
+        if (oldest) exitNode(oldest);
+      }
+
+      // Re-derive resting scale for the existing (older) live items so they
+      // shrink toward 0.6 as the trail grows - the original recomputes this for
+      // every item on each render.
+      rescaleLiveTrail(node);
+
+      // Per-item age scale, computed for the newest item (age 0) -> scale 1.0.
       const scale = 0.6 + 0.4 * (1 - 0 / p.trailLength);
-      // Animate to the resting state on the next frame.
+      // Animate the newest item to its resting state on the next frame.
       const animateIn = () => {
         wrap.style.opacity = '1';
         wrap.style.transform = `translate(-50%, -50%) rotate(${rotation}deg) scale(${scale})`;
@@ -142,12 +173,6 @@ export function createCursorTrailEffect(): Effect {
         requestAnimationFrame(animateIn);
       } else {
         animateIn();
-      }
-
-      // Cap the trail length: oldest items animate out and are removed.
-      while (trail.length > p.trailLength) {
-        const oldest = trail.shift();
-        if (oldest) exitNode(oldest, rotation);
       }
     },
 

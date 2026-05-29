@@ -39,6 +39,16 @@ PENDING: #1 tool-dev (verifier, added playwright dep), #3 fx-missing-2 (mc-globe
 ## INTEGRATION PASS (team-lead, after #3 + #4 land) - do ONCE
 runtime/index.ts: ADD glass-slideshow, infinite-gallery, mc-globe, animated-gradient; REMOVE swirl; EXCLUDE gradient from builtinManifests (keep dir as test fixture). Add onPointerLeave to contract. Update integration test (24->25 catalog count). Full vitest + tsc. Then validate: verifier tool (when #1 done) + Claude-in-Chrome visual sweep (tabId 1827119023) of every effect, esp ascii 3d/disco/shapes (reimplemented from prose) + the 4 newly-built.
 
+## INTEGRATION PASS - IN PROGRESS (uncommitted until #4 lands)
+runtime/index.ts updated: REMOVED swirl (imports+entry), ADDED animated-gradient/glass-slideshow/infinite-gallery/mc-globe (factory names createAnimatedGradientEffect/createGlassSlideshowEffect/createInfiniteGalleryEffect/createMcGlobeEffect), gradient EXCLUDED from builtinManifests via CATALOG_EXCLUDE set (still registered for tests). integration.test.ts: swapped gradient->aurora in the composite stack (gradient no longer in catalog). index.test.ts + integration.test.ts = 6/6 GREEN. Catalog now = 25 requested effects.
+NOT YET COMMITTED: holding because fx-regent #4 (in progress) left halftone type errors (HalftoneParams missing scene/fluidInfluence, unused SCENE_PRESETS/hexToLinearRGB) - will commit the whole integration + #4 together once #4 reports and full tsc is clean.
+STILL TODO in integration: add optional onPointerLeave to Effect contract + wire (element.ts/compositor.ts) for cursor-trail mouseleave fidelity; (optional) marker-list ParamType for globe/mc-globe markers. Then full vitest+tsc+build, then verifier-tool + Claude-in-Chrome visual sweep of all 25.
+
+## INTEGRATION COMPLETE + VERIFIED (headless) - 6/7 tasks done
+fx-regent #4 landed: fluid GPU particle layer WIRED + scene/quality/dissipation/splat params; fractal-glass + halftone restored 5 COLORED scene presets (were grayscale - same fabrication failure as mesh-gradient); swarm scene presets. tsc clean. 
+Full verify after integration: tsc exit 0, vitest 133/133 across 38 files, build OK. Bundle smoke: catalog=25 (gradient excluded, swirl gone), animated-gradient/glass-slideshow/infinite-gallery/mc-globe all register, 26 total factories. 26 effect dirs (25 catalog + gradient fixture). MATCHES the 25-effect target.
+Remaining: #1 tool-dev (verifier) still in progress. STILL TODO: onPointerLeave contract for cursor-trail; then verifier-tool + Claude-in-Chrome VISUAL sweep of all 25 (esp restored colored presets: fluid/fractal-glass/halftone, ascii 3d/disco/shapes, the 4 new). A few inert-but-1:1 params noted by fx-regent (curl, fluidInfluence, glassAmount, bloomStrength - present for fidelity, unused by original render).
+
 ## Notes
 - expect override: user authorized leveraging expect + removing accreditation for personal local use (see decision beat).
 - dev server: localhost:5180 (bg bash bszkd9n62). cmux dropped; Claude-in-Chrome is the preview.

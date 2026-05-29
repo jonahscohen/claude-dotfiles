@@ -1,0 +1,30 @@
+{
+  "id": "animated-gradient",
+  "name": "Animated Gradient (spell)",
+  "category": "generative-gradient",
+  "layerRole": "background",
+  "params": [
+    { "name": "color1", "type": "color", "default": "#050505" },
+    { "name": "color2", "type": "color", "default": "#66B3FF" },
+    { "name": "color3", "type": "color", "default": "#FFFFFF" },
+    { "name": "speed", "type": "range", "default": 25, "min": 0, "max": 100, "step": 1 },
+    { "name": "rotation", "type": "range", "default": 0, "min": -180, "max": 180, "step": 1 },
+    { "name": "proportion", "type": "range", "default": 35, "min": 0, "max": 100, "step": 1 },
+    { "name": "scale", "type": "range", "default": 1, "min": 0, "max": 1, "step": 0.01 },
+    { "name": "distortion", "type": "range", "default": 12, "min": 0, "max": 100, "step": 1 },
+    { "name": "swirl", "type": "range", "default": 80, "min": 0, "max": 100, "step": 1 },
+    { "name": "swirlIterations", "type": "range", "default": 10, "min": 1, "max": 30, "step": 1 },
+    { "name": "softness", "type": "range", "default": 100, "min": 0, "max": 100, "step": 1 },
+    { "name": "offset", "type": "range", "default": 0, "min": -1000, "max": 1000, "step": 1 },
+    { "name": "shape", "type": "select", "default": "Checks", "options": ["Checks", "Stripes", "Edge"] },
+    { "name": "shapeSize", "type": "range", "default": 10, "min": 0, "max": 100, "step": 1 },
+    { "name": "noiseOpacity", "type": "range", "default": 0, "min": 0, "max": 1, "step": 0.01 },
+    { "name": "noiseScale", "type": "range", "default": 1, "min": 0.1, "max": 4, "step": 0.1 }
+  ],
+  "requiredAssets": [],
+  "origin": "https://spell.sh/docs/animated-gradient (shadcn registry @spell/animated-gradient)",
+  "license": "none stated (upstream lineage: paper.design swirl family, MIT)",
+  "attribution": "Spell UI (tomm_ui)",
+  "redistribution": "personal-only",
+  "tags": ["webgl2", "gradient", "swirl", "noise", "mesh-gradient", "fragment-shader", "background"]
+}

@@ -9,6 +9,9 @@ import type { Effect, EffectOpts } from '../../types';
 
 const MAX_COLOR_COUNT = 7;
 
+// Paper's sizing `fit` enum maps the string to the shader's u_fit float.
+const FIT_MAP: Record<string, number> = { none: 0, contain: 1, cover: 2 };
+
 const SHAPES: Record<string, number> = {
   wave: 1,
   dots: 2,
@@ -520,10 +523,15 @@ export function createGrainGradientEffect(): Effect {
   const u: Record<string, WebGLUniformLocation | null> = {};
 
   const p = {
+    // Full 7-slot gradient palette (u_colors[7]); default preset uses the first 4.
     color1: '#7300ff',
     color2: '#eba8ff',
     color3: '#00bfff',
     color4: '#2a00ff',
+    color5: '#7300ff',
+    color6: '#eba8ff',
+    color7: '#00bfff',
+    colorsCount: 4,
     colorBack: '#000000',
     shape: 'corners',
     softness: 0.5,
@@ -534,12 +542,20 @@ export function createGrainGradientEffect(): Effect {
     rotation: 0,
     offsetX: 0,
     offsetY: 0,
+    // Full ShaderSizingParams set (object/pattern defaults: fit contain, centered).
+    originX: 0.5,
+    originY: 0.5,
+    worldWidth: 0,
+    worldHeight: 0,
+    fit: 'contain',
   };
 
   function readParams(params: Record<string, unknown>) {
     for (const key of Object.keys(p)) {
       if (params[key] == null) continue;
-      if (key.startsWith('color') || key === 'shape') {
+      if (key.startsWith('color') && key !== 'colorsCount') {
+        (p as Record<string, unknown>)[key] = String(params[key]);
+      } else if (key === 'shape' || key === 'fit') {
         (p as Record<string, unknown>)[key] = String(params[key]);
       } else {
         (p as Record<string, unknown>)[key] = Number(params[key]);
@@ -645,28 +661,29 @@ export function createGrainGradientEffect(): Effect {
       gl.uniform2f(u.u_resolution, w * dpr, h * dpr);
       gl.uniform1f(u.u_pixelRatio, dpr);
       gl.uniform1f(u.u_imageAspectRatio, 1);
-      // object sizing defaults (fit: contain) - matches the default preset
-      gl.uniform1f(u.u_originX, 0.5);
-      gl.uniform1f(u.u_originY, 0.5);
-      gl.uniform1f(u.u_worldWidth, 0);
-      gl.uniform1f(u.u_worldHeight, 0);
-      gl.uniform1f(u.u_fit, 1);
+      gl.uniform1f(u.u_originX, p.originX);
+      gl.uniform1f(u.u_originY, p.originY);
+      gl.uniform1f(u.u_worldWidth, p.worldWidth);
+      gl.uniform1f(u.u_worldHeight, p.worldHeight);
+      gl.uniform1f(u.u_fit, FIT_MAP[p.fit] ?? 1);
       gl.uniform1f(u.u_scale, p.scale);
       gl.uniform1f(u.u_rotation, p.rotation);
       gl.uniform1f(u.u_offsetX, p.offsetX);
       gl.uniform1f(u.u_offsetY, p.offsetY);
 
-      const colors = [p.color1, p.color2, p.color3, p.color4];
+      const palette = [p.color1, p.color2, p.color3, p.color4, p.color5, p.color6, p.color7];
+      // u_colorsCount drives how many slots the shader reads (clamp 1..7).
+      const count = Math.max(1, Math.min(MAX_COLOR_COUNT, Math.round(p.colorsCount)));
       const flat = new Float32Array(MAX_COLOR_COUNT * 4);
-      for (let i = 0; i < colors.length; i++) {
-        const c = hexToRgba(colors[i]);
+      for (let i = 0; i < MAX_COLOR_COUNT; i++) {
+        const c = hexToRgba(palette[i]);
         flat[i * 4] = c[0];
         flat[i * 4 + 1] = c[1];
         flat[i * 4 + 2] = c[2];
         flat[i * 4 + 3] = c[3];
       }
       gl.uniform4fv(u.u_colors, flat);
-      gl.uniform1f(u.u_colorsCount, colors.length);
+      gl.uniform1f(u.u_colorsCount, count);
 
       const cb = hexToRgba(p.colorBack);
       gl.uniform4f(u.u_colorBack, cb[0], cb[1], cb[2], cb[3]);
@@ -688,7 +705,7 @@ export function createGrainGradientEffect(): Effect {
     },
     setParam(key: string, value: unknown) {
       if (key in p) {
-        if (key.startsWith('color') || key === 'shape') {
+        if ((key.startsWith('color') && key !== 'colorsCount') || key === 'shape' || key === 'fit') {
           (p as Record<string, unknown>)[key] = String(value);
         } else {
           (p as Record<string, unknown>)[key] = Number(value);

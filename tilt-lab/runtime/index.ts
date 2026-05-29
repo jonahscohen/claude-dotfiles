@@ -46,10 +46,17 @@ import { createSpecularBandEffect } from './effects/specular-band/index';
 import specularBandManifest from './effects/specular-band/manifest.json';
 import { createSwarmEffect } from './effects/swarm/index';
 import swarmManifest from './effects/swarm/manifest.json';
-import { createSwirlEffect } from './effects/swirl/index';
-import swirlManifest from './effects/swirl/manifest.json';
 import { createWaterRippleEffect } from './effects/water-ripple/index';
 import waterRippleManifest from './effects/water-ripple/manifest.json';
+// Restored / previously-dropped effects (re-anchored on the original task list).
+import { createAnimatedGradientEffect } from './effects/animated-gradient/index';
+import animatedGradientManifest from './effects/animated-gradient/manifest.json';
+import { createGlassSlideshowEffect } from './effects/glass-slideshow/index';
+import glassSlideshowManifest from './effects/glass-slideshow/manifest.json';
+import { createInfiniteGalleryEffect } from './effects/infinite-gallery/index';
+import infiniteGalleryManifest from './effects/infinite-gallery/manifest.json';
+import { createMcGlobeEffect } from './effects/mc-globe/index';
+import mcGlobeManifest from './effects/mc-globe/manifest.json';
 
 /** Every built-in effect: a raw manifest + its factory. Acquisition adds entries here. */
 const RAW: Array<[unknown, EffectFactory]> = [
@@ -74,9 +81,19 @@ const RAW: Array<[unknown, EffectFactory]> = [
   [plasmaGridManifest, createPlasmaGridEffect],
   [specularBandManifest, createSpecularBandEffect],
   [swarmManifest, createSwarmEffect],
-  [swirlManifest, createSwirlEffect],
   [waterRippleManifest, createWaterRippleEffect],
+  [animatedGradientManifest, createAnimatedGradientEffect],
+  [glassSlideshowManifest, createGlassSlideshowEffect],
+  [infiniteGalleryManifest, createInfiniteGalleryEffect],
+  [mcGlobeManifest, createMcGlobeEffect],
 ];
+
+/**
+ * `gradient` is the built-in reference/test fixture (not one of the requested
+ * sources), so it stays registered for tests but is excluded from the user-facing
+ * catalog. CATALOG_EXCLUDE holds any such non-catalog built-ins.
+ */
+const CATALOG_EXCLUDE = new Set(['gradient']);
 
 const builtins = RAW.map(([manifest, factory]) => ({
   manifest: validateManifest(manifest),
@@ -88,8 +105,10 @@ export const effectFactories: Record<string, EffectFactory> = Object.fromEntries
   builtins.map((b) => [b.manifest.id, b.factory]),
 );
 
-/** Every built-in manifest, for the playground catalog and tooling. */
-export const builtinManifests = builtins.map((b) => b.manifest);
+/** Every built-in manifest shown in the playground catalog (excludes reference fixtures). */
+export const builtinManifests = builtins
+  .filter((b) => !CATALOG_EXCLUDE.has(b.manifest.id))
+  .map((b) => b.manifest);
 
 export function registerBuiltins(): void {
   for (const b of builtins) {

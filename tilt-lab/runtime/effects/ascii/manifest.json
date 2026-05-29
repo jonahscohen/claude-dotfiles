@@ -4,7 +4,7 @@
   "category": "post-process",
   "layerRole": "post",
   "params": [
-    { "name": "renderMode", "type": "select", "default": "characters", "options": ["characters", "block-chars", "lines", "diagonal", "cross", "diamond", "mixed", "dots", "pixel", "mosaic", "braille"] },
+    { "name": "renderMode", "type": "select", "default": "characters", "options": ["characters", "block-chars", "lines", "diagonal", "cross", "diamond", "mixed", "dots", "pixel", "lego", "mosaic", "braille", "3d", "disco", "shapes"] },
     { "name": "charSet", "type": "select", "default": "standard", "options": ["standard", "detailed", "minimal", "blocks"] },
     { "name": "fontSize", "type": "range", "default": 11, "min": 4, "max": 40, "step": 1 },
     { "name": "coverage", "type": "range", "default": 85, "min": 0, "max": 100, "step": 1 },
@@ -18,7 +18,17 @@
     { "name": "mosaicShape", "type": "select", "default": "square", "options": ["square", "circle"] },
     { "name": "overlayColor", "type": "color", "default": "#ff0000" },
     { "name": "overlayOpacity", "type": "range", "default": 0, "min": 0, "max": 100, "step": 1 },
-    { "name": "overlayBlend", "type": "select", "default": "multiply", "options": ["source-over", "multiply", "screen", "overlay", "lighten", "darken", "color-dodge", "color-burn"] }
+    { "name": "overlayBlend", "type": "select", "default": "multiply", "options": ["source-over", "multiply", "screen", "overlay", "lighten", "darken", "color-dodge", "color-burn"] },
+    { "name": "shape3dCellSize", "type": "range", "default": 12, "min": 4, "max": 60, "step": 1 },
+    { "name": "shape3dHSpacing", "type": "range", "default": 100, "min": 50, "max": 200, "step": 1 },
+    { "name": "shape3dVSpacing", "type": "range", "default": 100, "min": 50, "max": 200, "step": 1 },
+    { "name": "shape3dTopShade", "type": "range", "default": 135, "min": 0, "max": 200, "step": 1 },
+    { "name": "shape3dLightShade", "type": "range", "default": 100, "min": 0, "max": 200, "step": 1 },
+    { "name": "shape3dDarkShade", "type": "range", "default": 55, "min": 0, "max": 200, "step": 1 },
+    { "name": "shape3dOutline", "type": "range", "default": 0, "min": 0, "max": 5, "step": 0.5 },
+    { "name": "shape3dFlip", "type": "toggle", "default": false },
+    { "name": "discoUniformity", "type": "range", "default": 80, "min": 0, "max": 100, "step": 1 },
+    { "name": "discoSeed", "type": "range", "default": 1, "min": 1, "max": 100, "step": 1 }
   ],
   "requiredAssets": [],
   "origin": "https://ascii-magic.com/app",

@@ -26,7 +26,7 @@ describe('acquired effects integration', () => {
   it('composites a valid background + midground + pointer + post stack without throwing', () => {
     const role = (id: string) => builtinManifests.find((m) => m.id === id)!.layerRole;
     const layers: LayerConfig[] = [
-      { effectId: 'gradient', layerRole: role('gradient'), params: {}, blendMode: 'source-over' },
+      { effectId: 'aurora', layerRole: role('aurora'), params: {}, blendMode: 'source-over' },
       { effectId: 'globe', layerRole: role('globe'), params: {}, blendMode: 'source-over' },
       { effectId: 'swarm', layerRole: role('swarm'), params: {}, blendMode: 'source-over' },
       { effectId: 'ascii', layerRole: role('ascii'), params: {}, blendMode: 'source-over' },

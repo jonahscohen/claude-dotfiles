@@ -72,6 +72,8 @@ export function createParticlesEffect(): Effect {
   let particleSize = 0.25;
   let hoverStrength = 0.05;
   let speed = 1.0;
+  // Per-frame ease factor of current -> target (the source hardcodes 0.1).
+  let morphSpeed = 0.1;
   let autoSpin = true;
   let autoSpinSpeed = 2.0;
   let shape: ShapeName = 'sphere';
@@ -410,6 +412,7 @@ export function createParticlesEffect(): Effect {
       particleSize = Number(p.particleSize ?? 0.25);
       hoverStrength = Number(p.hoverStrength ?? 0.05);
       speed = Number(p.speed ?? 1.0);
+      morphSpeed = Number(p.morphSpeed ?? 0.1);
       autoSpin = p.autoSpin === undefined ? true : Boolean(p.autoSpin);
       autoSpinSpeed = Number(p.autoSpinSpeed ?? 2.0);
       shape = (String(p.shape ?? 'sphere') as ShapeName) || 'sphere';
@@ -481,7 +484,7 @@ export function createParticlesEffect(): Effect {
         if (!cur || !tgt) continue;
 
         if (isNaN(tgt.x) || !isFinite(tgt.x)) tgt.set(0, 0, 0);
-        cur.lerp(tgt, 0.1);
+        cur.lerp(tgt, morphSpeed);
         if (isNaN(cur.x)) cur.set(0, 0, 0);
 
         dummy.position.copy(cur);
@@ -545,6 +548,9 @@ export function createParticlesEffect(): Effect {
           break;
         case 'speed':
           speed = Number(value);
+          break;
+        case 'morphSpeed':
+          morphSpeed = Number(value);
           break;
         case 'hoverStrength':
           hoverStrength = Number(value);

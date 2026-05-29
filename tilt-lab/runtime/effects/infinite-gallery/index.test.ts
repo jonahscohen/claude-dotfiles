@@ -1,15 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { createDitheredImageEffect } from './index';
+import { createInfiniteGalleryEffect } from './index';
 import manifest from './manifest.json';
 import { validateManifest } from '../../manifest';
 
-describe('dithered-image effect', () => {
+describe('infinite-gallery effect', () => {
   it('has a valid manifest', () => {
     expect(() => validateManifest(manifest)).not.toThrow();
   });
 
   it('init + resize + frame run without throwing', () => {
-    const e = createDitheredImageEffect();
+    const e = createInfiniteGalleryEffect();
     const canvas = document.createElement('canvas');
     const params = Object.fromEntries(manifest.params.map((p) => [p.name, p.default]));
     e.init(canvas, { params, assets: {} });
@@ -17,24 +17,8 @@ describe('dithered-image effect', () => {
     expect(() => e.frame(16)).not.toThrow();
   });
 
-  it('exposes every dither map and builds each without throwing', () => {
-    const ditherParam = manifest.params.find((p) => p.name === 'ditherMap');
-    expect(ditherParam?.options).toEqual(['bayer4x4', 'bayer8x8', 'halftone', 'voidAndCluster']);
-
-    const e = createDitheredImageEffect();
-    const canvas = document.createElement('canvas');
-    const params = Object.fromEntries(manifest.params.map((p) => [p.name, p.default]));
-    e.init(canvas, { params, assets: {} });
-    expect(() => {
-      for (const map of ditherParam!.options!) {
-        e.setParam('ditherMap', map);
-        e.frame(16);
-      }
-    }).not.toThrow();
-  });
-
   it('dispose is idempotent', () => {
-    const e = createDitheredImageEffect();
+    const e = createInfiniteGalleryEffect();
     const canvas = document.createElement('canvas');
     const params = Object.fromEntries(manifest.params.map((p) => [p.name, p.default]));
     e.init(canvas, { params, assets: {} });

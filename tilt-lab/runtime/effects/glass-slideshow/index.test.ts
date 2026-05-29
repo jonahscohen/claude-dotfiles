@@ -1,15 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { createSwirlEffect } from './index';
+import { createGlassSlideshowEffect } from './index';
 import manifest from './manifest.json';
 import { validateManifest } from '../../manifest';
 
-describe('swirl effect', () => {
+describe('glass-slideshow effect', () => {
   it('has a valid manifest', () => {
     expect(() => validateManifest(manifest)).not.toThrow();
   });
 
   it('init + resize + frame run without throwing', () => {
-    const e = createSwirlEffect();
+    const e = createGlassSlideshowEffect();
     const canvas = document.createElement('canvas');
     const params = Object.fromEntries(manifest.params.map((p) => [p.name, p.default]));
     e.init(canvas, { params, assets: {} });
@@ -18,7 +18,7 @@ describe('swirl effect', () => {
   });
 
   it('dispose is idempotent', () => {
-    const e = createSwirlEffect();
+    const e = createGlassSlideshowEffect();
     const canvas = document.createElement('canvas');
     const params = Object.fromEntries(manifest.params.map((p) => [p.name, p.default]));
     e.init(canvas, { params, assets: {} });

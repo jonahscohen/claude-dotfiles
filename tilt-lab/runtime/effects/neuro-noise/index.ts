@@ -212,6 +212,9 @@ void main() {
   fragColor = vec4(color, opacity);
 }`;
 
+// Paper's sizing `fit` enum maps the string to the shader's u_fit float.
+const FIT_MAP: Record<string, number> = { none: 0, contain: 1, cover: 2 };
+
 function hexToRgba(hex: string): [number, number, number, number] {
   let r = 0;
   let g = 0;
@@ -265,6 +268,12 @@ export function createNeuroNoiseEffect(): Effect {
     rotation: 0,
     offsetX: 0,
     offsetY: 0,
+    // Full ShaderSizingParams set (pattern defaults: fit none, centered origin).
+    originX: 0.5,
+    originY: 0.5,
+    worldWidth: 0,
+    worldHeight: 0,
+    fit: 'none',
   };
 
   function readParams(params: Record<string, unknown>) {
@@ -278,6 +287,11 @@ export function createNeuroNoiseEffect(): Effect {
     if (params.rotation != null) p.rotation = Number(params.rotation);
     if (params.offsetX != null) p.offsetX = Number(params.offsetX);
     if (params.offsetY != null) p.offsetY = Number(params.offsetY);
+    if (params.originX != null) p.originX = Number(params.originX);
+    if (params.originY != null) p.originY = Number(params.originY);
+    if (params.worldWidth != null) p.worldWidth = Number(params.worldWidth);
+    if (params.worldHeight != null) p.worldHeight = Number(params.worldHeight);
+    if (params.fit != null) p.fit = String(params.fit);
   }
 
   return {
@@ -335,12 +349,11 @@ export function createNeuroNoiseEffect(): Effect {
       gl.uniform2f(u.u_resolution, w * dpr, h * dpr);
       gl.uniform1f(u.u_pixelRatio, dpr);
       gl.uniform1f(u.u_imageAspectRatio, 1);
-      // pattern sizing defaults (fit: none)
-      gl.uniform1f(u.u_originX, 0.5);
-      gl.uniform1f(u.u_originY, 0.5);
-      gl.uniform1f(u.u_worldWidth, 0);
-      gl.uniform1f(u.u_worldHeight, 0);
-      gl.uniform1f(u.u_fit, 0);
+      gl.uniform1f(u.u_originX, p.originX);
+      gl.uniform1f(u.u_originY, p.originY);
+      gl.uniform1f(u.u_worldWidth, p.worldWidth);
+      gl.uniform1f(u.u_worldHeight, p.worldHeight);
+      gl.uniform1f(u.u_fit, FIT_MAP[p.fit] ?? 0);
       gl.uniform1f(u.u_scale, p.scale);
       gl.uniform1f(u.u_rotation, p.rotation);
       gl.uniform1f(u.u_offsetX, p.offsetX);
@@ -368,7 +381,7 @@ export function createNeuroNoiseEffect(): Effect {
     },
     setParam(key: string, value: unknown) {
       if (key in p) {
-        if (key === 'colorFront' || key === 'colorMid' || key === 'colorBack') {
+        if (key === 'colorFront' || key === 'colorMid' || key === 'colorBack' || key === 'fit') {
           (p as Record<string, unknown>)[key] = String(value);
         } else {
           (p as Record<string, unknown>)[key] = Number(value);

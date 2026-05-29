@@ -64,7 +64,10 @@ const FLUTE_NORMAL = /* glsl */ `
 `;
 
 interface GlassParams {
+  scene: number;
+  fluidInfluence: number;
   turbulence: number;
+  glassAmount: number;
   highlight: number;
   midtone: number;
   shadow: number;
@@ -75,6 +78,35 @@ interface GlassParams {
   thickness: number;
   roughness: number;
   envIntensity: number;
+  bloomStrength: number;
+}
+
+// The 5 built-in scene presets, verbatim from the regent original
+// (app/(app)/tools/fractal-glass/presets.ts). baseColor1-4 drive the 4-stop
+// radial background gradient; envColor1-3 tint the procedural environment map.
+const SCENE_PRESETS: {
+  baseColor1: string; baseColor2: string; baseColor3: string; baseColor4: string;
+  envColor1: string; envColor2: string; envColor3: string;
+}[] = [
+  { baseColor1: '#030618', baseColor2: '#1040a0', baseColor3: '#78b0dc', baseColor4: '#A0C4E8', envColor1: '#030620', envColor2: '#1248b0', envColor3: '#68a0d0' }, // Indicium
+  { baseColor1: '#0a0318', baseColor2: '#2d1054', baseColor3: '#6b2fa0', baseColor4: '#B8A8C8', envColor1: '#0f0520', envColor2: '#3a1570', envColor3: '#9b4dca' }, // Violet Abyss
+  { baseColor1: '#011a0a', baseColor2: '#0a4a2a', baseColor3: '#1a8a5a', baseColor4: '#A8C8B8', envColor1: '#021f0e', envColor2: '#0e5535', envColor3: '#2ecc71' }, // Emerald Depth
+  { baseColor1: '#1a0505', baseColor2: '#5a0a0a', baseColor3: '#b82020', baseColor4: '#C8B0A8', envColor1: '#200808', envColor2: '#701212', envColor3: '#ff4444' }, // Crimson Forge
+  { baseColor1: '#010102', baseColor2: '#061440', baseColor3: '#0c90d0', baseColor4: '#58c0f8', envColor1: '#010204', envColor2: '#062050', envColor3: '#00a0e8' }, // Regent
+];
+
+function srgbToLinear(c: number): number {
+  return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+}
+
+function hexToLinearRGB(hex: string): [number, number, number] {
+  const h = hex.replace('#', '');
+  const n = parseInt(h.length === 3 ? h.split('').map((c) => c + c).join('') : h, 16);
+  return [
+    srgbToLinear(((n >> 16) & 255) / 255),
+    srgbToLinear(((n >> 8) & 255) / 255),
+    srgbToLinear((n & 255) / 255),
+  ];
 }
 
 export function createFractalGlassEffect(): Effect {
@@ -98,8 +130,13 @@ export function createFractalGlassEffect(): Effect {
   let lastPointerY = 0.5;
   let pointerDown = false;
 
+  let sceneIdx = 0;
+
   const p: GlassParams = {
+    scene: 0,
+    fluidInfluence: 0.3,
     turbulence: 0.1,
+    glassAmount: 0.5,
     highlight: 1.0,
     midtone: 1.0,
     shadow: 1.0,
@@ -110,39 +147,58 @@ export function createFractalGlassEffect(): Effect {
     thickness: 0.1,
     roughness: 0,
     envIntensity: 1.0,
+    bloomStrength: 0.3,
   };
 
+  // 4-stop radial background from the active scene's baseColor1-4, with the
+  // highlight/midtone/shadow tonal weights setting each zone's radius share.
+  // Verbatim mapping from the original createBackgroundTexture().
   function buildBackground(): void {
     if (!solver) return;
+    const preset = SCENE_PRESETS[sceneIdx] || SCENE_PRESETS[0];
+    const c1 = hexToLinearRGB(preset.baseColor1);
+    const c2 = hexToLinearRGB(preset.baseColor2);
+    const c3 = hexToLinearRGB(preset.baseColor3);
+    const c4 = hexToLinearRGB(preset.baseColor4);
     const hi = p.highlight;
-    const mid = p.midtone;
+    const mi = p.midtone;
     const sh = p.shadow;
+    const total = hi + mi + sh || 1;
+    const s1 = hi / total;
+    const s2 = (hi + mi) / total;
+    const lerp3 = (a: number[], b: number[], t: number): [number, number, number] => [
+      a[0] + (b[0] - a[0]) * t,
+      a[1] + (b[1] - a[1]) * t,
+      a[2] + (b[2] - a[2]) * t,
+    ];
     solver.setBackgroundField((u, v) => {
       const dx = u - 0.5;
       const dy = v - 0.5;
       const r = Math.min(1, Math.hypot(dx, dy) * 2);
-      const center = 0.22 * hi;
-      const middle = 0.12 * mid;
-      const edge = 0.04 * sh;
-      const val = r < 0.5 ? center + (middle - center) * (r / 0.5) : middle + (edge - middle) * ((r - 0.5) / 0.5);
-      return [val * 0.9, val * 0.95, val * 1.15];
+      if (r <= s1) return lerp3(c4, c3, s1 > 0 ? r / s1 : 0);
+      if (r <= s2) return lerp3(c3, c2, s2 > s1 ? (r - s1) / (s2 - s1) : 0);
+      return lerp3(c2, c1, s2 < 1 ? (r - s2) / (1 - s2) : 0);
     });
   }
 
   function buildEnvMap(r: THREE.WebGLRenderer): void {
-    // Procedural HDR-ish environment: a small vertical-gradient equirect run
-    // through PMREMGenerator (simplified createProceduralEnvMap).
+    // Procedural HDR-ish environment: vertical-gradient equirect run through
+    // PMREMGenerator. Tinted by the active scene's envColor1-3 (dark base +
+    // bright softbox), matching the original createProceduralEnvMap palette.
+    const preset = SCENE_PRESETS[sceneIdx] || SCENE_PRESETS[0];
+    const env1 = hexToLinearRGB(preset.envColor1);
+    const env3 = hexToLinearRGB(preset.envColor3);
     const size = 16;
     const data = new Float32Array(size * size * 4);
     for (let y = 0; y < size; y++) {
       const v = y / (size - 1);
-      // dark base + soft top light
-      const lum = 0.05 + Math.pow(1 - v, 2) * 1.4;
+      // dark base (envColor1) + soft top light (envColor3)
+      const top = Math.pow(1 - v, 2) * 1.4;
       for (let x = 0; x < size; x++) {
         const i = (y * size + x) * 4;
-        data[i] = lum * 0.95;
-        data[i + 1] = lum * 0.98;
-        data[i + 2] = lum * 1.1;
+        data[i] = env1[0] * 0.05 + top * env3[0];
+        data[i + 1] = env1[1] * 0.05 + top * env3[1];
+        data[i + 2] = env1[2] * 0.05 + top * env3[2];
         data[i + 3] = 1;
       }
     }
@@ -250,6 +306,32 @@ export function createFractalGlassEffect(): Effect {
 
     setParam(key: string, value: unknown) {
       switch (key) {
+        case 'scene': {
+          const idx = Number(value);
+          if (SCENE_PRESETS[idx]) {
+            sceneIdx = idx;
+            p.scene = idx;
+            buildBackground();
+            // rebuild the tinted environment map for the new palette
+            if (renderer && scene) {
+              envRT?.dispose();
+              buildEnvMap(renderer);
+            }
+          }
+          break;
+        }
+        // fluidInfluence / glassAmount / bloomStrength: present in the original's
+        // param set with these defaults but left inert by the original render
+        // pipeline; stored here to preserve the full param surface 1:1.
+        case 'fluidInfluence':
+          p.fluidInfluence = Number(value);
+          break;
+        case 'glassAmount':
+          p.glassAmount = Number(value);
+          break;
+        case 'bloomStrength':
+          p.bloomStrength = Number(value);
+          break;
         case 'turbulence':
           p.turbulence = Number(value);
           if (solver) solver.opts.curlStrength = FLUID.curlStrength * (p.turbulence / 0.1);

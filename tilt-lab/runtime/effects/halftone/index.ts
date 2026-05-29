@@ -86,6 +86,8 @@ void main() {
 `;
 
 interface HalftoneParams {
+  scene: number;
+  fluidInfluence: number;
   turbulence: number;
   highlight: number;
   midtone: number;
@@ -95,6 +97,31 @@ interface HalftoneParams {
   contrast: number;
   softness: number;
   invert: boolean;
+}
+
+// The 5 built-in scene presets, verbatim from the regent original
+// (app/(app)/tools/halftone/presets.ts). baseColor1-4 drive the 4-stop radial
+// source field the halftone dots sample and tint from.
+const SCENE_PRESETS: { baseColor1: string; baseColor2: string; baseColor3: string; baseColor4: string }[] = [
+  { baseColor1: '#030618', baseColor2: '#1040a0', baseColor3: '#78b0dc', baseColor4: '#A0C4E8' }, // Indicium
+  { baseColor1: '#0a0318', baseColor2: '#2d1054', baseColor3: '#6b2fa0', baseColor4: '#B8A8C8' }, // Violet Abyss
+  { baseColor1: '#011a0a', baseColor2: '#0a4a2a', baseColor3: '#1a8a5a', baseColor4: '#A8C8B8' }, // Emerald Depth
+  { baseColor1: '#1a0505', baseColor2: '#5a0a0a', baseColor3: '#b82020', baseColor4: '#C8B0A8' }, // Crimson Forge
+  { baseColor1: '#010102', baseColor2: '#061440', baseColor3: '#0c90d0', baseColor4: '#58c0f8' }, // Regent
+];
+
+function srgbToLinear(c: number): number {
+  return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+}
+
+function hexToLinearRGB(hex: string): [number, number, number] {
+  const h = hex.replace('#', '');
+  const n = parseInt(h.length === 3 ? h.split('').map((c) => c + c).join('') : h, 16);
+  return [
+    srgbToLinear(((n >> 16) & 255) / 255),
+    srgbToLinear(((n >> 8) & 255) / 255),
+    srgbToLinear((n & 255) / 255),
+  ];
 }
 
 export function createHalftoneEffect(): Effect {
@@ -114,7 +141,11 @@ export function createHalftoneEffect(): Effect {
   let lastPointerY = 0.5;
   let pointerDown = false;
 
+  let sceneIdx = 0;
+
   const p: HalftoneParams = {
+    scene: 0,
+    fluidInfluence: 0.3,
     turbulence: 0.1,
     highlight: 1.2,
     midtone: 1.5,
@@ -126,25 +157,34 @@ export function createHalftoneEffect(): Effect {
     invert: false,
   };
 
+  // 4-stop radial source field from the active scene's baseColor1-4, with the
+  // highlight/midtone/shadow tonal weights setting each zone's radius share.
+  // Verbatim mapping from the original createBackgroundTexture().
   function buildBackground(): void {
     if (!solver) return;
-    // Procedural radial gradient (center -> edge) weighted by highlight/midtone/
-    // shadow, replacing the original justified.jpg. Simplified CPU version of
-    // createBackgroundTexture.
+    const preset = SCENE_PRESETS[sceneIdx] || SCENE_PRESETS[0];
+    const c1 = hexToLinearRGB(preset.baseColor1);
+    const c2 = hexToLinearRGB(preset.baseColor2);
+    const c3 = hexToLinearRGB(preset.baseColor3);
+    const c4 = hexToLinearRGB(preset.baseColor4);
     const hi = p.highlight;
-    const mid = p.midtone;
+    const mi = p.midtone;
     const sh = p.shadow;
+    const total = hi + mi + sh || 1;
+    const s1 = hi / total;
+    const s2 = (hi + mi) / total;
+    const lerp3 = (a: number[], b: number[], t: number): [number, number, number] => [
+      a[0] + (b[0] - a[0]) * t,
+      a[1] + (b[1] - a[1]) * t,
+      a[2] + (b[2] - a[2]) * t,
+    ];
     solver.setBackgroundField((u, v) => {
       const dx = u - 0.5;
       const dy = v - 0.5;
       const r = Math.min(1, Math.hypot(dx, dy) * 2);
-      // 3-stop blend: center (highlight) -> mid -> edge (shadow)
-      const center = 0.18 * hi;
-      const middle = 0.10 * mid;
-      const edge = 0.03 * sh;
-      const t = r;
-      const val = t < 0.5 ? center + (middle - center) * (t / 0.5) : middle + (edge - middle) * ((t - 0.5) / 0.5);
-      return [val * 1.0, val * 0.85, val * 1.1];
+      if (r <= s1) return lerp3(c4, c3, s1 > 0 ? r / s1 : 0);
+      if (r <= s2) return lerp3(c3, c2, s2 > s1 ? (r - s1) / (s2 - s1) : 0);
+      return lerp3(c2, c1, s2 < 1 ? (r - s2) / (1 - s2) : 0);
     });
   }
 
@@ -223,6 +263,21 @@ export function createHalftoneEffect(): Effect {
 
     setParam(key: string, value: unknown) {
       switch (key) {
+        case 'scene': {
+          const idx = Number(value);
+          if (SCENE_PRESETS[idx]) {
+            sceneIdx = idx;
+            p.scene = idx;
+            buildBackground();
+          }
+          break;
+        }
+        // fluidInfluence: present in the original's param set with this default
+        // but left inert by the original render pipeline; stored to preserve the
+        // full param surface 1:1.
+        case 'fluidInfluence':
+          p.fluidInfluence = Number(value);
+          break;
         case 'turbulence':
           p.turbulence = Number(value);
           if (solver) solver.opts.curlStrength = FLUID.curlStrength * (p.turbulence / 0.1);

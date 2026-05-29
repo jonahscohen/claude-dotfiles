@@ -112,14 +112,14 @@ function bayerMatrix(order: number): number[][] {
   return gen(order);
 }
 
-// RGBA byte data for the threshold map (value replicated into r,g,b; a=255).
-function bayerTextureData(order: number): Uint8Array {
-  const m = bayerMatrix(order);
+// Pack a rank matrix (values 0..total-1) into RGBA threshold-map bytes
+// (normalized (rank+0.5)/total replicated into r,g,b; a=255).
+function packRanks(ranks: number[][], order: number): Uint8Array {
   const total = order * order;
-  const data = new Uint8Array(order * order * 4);
+  const data = new Uint8Array(total * 4);
   for (let y = 0; y < order; y++) {
     for (let x = 0; x < order; x++) {
-      const v = Math.round(((m[y][x] + 0.5) / total) * 255);
+      const v = Math.round(((ranks[y][x] + 0.5) / total) * 255);
       const i = (y * order + x) * 4;
       data[i] = v;
       data[i + 1] = v;
@@ -128,6 +128,187 @@ function bayerTextureData(order: number): Uint8Array {
     }
   }
   return data;
+}
+
+// RGBA byte data for the Bayer threshold map.
+function bayerTextureData(order: number): Uint8Array {
+  return packRanks(bayerMatrix(order), order);
+}
+
+// Clustered-dot "halftone" screen: rank cells by distance from the cell centre
+// so the dot grows radially outward as luminance rises (classic AM halftone).
+// A tiny angular tie-breaker keeps equidistant cells from forming hard rings.
+function halftoneMatrix(order: number): number[][] {
+  const c = (order - 1) / 2;
+  const cells: { x: number; y: number; key: number }[] = [];
+  for (let y = 0; y < order; y++) {
+    for (let x = 0; x < order; x++) {
+      const dx = x - c;
+      const dy = y - c;
+      const dist = dx * dx + dy * dy;
+      const angle = Math.atan2(dy, dx); // -PI..PI tie-breaker
+      cells.push({ x, y, key: dist * 1000 + (angle + Math.PI) });
+    }
+  }
+  cells.sort((a, b) => a.key - b.key);
+  const ranks: number[][] = Array.from({ length: order }, () => new Array(order).fill(0));
+  cells.forEach((cell, rank) => {
+    ranks[cell.y][cell.x] = rank;
+  });
+  return ranks;
+}
+
+function halftoneTextureData(order: number): Uint8Array {
+  return packRanks(halftoneMatrix(order), order);
+}
+
+// Void-and-cluster (Ulichney 1993) blue-noise dither array. Produces a
+// toroidal threshold matrix whose set points are maximally spread (blue noise),
+// so dithering with it has no visible structured artifacts. Energy is a wrapped
+// Gaussian; we maintain it incrementally and scan for the tightest cluster /
+// largest void each step. Deterministic via a seeded LCG (stable across runs).
+function voidAndClusterMatrix(order: number): number[][] {
+  const N = order;
+  const total = N * N;
+  const sigma = 1.9;
+  const inv2s2 = 1 / (2 * sigma * sigma);
+
+  // Wrapped-distance Gaussian LUT indexed by [dy * N + dx].
+  const gauss = new Float64Array(total);
+  for (let dy = 0; dy < N; dy++) {
+    const wy = Math.min(dy, N - dy);
+    for (let dx = 0; dx < N; dx++) {
+      const wx = Math.min(dx, N - dx);
+      gauss[dy * N + dx] = Math.exp(-(wx * wx + wy * wy) * inv2s2);
+    }
+  }
+
+  const binary = new Uint8Array(total); // 1 = set
+  const energy = new Float64Array(total);
+
+  function toggle(p: number, add: boolean) {
+    const py = Math.floor(p / N);
+    const px = p - py * N;
+    const sign = add ? 1 : -1;
+    for (let y = 0; y < N; y++) {
+      const dy = ((y - py) % N + N) % N;
+      const row = y * N;
+      const grow = dy * N;
+      for (let x = 0; x < N; x++) {
+        const dx = ((x - px) % N + N) % N;
+        energy[row + x] += sign * gauss[grow + dx];
+      }
+    }
+    binary[p] = add ? 1 : 0;
+  }
+
+  function tightestCluster(): number {
+    let best = -1;
+    let bestE = -Infinity;
+    for (let p = 0; p < total; p++) {
+      if (binary[p] === 1 && energy[p] > bestE) {
+        bestE = energy[p];
+        best = p;
+      }
+    }
+    return best;
+  }
+
+  function largestVoid(): number {
+    let best = -1;
+    let bestE = Infinity;
+    for (let p = 0; p < total; p++) {
+      if (binary[p] === 0 && energy[p] < bestE) {
+        bestE = energy[p];
+        best = p;
+      }
+    }
+    return best;
+  }
+
+  // Seeded LCG for a deterministic initial sprinkle.
+  let seed = 0x9e3779b9 ^ total;
+  const rand = () => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed / 0x100000000;
+  };
+
+  // Initial pattern: ~1/10 of cells set at random.
+  let ones = Math.max(1, Math.round(total / 10));
+  const order0: number[] = [];
+  for (let p = 0; p < total; p++) order0.push(p);
+  for (let i = order0.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [order0[i], order0[j]] = [order0[j], order0[i]];
+  }
+  for (let k = 0; k < ones; k++) toggle(order0[k], true);
+
+  // Relax to a homogeneous "prototype" pattern: move tightest cluster -> largest void.
+  for (let iter = 0; iter < total * 4; iter++) {
+    const c = tightestCluster();
+    toggle(c, false);
+    const v = largestVoid();
+    if (v === c) {
+      toggle(c, true);
+      break;
+    }
+    toggle(v, true);
+  }
+
+  const ranks = new Int32Array(total).fill(-1);
+
+  // Phase 1: remove tightest clusters from the prototype, ranks (ones-1)..0.
+  // Work on a copy so the prototype is preserved for phases 2/3.
+  const proto = binary.slice();
+  let rank = ones - 1;
+  for (let k = 0; k < ones; k++) {
+    const c = tightestCluster();
+    ranks[c] = rank--;
+    toggle(c, false);
+  }
+
+  // Restore the prototype for phase 2.
+  for (let p = 0; p < total; p++) {
+    if (proto[p] === 1 && binary[p] === 0) toggle(p, true);
+    else if (proto[p] === 0 && binary[p] === 1) toggle(p, false);
+  }
+
+  // Phase 2: insert into largest voids, ranks ones..(total/2 - 1).
+  const half = Math.floor((total + 1) / 2);
+  for (rank = ones; rank < half; rank++) {
+    const v = largestVoid();
+    ranks[v] = rank;
+    toggle(v, true);
+  }
+
+  // Phase 3: invert the measure - largest void of the complement (tightest
+  // cluster of the holes) gets the next rank. ranks (total/2)..(total-1).
+  for (rank = half; rank < total; rank++) {
+    // Tightest cluster of zeros == the zero with the highest energy.
+    let best = -1;
+    let bestE = -Infinity;
+    for (let p = 0; p < total; p++) {
+      if (binary[p] === 0 && energy[p] > bestE) {
+        bestE = energy[p];
+        best = p;
+      }
+    }
+    if (best < 0) break;
+    ranks[best] = rank;
+    toggle(best, true);
+  }
+
+  // Reshape to 2D.
+  const out: number[][] = Array.from({ length: N }, () => new Array(N).fill(0));
+  for (let p = 0; p < total; p++) {
+    const py = Math.floor(p / N);
+    out[py][p - py * N] = ranks[p] < 0 ? 0 : ranks[p];
+  }
+  return out;
+}
+
+function voidAndClusterTextureData(order: number): Uint8Array {
+  return packRanks(voidAndClusterMatrix(order), order);
 }
 
 // A generated default source (diagonal luminance ramp + soft color) so the
@@ -163,8 +344,27 @@ export function createDitheredImageEffect(): Effect {
 
   function makeThreshold(map: string) {
     if (!renderer || !uniforms) return;
-    const order = map === 'bayer8x8' ? 8 : 4;
-    const data = bayerTextureData(order);
+    let order: number;
+    let data: Uint8Array;
+    switch (map) {
+      case 'bayer8x8':
+        order = 8;
+        data = bayerTextureData(8);
+        break;
+      case 'halftone':
+        order = 8;
+        data = halftoneTextureData(8);
+        break;
+      case 'voidAndCluster':
+        order = 32;
+        data = voidAndClusterTextureData(32);
+        break;
+      case 'bayer4x4':
+      default:
+        order = 4;
+        data = bayerTextureData(4);
+        break;
+    }
     const gl = renderer.gl;
     thresholdTexture = new Texture(gl, {
       image: data,
