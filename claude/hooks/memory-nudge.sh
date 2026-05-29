@@ -73,6 +73,24 @@ def touch_last_memory_write():
 # For Bash: check if command looks like it modifies files (not read-only)
 if tool == "Bash":
     cmd = data.get("tool_input", {}).get("command", "")
+    import re as _re
+    # ROOT-CAUSE FIX (T-0033): the write-token scan below substring-matches the
+    # command, so any write token sitting inside a QUOTED span - a commit
+    # message, an echo arg, a grep pattern - false-fired the dirty flag. The
+    # classic case is `git commit -m "a -> b"` (the "-> " matches the "> "
+    # redirect token), but a message containing "rm ", "touch ", or "mv " as
+    # ordinary words trips it just as hard, and a mixed compound like
+    # `git add x && echo y | grep z && git commit -m "p -> q"` defeats the
+    # pure-git exemption entirely. Fix: strip quoted spans FIRST, then match on
+    # the bare command. Real redirects/writes are unquoted; the false-positive
+    # text is always quoted. cmd_bare is what every token check below uses.
+    # NOTE: this python body runs inside a shell single-quoted `python3 -c '...'`,
+    # so a literal single-quote here would terminate that string. Build the quote
+    # characters via chr() (39=apostrophe, 34=double-quote) to stay shell-safe.
+    _SQ = chr(39); _DQ = chr(34)
+    cmd_bare = _re.sub(_SQ + "[^" + _SQ + "]*" + _SQ, " ", cmd)       # strip single-quoted spans
+    cmd_bare = _re.sub(_DQ + "[^" + _DQ + "]*" + _DQ, " ", cmd_bare)  # strip double-quoted spans
+
     # Skip read-only commands
     read_only = ["ls", "cat", "head", "tail", "grep", "find", "echo", "pwd",
                  "git status", "git log", "git diff", "git show", "git branch",
@@ -80,23 +98,20 @@ if tool == "Bash":
                  "curl -s", "node -e", "python3 -c"]
     is_read = any(cmd.strip().startswith(r) for r in read_only)
     # Pure-git commands never AUTHOR project content that needs a beat - they
-    # manipulate VCS state, and `git commit` is what CONSUMES a beat, not a new
-    # change requiring one. Treating them as writes also false-matched the
-    # redirect tokens below ("> ", ">>") against arrows like "->" inside commit
-    # messages, which spuriously re-set the dirty flag right after a successful
-    # commit and blocked the next one. So: if every chained segment is a git
-    # command, this is not a beat-needing write. A compound that mixes git with
-    # a non-git writer (e.g. `sed -i x && git add`) still falls through to the
-    # write check below via the not-all-git test.
-    import re as _re
-    _segments = [s.strip() for s in _re.split(r"&&|\|\||;|\||\n", cmd) if s.strip()]
+    # manipulate VCS state, and `git commit` is what CONSUMES a beat. Kept as a
+    # secondary guard; the de-quoting above already neutralizes the arrow/word
+    # false-matches that originally motivated it. A compound mixing git with a
+    # real non-git writer (e.g. `sed -i x && git add`) is NOT pure-git and still
+    # falls through to the write check, where the unquoted `sed -i` is detected.
+    _segments = [s.strip() for s in _re.split(r"&&|\|\||;|\||\n", cmd_bare) if s.strip()]
     is_pure_git = bool(_segments) and all(s.startswith("git ") or s == "git" for s in _segments)
-    # Skip memory-related commands
-    is_memory = ".claude/memory" in cmd or "MEMORY.md" in cmd
+    # Skip memory-related commands (match the bare command so a quoted mention
+    # of a memory path in a message neither falsely clears nor sets the flag)
+    is_memory = ".claude/memory" in cmd_bare or "MEMORY.md" in cmd_bare
     # Commands that write files
     writes = ["cp ", "mv ", "python3 <<", "cat <<", "> ", ">>", "tee ", "install",
               "sed -i", "chmod", "ln -s", "mkdir", "touch ", "rm "]
-    is_write = any(w in cmd for w in writes) and not is_pure_git
+    is_write = any(w in cmd_bare for w in writes) and not is_pure_git
 
     if is_memory:
         try:
