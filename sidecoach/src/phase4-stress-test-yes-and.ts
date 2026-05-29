@@ -114,7 +114,7 @@ async function runStressTest() {
     console.log(`  Sidecoach successfully orchestrates multiple flows`);
     console.log(`  Design material consolidation verified`);
   } else {
-    console.log(`✗ Stress Test: NEEDS ENDOWEMENT`);
+    console.log(`✗ Stress Test: NEEDS JUSTIFYEMENT`);
     console.log(`  Success rate: ${((successful / results.length) * 100).toFixed(0)}%`);
   }
   console.log(`===========================================\n`);

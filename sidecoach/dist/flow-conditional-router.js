@@ -49,9 +49,9 @@ class FlowConditionalRouter {
         return prerequisites.every(flowId => this.flowHasExecuted(context, flowId));
     }
     // Feature availability conditions
-    static hasEndowTool(context) {
-        // Check if endow is available in metadata or environment
-        return !!(context.metadata?.endowAvailable !== false);
+    static hasJustifyTool(context) {
+        // Check if justify is available in metadata or environment
+        return !!(context.metadata?.justifyAvailable !== false);
     }
     static hasFigmaAccess(context) {
         // Check if Figma integration is available

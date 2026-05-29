@@ -443,10 +443,10 @@
         "${HOME}/.claude/voice-output/server.js"
       ]
     },
-    "endow": {
+    "justify": {
       "command": "node",
       "args": [
-        "${HOME}/.claude/endow/dist/server/index.js"
+        "${HOME}/.claude/justify/dist/server/index.js"
       ]
     },
     "peekaboo": {

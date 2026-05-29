@@ -226,7 +226,7 @@ export class SidecoachEntryPoint {
 ```json
 {
   "voice-output": {...},
-  "improv": {...}
+  "justify": {...}
 }
 ```
 
@@ -248,7 +248,7 @@ export class SidecoachEntryPoint {
 - design-team
 - fontshare-reference
 - icon-source
-- improv
+- justify
 - make-interfaces-feel-better (symlink)
 - motion-reference
 - reflect

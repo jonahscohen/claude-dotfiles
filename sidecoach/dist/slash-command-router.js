@@ -164,7 +164,7 @@ function getAvailableCommands() {
             phase: 'Special',
         },
         rapid: {
-            description: 'Live browser iteration with Endow or token-based variations',
+            description: 'Live browser iteration with Justify or token-based variations',
             flows: ['Rapid Iteration Refined', 'Rapid Iteration'],
             phase: 'Review',
         },

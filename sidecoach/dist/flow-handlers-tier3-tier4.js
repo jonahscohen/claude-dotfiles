@@ -539,21 +539,21 @@ class FlowNRapidIterationHandler extends flow_handler_1.BaseFlowHandler {
         // T-0012: per-flow model-tier routing. Stash selected model into context.metadata.
         (0, model_routing_1.applyModelSelection)(this.flowId, context);
         const enhancedContext = context;
-        // Check if Endow is available for live browser iteration
-        const endowAvailable = process.env.ENDOW_AVAILABLE === 'true' ||
-            process.env.ENDOW_SOCKET_PATH !== undefined;
+        // Check if Justify is available for live browser iteration
+        const justifyAvailable = process.env.JUSTIFY_AVAILABLE === 'true' ||
+            process.env.JUSTIFY_SOCKET_PATH !== undefined;
         const guidance = [];
-        if (endowAvailable) {
-            guidance.push('LIVE BROWSER ITERATION ENABLED via Endow');
+        if (justifyAvailable) {
+            guidance.push('LIVE BROWSER ITERATION ENABLED via Justify');
             guidance.push('---');
             guidance.push('1. Open the design/component in browser');
-            guidance.push('2. Activate Endow overlay (CMD+SHIFT+.)');
+            guidance.push('2. Activate Justify overlay (CMD+SHIFT+.)');
             guidance.push('3. Select element to iterate on');
-            guidance.push('4. Review proposed changes from Endow');
+            guidance.push('4. Review proposed changes from Justify');
             guidance.push('5. Accept/reject each iteration (max 10 rounds)');
             guidance.push('6. Visual artifacts captured after each round');
             guidance.push('---');
-            guidance.push('Fallback: token-based variations if Endow not connected');
+            guidance.push('Fallback: token-based variations if Justify not connected');
         }
         else {
             guidance.push('Define success criteria upfront: what does a successful design look like?');
@@ -570,9 +570,9 @@ class FlowNRapidIterationHandler extends flow_handler_1.BaseFlowHandler {
         if (enhancedContext?.flowMetadata) {
             enhancedContext.flowMetadata.tags = ['flowN', 'rapid-iteration', 'token-based'];
             enhancedContext.flowMetadata.customData = {
-                'iteration-mode': endowAvailable ? 'live-browser' : 'token-based',
-                'endow-available': endowAvailable,
-                'max-rounds': endowAvailable ? 10 : 4,
+                'iteration-mode': justifyAvailable ? 'live-browser' : 'token-based',
+                'justify-available': justifyAvailable,
+                'max-rounds': justifyAvailable ? 10 : 4,
                 'supported-properties': ['color-adjustments', 'spacing', 'typography', 'opacity', 'border-radius'].length,
             };
         }
@@ -631,29 +631,29 @@ class FlowNRapidIterationHandler extends flow_handler_1.BaseFlowHandler {
         catch (error) {
             guidance.push(`Note: Could not validate iteration anti-patterns (${error instanceof Error ? error.message : 'unknown error'})`);
         }
-        // Add Endow iteration artifact if available
-        if (endowAvailable) {
-            artifacts.push(this.createArtifact('reference', 'endow-iteration-session', JSON.stringify({
+        // Add Justify iteration artifact if available
+        if (justifyAvailable) {
+            artifacts.push(this.createArtifact('reference', 'justify-iteration-session', JSON.stringify({
                 mode: 'live-browser-iteration',
                 improveStatus: 'connected',
                 maxRounds: 10,
                 supported: ['color-adjustments', 'spacing', 'typography', 'opacity', 'border-radius'],
                 captureMode: 'screenshot-per-round',
-            }), 'Live Endow iteration session - visual changes captured and compared'));
+            }), 'Live Justify iteration session - visual changes captured and compared'));
         }
         return {
             flowId: this.flowId,
             flowName: this.getFlowName(),
             status: 'success',
-            message: endowAvailable ?
-                'Rapid iteration with live browser iteration via Endow' :
+            message: justifyAvailable ?
+                'Rapid iteration with live browser iteration via Justify' :
                 'Rapid iteration with token-based variations',
             guidance,
             checklist: this.createChecklist([
                 { label: 'Define success criteria for this element', required: true },
                 { label: 'List 2-3 token variations to test', required: true },
-                endowAvailable ?
-                    { label: 'Activate Endow overlay and select element', required: true } :
+                justifyAvailable ?
+                    { label: 'Activate Justify overlay and select element', required: true } :
                     { label: 'Generate variations by adjusting DESIGN.md tokens', required: true },
                 { label: 'Validate iterations against anti-pattern baseline', required: true },
                 { label: 'Test variations against success criteria', required: true },

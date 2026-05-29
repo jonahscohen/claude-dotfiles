@@ -21,8 +21,8 @@ Complete mapping of all slash commands to flows they execute.
 ### /sidecoach rapid
 - Primary flows: flowN_rapid_iteration_refined
 - Legacy flows: flow13_rapid_iteration
-- Purpose: Rapid iteration with live browser (Endow) or token-based variants
-- Endow detection: Checks ENDOW_AVAILABLE environment variable
+- Purpose: Rapid iteration with live browser (Justify) or token-based variants
+- Justify detection: Checks JUSTIFY_AVAILABLE environment variable
 - Max iterations: 10 rounds with screenshot capture
 - Total flows: 2
 

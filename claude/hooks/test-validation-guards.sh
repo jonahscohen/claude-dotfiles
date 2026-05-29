@@ -104,7 +104,7 @@ echo "===== bash-guard cmux-eval BLOCK tests ====="
 bash_assert_blocks "synthetic .click()"            "cmux browser eval \"document.querySelector('a').click()\""
 bash_assert_blocks "dispatchEvent"                  "cmux browser eval \"el.dispatchEvent(new Event('click'))\""
 bash_assert_blocks "private method invocation"     "cmux browser eval \"obj._privateMethod()\""
-bash_assert_blocks "__endow namespace method"     "cmux browser eval \"window.__endow.activate()\""
+bash_assert_blocks "__justify namespace method"     "cmux browser eval \"window.__justify.activate()\""
 bash_assert_blocks "private array push"            "cmux browser eval \"pm._changeQueue.push({x:1})\""
 
 # Read shortcuts already covered before the fix

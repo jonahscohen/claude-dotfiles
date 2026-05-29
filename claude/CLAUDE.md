@@ -163,7 +163,7 @@ You are BLOCKED from reporting task completion to the user until ALL of the foll
 
    The unified blocklist (enforced identically by `validation-guard.sh` for the chrome MCP javascript_tool AND by `bash-guard.sh` for `cmux ... eval` commands - both hooks now cover the same patterns; any divergence is a bug to file) covers two categories.
 
-   State-mutation shortcuts (synthesizing user actions): `element.click()`, `element.dispatchEvent(...)`, `obj._privateMethod(...)`, `window.__endow.method(...)` or any other application-namespace method, `obj._privateArray.push/splice/shift/unshift/pop(...)`. These bypass the real event path, which is the path that may contain the bug you are trying to verify.
+   State-mutation shortcuts (synthesizing user actions): `element.click()`, `element.dispatchEvent(...)`, `obj._privateMethod(...)`, `window.__justify.method(...)` or any other application-namespace method, `obj._privateArray.push/splice/shift/unshift/pop(...)`. These bypass the real event path, which is the path that may contain the bug you are trying to verify.
 
    DOM-state reads (probing what's not visible to a human): `getComputedStyle`, `getBoundingClientRect`, the `offset*`/`client*`/`scroll*` dimension properties, `.scrollTop`/`.scrollLeft`, `.textContent`/`.innerText`/`.innerHTML`, `.style[...]` reads, `.classList`, `.className`, `.hasAttribute(...)`/`.getAttribute(...)`, `.matches(...)`, `.closest(...)`, `querySelectorAll(...).length` and `.forEach/.map/.filter/.every/.some/.reduce` on a query result, `window.innerWidth`/`innerHeight`, element-existence checks like `!!document.querySelector(...)` or `document.querySelector(...) !== null`, and form-state reads `.disabled`/`.checked`/`.selected`. These are DevTools-grade introspection - take a screenshot or interact with the element instead.
 
@@ -382,8 +382,8 @@ If `~/.claude/transcribe` is missing on a fresh machine, run `ampersand --only v
 
 The `discord` component adds a state-aware wrapper around `claude` so opening a session prompts intelligently based on what's already configured on the machine. Three states:
 
-- **Cold** (no bot token in macOS Keychain): the wrapper endow `[s] Set up now`, `[k] Skip this session`, `[n] Never ask again`. `s` runs `~/.claude/discord-onboard.sh`; `n` writes `~/.claude/channels/discord/.skip-launcher` so the prompt never reappears (delete the file to undo).
-- **Mid** (token configured but no users paired in `access.json`): the wrapper endow `[p] Pair now` (launches Claude with the Discord channel attached so the user can DM the bot) or `[s] Skip`.
+- **Cold** (no bot token in macOS Keychain): the wrapper offers `[s] Set up now`, `[k] Skip this session`, `[n] Never ask again`. `s` runs `~/.claude/discord-onboard.sh`; `n` writes `~/.claude/channels/discord/.skip-launcher` so the prompt never reappears (delete the file to undo).
+- **Mid** (token configured but no users paired in `access.json`): the wrapper offers `[p] Pair now` (launches Claude with the Discord channel attached so the user can DM the bot) or `[s] Skip`.
 - **Warm** (token + at least one paired user): `Connect to Discord Chat Agent? (y/n)` prompt, waits indefinitely for an answer, default Yes.
 
 `~/.claude/discord-onboard.sh` is the interactive walkthrough. It runs `--status` to print state and exits, or interactively dispatches to one of two paths:

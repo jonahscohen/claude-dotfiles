@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>reference - the full kit and kaboodle | claude-dotfiles</title>
-  <meta name="description" content="The comprehensive reference for every component of claude-dotfiles. Tab through endow, sidecoach, beats, cmux, voice, discord, hooks, and validation-guard." />
+  <meta name="description" content="The comprehensive reference for every component of claude-dotfiles. Tab through justify, sidecoach, beats, cmux, voice, discord, hooks, and validation-guard." />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -36,7 +36,7 @@
       </a>
       <div class="topbar__cluster">
         <nav aria-label="Primary" id="primary-nav">
-          <a href="endow.html">endow</a>
+          <a href="justify.html">justify</a>
           <a href="sidecoach.html">sidecoach</a>
           <a href="cheatsheet.html">cheatsheet</a>
           <a href="beats.html">beats</a>
@@ -81,7 +81,7 @@
       <div class="container">
         <div class="reference">
           <nav class="reference__tabs" role="tablist" aria-label="Component reference">
-            <button class="reference__tab" role="tab" aria-selected="true" aria-controls="panel-endow" id="tab-endow" data-tab="endow">endow</button>
+            <button class="reference__tab" role="tab" aria-selected="true" aria-controls="panel-justify" id="tab-justify" data-tab="justify">justify</button>
             <button class="reference__tab" role="tab" aria-selected="false" aria-controls="panel-sidecoach" id="tab-sidecoach" data-tab="sidecoach">sidecoach</button>
             <button class="reference__tab" role="tab" aria-selected="false" aria-controls="panel-memory" id="tab-memory" data-tab="memory">beats</button>
             <button class="reference__tab" role="tab" aria-selected="false" aria-controls="panel-cmux" id="tab-cmux" data-tab="cmux">cmux</button>
@@ -93,16 +93,16 @@
 
           <div class="reference__panels">
 
-            <!-- endow -->
-            <section class="reference__panel" id="panel-endow" role="tabpanel" aria-labelledby="tab-endow" data-active="true">
+            <!-- justify -->
+            <section class="reference__panel" id="panel-justify" role="tabpanel" aria-labelledby="tab-justify" data-active="true">
               <header>
-                <h2>endow</h2>
+                <h2>justify</h2>
                 <p>A microadjustment toolbar for Claude Code. Queue changes through prompt mode or manipulate mode; Claude works the scene in the background and refreshes the browser when done.</p>
               </header>
 
               <h3>Install</h3>
-              <pre><code>./install.sh --only endow</code></pre>
-              <p>The installer wires the toolbar, the MCP server registration in <code>~/.claude/settings.json</code>, and the queue. Symlinks the source into <code>~/.claude/skills/endow/</code> so future dotfiles pulls pick up upstream changes.</p>
+              <pre><code>./install.sh --only justify</code></pre>
+              <p>The installer wires the toolbar, the MCP server registration in <code>~/.claude/settings.json</code>, and the queue. Symlinks the source into <code>~/.claude/skills/justify/</code> so future dotfiles pulls pick up upstream changes.</p>
 
               <h3>How it works</h3>
               <p>Two modes share one queue. Prompt mode lets you select an element and type the change as plain English ("heavier heading," "tighter padding"). Manipulate mode lets you select an element and reach for the exact property to change (font weight, color, radius, spacing, shadow). Either way, the change lands in the queue scoped to the element you picked.</p>
@@ -110,9 +110,9 @@
 
               <h3>Commands</h3>
               <ul>
-                <li><code>endow start</code> - mounts the toolbar over your dev server and registers it with the running session</li>
-                <li><code>endow stop</code> - tears down the toolbar and clears the queue</li>
-                <li><code>endow status</code> - prints the current selection, queue length, and connection state</li>
+                <li><code>justify start</code> - mounts the toolbar over your dev server and registers it with the running session</li>
+                <li><code>justify stop</code> - tears down the toolbar and clears the queue</li>
+                <li><code>justify status</code> - prints the current selection, queue length, and connection state</li>
               </ul>
 
               <h3>Posture</h3>
@@ -124,7 +124,7 @@
               </ul>
 
               <h3>Source</h3>
-              <p><a href="https://github.com/jonahscohen/claude-dotfiles/tree/main/endow" rel="noreferrer noopener">github.com/jonahscohen/claude-dotfiles/tree/main/endow</a></p>
+              <p><a href="https://github.com/jonahscohen/claude-dotfiles/tree/main/justify" rel="noreferrer noopener">github.com/jonahscohen/claude-dotfiles/tree/main/justify</a></p>
             </section>
 
             <!-- sidecoach -->
@@ -378,7 +378,7 @@ voice off</code></pre>
         <span>Yes<span style="color: var(--color-red); font-style: italic;">&amp;</span> claude-dotfiles. Open source, MIT.</span>
         <nav aria-label="Footer">
           <a href="index.html">Home</a>
-          <a href="endow.html">endow</a>
+          <a href="justify.html">justify</a>
           <a href="sidecoach.html">sidecoach</a>
           <a href="beats.html">beats</a>
           <a href="https://github.com/jonahscohen/claude-dotfiles" rel="noreferrer noopener">GitHub</a>

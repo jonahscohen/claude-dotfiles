@@ -72,9 +72,9 @@ export class FlowConditionalRouter {
   }
 
   // Feature availability conditions
-  static hasEndowTool(context: FlowExecutionContext): boolean {
-    // Check if endow is available in metadata or environment
-    return !!(context.metadata?.endowAvailable !== false);
+  static hasJustifyTool(context: FlowExecutionContext): boolean {
+    // Check if justify is available in metadata or environment
+    return !!(context.metadata?.justifyAvailable !== false);
   }
 
   static hasFigmaAccess(context: FlowExecutionContext): boolean {

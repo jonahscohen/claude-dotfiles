@@ -94,7 +94,7 @@ fi
 #
 # Activates only when the command actually contains a real `cmux ... eval`
 # invocation. Setup eval calls (bundle injection: document.createElement('script'),
-# appendChild, delete window.__endow) don't match these patterns and are allowed.
+# appendChild, delete window.__justify) don't match these patterns and are allowed.
 #
 # Anti-false-block: T-0003 (self-block of commit 50fc1b0). Prose mentions of the
 # blocklist patterns inside HEREDOC bodies, inside `-m "..."` strings, or inside
@@ -211,8 +211,8 @@ PYEOF
       CMUX_TRIGGER_REASON="cmux eval contains dispatchEvent - synthesizes events instead of triggering them via real input."
     elif echo "$CMUX_EVAL_SLICE" | grep -qE '\._[a-zA-Z][a-zA-Z0-9_]*\s*\('; then
       CMUX_TRIGGER_REASON="cmux eval invokes a private (_underscore-prefixed) method - skips the user-facing flow that would normally fire it."
-    elif echo "$CMUX_EVAL_SLICE" | grep -qE '(window\.)?__endow\.[a-zA-Z_][a-zA-Z0-9_]*\s*\('; then
-      CMUX_TRIGGER_REASON="cmux eval invokes a method on the __endow application namespace - skips the user-facing path."
+    elif echo "$CMUX_EVAL_SLICE" | grep -qE '(window\.)?__justify\.[a-zA-Z_][a-zA-Z0-9_]*\s*\('; then
+      CMUX_TRIGGER_REASON="cmux eval invokes a method on the __justify application namespace - skips the user-facing path."
     elif echo "$CMUX_EVAL_SLICE" | grep -qE '\._[a-zA-Z][a-zA-Z0-9_]*\.(push|splice|shift|unshift|pop)\s*\('; then
       CMUX_TRIGGER_REASON="cmux eval mutates a private application array - the user can't reach this without a real interaction."
     # --- read shortcuts (DOM inspection that isn't what a user sees) ---

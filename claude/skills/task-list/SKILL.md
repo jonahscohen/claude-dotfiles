@@ -25,9 +25,9 @@ Do not pick up `TASKS.md` files in other repos. If the dotfiles file does not ex
 
 ### `add` - `/task-list add [area] [P#] <description>`
 
-1. **Determine area.** Parse the first whitespace-delimited token as `[area]` only if it matches a known area name (`sidecoach`, `endow`, `marketing-site`, `test-site-1`, `dotfiles`) or matches an existing `## <name>` section in the file. Otherwise the whole arg string is the description and area is inferred from cwd:
+1. **Determine area.** Parse the first whitespace-delimited token as `[area]` only if it matches a known area name (`sidecoach`, `justify`, `marketing-site`, `test-site-1`, `dotfiles`) or matches an existing `## <name>` section in the file. Otherwise the whole arg string is the description and area is inferred from cwd:
    - cwd path contains `/sidecoach` -> `sidecoach`
-   - cwd path contains `/endow` -> `endow`
+   - cwd path contains `/justify` -> `justify`
    - cwd path contains `/marketing-site` -> `marketing-site`
    - cwd path contains `/test-site-1` -> `test-site-1`
    - anything else -> `dotfiles`
