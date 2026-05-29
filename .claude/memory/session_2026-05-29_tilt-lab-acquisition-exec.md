@@ -22,5 +22,8 @@ Team tilt-acquire (5 teammates acquire-a..e) working 9 lane tasks from the share
 ## Spawn-race on lane 1 (resolved live)
 acquire-a flagged a second teammate concurrently writing lane-1 files (mesh-gradient/swarm/fluid-solver complete + passing; fluid partial, no manifest/test; halftone/fractal-glass empty). Root cause = the batch-spawn double-claim race (see feedback_team_spawn_claim_race.md). Resolution: moved acquire-a OFF lane 1 to lane 6 (cursor-trail); pinged acquire-b + acquire-e to identify+own the lane-1 builder; I will reconcile lane-1 gaps during Task 6 central registration. Lane status as of resolution: lane 2 (paper) + lane 4 (globe) COMPLETE; lane 1 + lane 5 (particles) + lane 6 in progress; lanes 7/8a/8b/9 pending.
 
+## Shared blocker: three has no types (resolved)
+acquire-c escalated that `three` ships no type declarations (TS7016 repo-wide for three-based effects: mesh-gradient, particles, motion-core). Checked: ogl + cobe ship their own types (leave alone); three has none. FIX (team-lead owned): `npm i -D @types/three@^0.170.0` - real types incl addons, skipLibCheck on tolerates version drift. NOT a blanket `declare module 'three'` shim (would shadow to any). Resolved the TS7016s. Exposed 2 REAL lane-1 type errors in fractal-glass + halftone (Float32Array<ArrayBufferLike> not assignable to BufferSource/ArrayBuffer on gl uploads - TS5.7 typed-array generic strictness); those belong to the lane-1 builder to fix (cast/type the solver arrays as Float32Array<ArrayBuffer>). Will catch in Task 6 if not.
+
 ## Files
 - tilt-lab/runtime/types.ts (addendum), runtime/pointer.ts + .test.ts (new), runtime/element.ts (wiring), package.json (deps), runtime/effects/_TEMPLATE.test.ts.md (new)
