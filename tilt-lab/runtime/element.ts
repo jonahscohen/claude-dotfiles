@@ -1,4 +1,5 @@
 import type { EffectFactory, Manifest, ParamSpec } from './types';
+import { PointerTracker } from './pointer';
 
 function coerce(spec: ParamSpec, raw: string): unknown {
   switch (spec.type) {
@@ -25,6 +26,7 @@ export function defineEffectElement(manifest: Manifest, factory: EffectFactory):
     private raf = 0;
     private ro?: ResizeObserver;
     private reduced = false;
+    private pointer?: PointerTracker;
 
     connectedCallback() {
       this.canvas = document.createElement('canvas');
@@ -39,6 +41,15 @@ export function defineEffectElement(manifest: Manifest, factory: EffectFactory):
         params[p.name] = attr === null ? p.default : coerce(p, attr);
       }
       this.effect.init(this.canvas, { params, assets: {} });
+
+      // DOM/R3F effects render into this element's subtree instead of the canvas.
+      if (this.effect.mount) {
+        this.effect.mount(this, { params, assets: {} });
+      }
+      // Pointer-driven effects get pointer moves relative to this element.
+      if (this.effect.onPointer) {
+        this.pointer = new PointerTracker(this);
+      }
 
       this.ro = new ResizeObserver(() => this.syncSize());
       this.ro.observe(this);
@@ -58,6 +69,10 @@ export function defineEffectElement(manifest: Manifest, factory: EffectFactory):
     }
 
     private loop = (t: number) => {
+      if (this.pointer && this.effect.onPointer) {
+        const p = this.pointer.position();
+        this.effect.onPointer(p.x, p.y);
+      }
       this.effect.frame(t);
       this.raf = requestAnimationFrame(this.loop);
     };
@@ -70,6 +85,7 @@ export function defineEffectElement(manifest: Manifest, factory: EffectFactory):
 
     disconnectedCallback() {
       cancelAnimationFrame(this.raf);
+      this.pointer?.dispose();
       this.ro?.disconnect();
       this.effect.dispose();
     }

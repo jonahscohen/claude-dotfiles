@@ -47,6 +47,10 @@ export interface Effect {
   resize(w: number, h: number): void;
   setParam(key: string, value: unknown): void;
   dispose(): void;
+  /** Optional: pointer-driven effects receive pointer moves (canvas-relative coords). */
+  onPointer?(x: number, y: number): void;
+  /** Optional: DOM/R3F effects render into a host subtree instead of the canvas. */
+  mount?(host: HTMLElement, opts: EffectOpts): void;
 }
 
 /** A factory that produces a fresh Effect instance. */
