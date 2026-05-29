@@ -8,7 +8,9 @@ await esbuild.build({
   bundle: true,
   outfile: 'dist/tilt-runtime.js',
   format: 'esm',
-  loader: { '.json': 'json' },
+  // `.png`/`.jpg` -> inlined data URLs so the runtime bundle is self-contained
+  // and effects receive real asset URLs (resolved from `new URL(..., import.meta.url)`).
+  loader: { '.json': 'json', '.png': 'dataurl', '.jpg': 'dataurl' },
   minify: !dev,
   sourcemap: true,
   target: 'es2022',

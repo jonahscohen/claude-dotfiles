@@ -122,6 +122,7 @@ export function registerBuiltins(): void {
   defineStackElement();
 }
 
+export { effectAssets } from './effect-assets';
 export { validateManifest } from './manifest';
 export { validateStack, orderLayers } from './stack';
 export { defineEffectElement } from './element';

@@ -1,6 +1,7 @@
 import type { Effect, LayerConfig } from './types';
 import { orderLayers } from './stack';
 import { PointerTracker } from './pointer';
+import { effectAssets } from './effect-assets';
 
 type FactoryById = (effectId: string) => Effect;
 
@@ -77,14 +78,18 @@ export class Compositor {
       }
       this.root.appendChild(surface);
 
+      // Deliver the effect's real assets (URLs resolved at build/dev time).
+      // Effects without registered assets get `{}` and fall back as before.
+      const assets = effectAssets[config.effectId] ?? {};
+
       // Size the drawing buffer BEFORE init so WebGL/OGL effects configure their
       // viewport and uniforms against the real size, not a detached 0x0 canvas.
       if (canvas) {
         canvas.width = w;
         canvas.height = h;
-        effect.init(canvas, { params: config.params, assets: {} });
+        effect.init(canvas, { params: config.params, assets });
       } else {
-        effect.mount!(surface, { params: config.params, assets: {} });
+        effect.mount!(surface, { params: config.params, assets });
       }
       effect.resize(w, h);
 

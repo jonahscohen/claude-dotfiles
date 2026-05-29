@@ -1,5 +1,6 @@
 import type { EffectFactory, Manifest, ParamSpec } from './types';
 import { PointerTracker } from './pointer';
+import { effectAssets } from './effect-assets';
 
 function coerce(spec: ParamSpec, raw: string): unknown {
   switch (spec.type) {
@@ -41,11 +42,14 @@ export function defineEffectElement(manifest: Manifest, factory: EffectFactory):
         const attr = this.getAttribute(p.name);
         params[p.name] = attr === null ? p.default : coerce(p, attr);
       }
-      this.effect.init(this.canvas, { params, assets: {} });
+      // Deliver this effect's real assets (keyed by manifest id); effects with
+      // none registered get `{}` and fall back to their procedural content.
+      const assets = effectAssets[manifest.id] ?? {};
+      this.effect.init(this.canvas, { params, assets });
 
       // DOM/R3F effects render into this element's subtree instead of the canvas.
       if (this.effect.mount) {
-        this.effect.mount(this, { params, assets: {} });
+        this.effect.mount(this, { params, assets });
       }
       // Pointer-driven effects get pointer moves relative to this element.
       if (this.effect.onPointer) {
