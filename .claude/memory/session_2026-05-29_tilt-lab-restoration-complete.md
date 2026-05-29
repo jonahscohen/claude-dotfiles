@@ -22,5 +22,12 @@ Collaborator: Jonah. 2026-05-29. Autonomous /loop. 6/7 team tasks done (tool-dev
 ## Inert-but-1:1 params (kept for fidelity, unused by original render; per fx-regent)
 fluid.curl, fractal-glass.fluidInfluence/glassAmount/bloomStrength, halftone.fluidInfluence.
 
+## Claude-in-Chrome visual sweep (in progress, tabId 1827119023)
+- Catalog confirmed = 25 (gradient reference gone from list; both Globe(cobe) + Globe(motion-core) present). NO console errors loading/registering all 25 in-browser.
+- mc-globe RENDERS: orange fresnel atmosphere rim + dark sphere, all 15 params exposed. Verified.
+- grain-gradient RENDERS with RESTORED full 7-color palette (color1-7 + colorsCount in panel) - colorful, not grayscale. Verified incidentally.
+- Multi-layer compositing confirmed: Grain Gradient (bg) + mc-globe (midground) stacked + both rendering.
+- STILL TO visually spot-check: animated-gradient(spell), glass-slideshow, infinite-gallery, fluid(particle layer), fractal-glass/halftone (restored colored presets), ascii (3d/disco/shapes). Rest get the verifier-tool functional pass (#1) + the clean-load confirmation.
+
 ## Files
 - tilt-lab/runtime/index.ts (registry: -swirl, +4, gradient excluded), integration.test.ts (gradient->aurora), + 6 agents' effect/dir restorations across runtime/effects/* + runtime/lib.
