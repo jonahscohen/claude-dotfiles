@@ -26,7 +26,16 @@ export class Compositor {
   private ro?: ResizeObserver;
 
   constructor(private root: HTMLElement, private factory: FactoryById) {
-    if (!this.root.style.position) this.root.style.position = 'relative';
+    // Layers are absolutely positioned, so the host must be a positioning
+    // context. Only force `relative` when the host is otherwise `static` -
+    // never clobber an existing absolute/relative/fixed (e.g. a preview host
+    // that uses `position:absolute; inset:0` to fill its parent), or it
+    // collapses to zero height and effects render into a 1px-tall canvas.
+    const pos =
+      typeof getComputedStyle === 'function' ? getComputedStyle(this.root).position : '';
+    if (pos === '' || pos === 'static') {
+      this.root.style.position = 'relative';
+    }
     this.pointer = new PointerTracker(this.root);
     if (typeof ResizeObserver !== 'undefined') {
       this.ro = new ResizeObserver(() => this.resize());

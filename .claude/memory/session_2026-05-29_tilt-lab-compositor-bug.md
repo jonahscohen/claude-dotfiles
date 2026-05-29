@@ -28,6 +28,12 @@ CONCRETE SUSPECT found in lava-lamp init: it PROBES `canvas.getContext('webgl2')
 ROOT CAUSE NOT DEFINITIVELY CONFIRMED - needs live per-effect GL debugging (check gl.getError, whether frame() is actually invoked, clearColor/alpha, dpr/viewport). Do NOT assume a single fix.
 SCOPE: ~18 WebGL/OGL effects, ported by different agents. Canvas2D effects (gradient confirmed, swarm, ascii) unaffected.
 
+## ROOT CAUSE FOUND + FIXED (live console debugging, 2026-05-29)
+Instrumented lava-lamp with console.logs (sanctioned debug path) + read via cmux console list. Evidence: `resize {w:725, h:1}` and `frame1 {err:0, bw:1450, bh:2}` - GL error 0 (rendering fine!) but into a 2px-tall canvas. Host clientHeight read as ~0.
+THE BUG WAS MINE (in the compositor rework): `if (!this.root.style.position) this.root.style.position='relative'`. PreviewCanvas's host (.preview-canvas) fills its parent via CSS `position:absolute; inset:0`; forcing inline `position:relative` clobbered that, collapsing the host to ~0 height (its children are absolute) -> h=1 -> 2px canvas -> invisible. Systemic: hit EVERY layer (Canvas2D + WebGL).
+FIX: only set relative when computed position is `static`/empty (never clobber absolute/relative/fixed). After fix: lava-lamp (OGL) resize {w:725,h:879}, renders orange metaball blobs full-screen; aurora (raw WebGL2) renders full blue/cyan aurora. Both VISUALLY CONFIRMED via cmux screenshot. My earlier double-getContext hypothesis was a red herring for the blankness (though still worth tidying). 123 tests green, tsc clean.
+LESSON: classic debugging-protocol win - instrument + read evidence (h:1) beat theorizing (I'd guessed own-canvas, then attribute-mismatch, both wrong). The actual cause was my own one-line position override.
+
 ## NEXT (recommended): WebGL-render compliance pass
 A focused team, one agent per WebGL/OGL effect: confirm the effect constructs its renderer with the compositor-provided canvas (not a self-created one), wires frame(t)->render + resize->viewport, and VISUALLY verifies via cmux that it paints. This is real per-effect debugging + visual QA, not a single fix. The sidecoach QA gate (audit/critique/polish) runs after the effects actually render.
 
