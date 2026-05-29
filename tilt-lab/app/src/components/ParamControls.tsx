@@ -53,6 +53,22 @@ export function ParamControls({ specs, values, onChange }: Props) {
             </label>
           );
         }
+        if (spec.type === 'file') {
+          return (
+            <label key={spec.name} className="param-controls__row">
+              <span>{spec.name}</span>
+              <input
+                aria-label={spec.name}
+                type="file"
+                accept="image/*,video/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) onChange(spec.name, URL.createObjectURL(file));
+                }}
+              />
+            </label>
+          );
+        }
         return (
           <label key={spec.name} className="param-controls__row">
             <span>{spec.name}</span>

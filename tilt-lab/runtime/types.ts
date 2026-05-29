@@ -2,7 +2,7 @@
 export type LayerRole = 'background' | 'midground' | 'pointer' | 'post';
 
 /** Supported parameter control types in the playground. */
-export type ParamType = 'range' | 'color' | 'toggle' | 'select';
+export type ParamType = 'range' | 'color' | 'toggle' | 'select' | 'file';
 
 export interface ParamSpec {
   name: string;

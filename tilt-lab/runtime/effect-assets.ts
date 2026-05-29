@@ -23,6 +23,7 @@ import { assets as grainGradient } from './effects/grain-gradient/assets';
 import { assets as infiniteGallery } from './effects/infinite-gallery/assets';
 import { assets as interactiveGrid } from './effects/interactive-grid/assets';
 import { assets as mcGlobe } from './effects/mc-globe/assets';
+import { assets as media } from './effects/media/assets';
 import { assets as waterRipple } from './effects/water-ripple/assets';
 
 export const effectAssets: Record<string, Record<string, string>> = {
@@ -34,5 +35,6 @@ export const effectAssets: Record<string, Record<string, string>> = {
   'infinite-gallery': infiniteGallery,
   'interactive-grid': interactiveGrid,
   'mc-globe': mcGlobe,
+  media,
   'water-ripple': waterRipple,
 };

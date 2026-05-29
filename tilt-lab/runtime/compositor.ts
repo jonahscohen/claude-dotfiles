@@ -112,10 +112,26 @@ export class Compositor {
 
   renderFrame(t: number): void {
     const p = this.pointer.position();
-    for (const { effect } of this.layers) {
+    this.layers.forEach((layer, i) => {
+      const { effect, config, canvas } = layer;
+      // A Canvas2D post effect transforms "the scene beneath it": composite the
+      // lower layers' canvases into its OWN canvas before frame() so it samples
+      // real content (e.g. an uploaded Image/Video background). Guarded to 2D
+      // surfaces - a WebGL post effect owns its own input and getContext('2d')
+      // returns null, so this no-ops for them.
+      if (config.layerRole === 'post' && canvas) {
+        const c2d = canvas.getContext('2d');
+        if (c2d) {
+          c2d.clearRect(0, 0, canvas.width, canvas.height);
+          for (let j = 0; j < i; j++) {
+            const below = this.layers[j].canvas;
+            if (below) c2d.drawImage(below, 0, 0, canvas.width, canvas.height);
+          }
+        }
+      }
       if (effect.onPointer) effect.onPointer(p.x, p.y);
       effect.frame(t);
-    }
+    });
   }
 
   clear(): void {

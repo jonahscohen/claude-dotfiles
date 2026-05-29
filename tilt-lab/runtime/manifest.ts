@@ -1,7 +1,7 @@
 import type { Manifest, LayerRole, ParamSpec, ParamType, Redistribution } from './types';
 
 const LAYER_ROLES: LayerRole[] = ['background', 'midground', 'pointer', 'post'];
-const PARAM_TYPES: ParamType[] = ['range', 'color', 'toggle', 'select'];
+const PARAM_TYPES: ParamType[] = ['range', 'color', 'toggle', 'select', 'file'];
 const REDIST: Redistribution[] = ['ok', 'personal-only', 'reimplemented'];
 
 function reqString(obj: Record<string, unknown>, key: string): string {

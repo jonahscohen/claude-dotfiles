@@ -57,6 +57,8 @@ import { createInfiniteGalleryEffect } from './effects/infinite-gallery/index';
 import infiniteGalleryManifest from './effects/infinite-gallery/manifest.json';
 import { createMcGlobeEffect } from './effects/mc-globe/index';
 import mcGlobeManifest from './effects/mc-globe/manifest.json';
+import { createMediaEffect } from './effects/media/index';
+import mediaManifest from './effects/media/manifest.json';
 
 /** Every built-in effect: a raw manifest + its factory. Acquisition adds entries here. */
 const RAW: Array<[unknown, EffectFactory]> = [
@@ -86,6 +88,7 @@ const RAW: Array<[unknown, EffectFactory]> = [
   [glassSlideshowManifest, createGlassSlideshowEffect],
   [infiniteGalleryManifest, createInfiniteGalleryEffect],
   [mcGlobeManifest, createMcGlobeEffect],
+  [mediaManifest, createMediaEffect],
 ];
 
 /**
