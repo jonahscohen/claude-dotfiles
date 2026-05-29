@@ -28,5 +28,7 @@ Desktop reload: no regression, role pills visibly taller (40x40). Resized to 560
 ## TODO queue
 design.md v0.2.0 linter nested-group crash -> marketing-site/ + reference/ DESIGN.md fail lint; refactor to flat tokens or fix the linter. Two dev servers running (:5180 mine, :5181 ui-qa's) - harmless, clean up.
 
+## Closed: T-0042 done (TASKS.md). Queued T-0043 (design.md linter nested-group bug -> marketing-site/reference DESIGN.md fail lint). tilt-ui team deleted.
+
 ## Files
 - app/src/styles.css, app/src/components/AddShaderModal.tsx, app/src/components/PreviewCanvas.tsx, app/vite.config.ts, PRODUCT.md (new), DESIGN.md (new)
