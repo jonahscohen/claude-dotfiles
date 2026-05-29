@@ -1,5 +1,8 @@
 import type { LayerConfig, Manifest } from '../../../runtime/types';
 import { ParamControls } from './ParamControls';
+import { IconButton } from './IconButton';
+import { ChevronUpIcon, ChevronDownIcon, TrashIcon } from './icons';
+import './LayerStack.css';
 
 interface Props {
   layers: LayerConfig[];
@@ -25,27 +28,32 @@ export function LayerStack({ layers, catalog, lastReason, onRemove, onReorder, o
       <ol className="layer-stack__list">
         {layers.map((layer, i) => {
           const manifest = catalog.find((m) => m.id === layer.effectId);
+          const name = manifest?.name ?? layer.effectId;
           return (
             <li key={`${layer.effectId}-${i}`} className="layer-stack__item">
               <header className="layer-stack__item-head">
-                <span className="layer-stack__name">{manifest?.name ?? layer.effectId}</span>
+                <span className="layer-stack__name">{name}</span>
                 <span className="layer-stack__role" data-role={layer.layerRole}>
                   {layer.layerRole}
                 </span>
                 <span className="layer-stack__actions">
-                  <button aria-label={`move up ${i}`} disabled={i === 0} onClick={() => onReorder(i, i - 1)}>
-                    up
-                  </button>
-                  <button
-                    aria-label={`move down ${i}`}
+                  <IconButton
+                    label={`Move ${name} up`}
+                    icon={<ChevronUpIcon />}
+                    disabled={i === 0}
+                    onClick={() => onReorder(i, i - 1)}
+                  />
+                  <IconButton
+                    label={`Move ${name} down`}
+                    icon={<ChevronDownIcon />}
                     disabled={i === layers.length - 1}
                     onClick={() => onReorder(i, i + 1)}
-                  >
-                    down
-                  </button>
-                  <button aria-label={`remove ${i}`} onClick={() => onRemove(i)}>
-                    remove
-                  </button>
+                  />
+                  <IconButton
+                    label={`Remove ${name}`}
+                    icon={<TrashIcon />}
+                    onClick={() => onRemove(i)}
+                  />
                 </span>
               </header>
               {manifest && manifest.params.length > 0 && (

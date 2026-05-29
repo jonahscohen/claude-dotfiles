@@ -1,0 +1,12 @@
+/* LayerStack action row - icon-only reorder/remove controls.
+   IconButton owns its own appearance; this only scopes the row layout and
+   guarantees the icon centers tightly over any legacy global button rules. */
+.layer-stack__actions {
+  margin-left: auto;
+  display: flex;
+  gap: 0.25rem;
+}
+
+.layer-stack__actions .icon-button {
+  padding: 0;
+}

@@ -1,0 +1,51 @@
+/* ColorField - styled native color input as a swatch + mono hex label.
+   Keeps 40px hit height; the inner swatch reads smaller via padding. */
+.tl-colorfield {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: var(--hit-min, 40px);
+}
+
+.tl-colorfield__swatch {
+  width: 44px;
+  height: var(--hit-min, 40px);
+  padding: 4px;
+  margin: 0;
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  background: var(--btn-bg);
+  cursor: pointer;
+}
+
+.tl-colorfield__swatch::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.tl-colorfield__swatch::-webkit-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+
+.tl-colorfield__swatch::-moz-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tl-colorfield__swatch {
+    transition: border-color 150ms ease;
+  }
+}
+
+.tl-colorfield__swatch:hover {
+  border-color: var(--accent);
+}
+
+.tl-colorfield__hex {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}

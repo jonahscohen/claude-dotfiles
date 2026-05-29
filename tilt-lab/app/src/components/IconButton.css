@@ -1,0 +1,44 @@
+/* IconButton - a square, icon-only action button.
+   40x40 min hit target, hairline border, single-accent focus ring (global),
+   scale-on-press gated behind prefers-reduced-motion. Tokens only. */
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--hit-min);
+  min-height: var(--hit-min);
+  padding: 0;
+  border: 1px solid var(--line-2);
+  border-radius: 5px;
+  background: var(--btn-bg);
+  color: var(--muted);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.icon-button svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.icon-button:hover:not(:disabled) {
+  background: var(--btn-bg-hover);
+  color: var(--text);
+}
+
+.icon-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .icon-button {
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease,
+      transform 0.1s ease;
+  }
+
+  .icon-button:active:not(:disabled) {
+    transform: scale(0.94);
+  }
+}

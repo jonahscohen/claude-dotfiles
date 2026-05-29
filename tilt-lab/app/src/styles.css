@@ -24,6 +24,22 @@
 
   /* Min interactive hit-target size (a11y) */
   --hit-min: 40px;
+
+  /* Spacing rhythm (DESIGN.md 4px-derived scale) - used by shell + browse so
+     panels share one vertical cadence instead of ad-hoc rem values. */
+  --sp-tight: 0.25rem; /* 4px  */
+  --sp-xs: 0.4rem;     /* ~6px */
+  --sp-sm: 0.5rem;     /* 8px  */
+  --sp-card: 0.6rem;   /* ~10px */
+  --sp-bar: 0.75rem;   /* 12px */
+  --sp-panel: 0.85rem; /* ~14px */
+  --sp-bar-x: 1rem;    /* 16px */
+
+  /* Corner rounding (DESIGN.md scale) */
+  --r-md: 6px;
+  --r-lg: 7px;
+  --r-2xl: 9px;
+  --r-full: 999px;
 }
 
 * {
@@ -55,15 +71,30 @@ body {
 .top-bar {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.6rem 1rem;
+  gap: var(--sp-bar);
+  padding: var(--sp-card) var(--sp-bar-x);
   border-bottom: 1px solid var(--line);
   background: var(--panel);
 }
 
 .top-bar__brand {
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
+  font-size: 0.95rem;
+  /* small monospace caps wordmark reads as "instrument", not marketing logo */
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Quiet divider between the wordmark and the project picker so the bar reads as
+   two zones (identity | controls) without adding chrome. */
+.top-bar__brand::after {
+  content: '';
+  display: inline-block;
+  width: 1px;
+  height: 0.9em;
+  margin-left: var(--sp-bar);
+  vertical-align: -0.1em;
+  background: var(--line-2);
 }
 
 .top-bar__spacer {
@@ -74,7 +105,7 @@ body {
 .top-bar__send {
   padding: 0.4rem 0.85rem;
   border: 1px solid var(--line-2);
-  border-radius: 7px;
+  border-radius: var(--r-lg);
   background: var(--btn-bg);
   color: var(--text);
   cursor: pointer;
@@ -136,7 +167,9 @@ body {
 .app__browse,
 .app__layers {
   overflow-y: auto;
-  padding: 0.85rem;
+  padding: var(--sp-panel);
+  /* the side panels are quiet chrome that serve the preview */
+  background: var(--bg);
 }
 
 .app__browse {
@@ -147,6 +180,8 @@ body {
   border-left: 1px solid var(--line);
 }
 
+/* The preview is the hero: pure-black stage, framed only by the column
+   hairlines (flat design - depth via surface + line, never shadow). */
 .app__preview {
   position: relative;
   background: var(--preview-bg);
@@ -163,22 +198,83 @@ body {
   display: block;
 }
 
+/* Empty preview: a quiet centered hint when no layers are stacked, so the hero
+   stage reads as "ready" rather than a dead black rectangle. Non-interactive
+   overlay; clears the moment a layer is added. */
+.app__preview-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--sp-bar-x);
+  pointer-events: none;
+  text-align: center;
+}
+
+.app__preview-empty p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  max-width: 22rem;
+  line-height: 1.5;
+}
+
+.app__preview-empty strong {
+  display: block;
+  margin-bottom: var(--sp-tight);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
 /* Browse grid */
+
+/* Panel header - mirrors the Layers panel title so both rails read as labelled
+   sections, not loose stacks of controls. */
+.browse-grid__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-sm);
+  margin-bottom: var(--sp-card);
+}
+
+.browse-grid__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.browse-grid__count {
+  font-size: 0.68rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
 .browse-grid__search {
   width: 100%;
   padding: 0.5rem 0.6rem;
   background: var(--btn-bg);
   border: 1px solid var(--line-2);
-  border-radius: 7px;
+  border-radius: var(--r-lg);
   color: var(--text);
-  margin-bottom: 0.6rem;
+  margin-bottom: var(--sp-card);
+}
+
+.browse-grid__search::placeholder {
+  color: var(--muted);
 }
 
 .browse-grid__roles {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.3rem;
-  margin-bottom: 0.75rem;
+  gap: var(--sp-tight);
+  margin-bottom: var(--sp-bar);
+  /* hairline under the filter row separates "find" controls from the results */
+  padding-bottom: var(--sp-bar);
+  border-bottom: 1px solid var(--line);
 }
 
 .browse-grid__roles button {
@@ -207,26 +303,29 @@ body {
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 0.45rem;
+  gap: var(--sp-sm);
 }
 
 .browse-grid__card {
   width: 100%;
   text-align: left;
-  padding: 0.6rem 0.7rem;
+  padding: var(--sp-card) 0.7rem;
   border: 1px solid var(--line-2);
-  border-radius: 9px;
+  border-radius: var(--r-2xl);
   background: var(--panel);
   color: inherit;
   cursor: pointer;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  transition: border-color 0.15s ease, transform 0.1s ease;
+  gap: var(--sp-sm);
+  /* transition the exact properties (no `transition: all`) */
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
 }
 
 .browse-grid__card:hover {
   border-color: var(--accent);
+  background: var(--btn-bg);
   transform: translateY(-1px);
 }
 
@@ -234,12 +333,44 @@ body {
   transform: scale(0.98);
 }
 
-.browse-grid__card-role,
+.browse-grid__card-name {
+  font-weight: 600;
+  font-size: 0.85rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Role chip on browse cards: a real bordered chip rather than loose text, kept
+   strictly neutral - the single accent is reserved for active filter / Send /
+   selected layer, so roles are differentiated by label, not by hue. */
+.browse-grid__card-role {
+  flex: none;
+  padding: 0.1rem 0.4rem;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-full);
+  font-size: 0.68rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+}
+
 .layer-stack__role {
   font-size: 0.68rem;
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+/* Browse empty state: search/filter yields nothing. Quiet, centered, muted. */
+.browse-grid__empty {
+  margin: var(--sp-bar) 0 0;
+  padding: var(--sp-panel) var(--sp-card);
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  border: 1px dashed var(--line-2);
+  border-radius: var(--r-2xl);
 }
 
 /* Layer stack */

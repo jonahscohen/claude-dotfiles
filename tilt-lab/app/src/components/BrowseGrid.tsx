@@ -16,6 +16,12 @@ export function BrowseGrid({ catalog, onPick }: Props) {
 
   return (
     <div className="browse-grid">
+      <header className="browse-grid__header">
+        <h2 className="browse-grid__title">Browse</h2>
+        <span className="browse-grid__count">
+          {shown.length} {shown.length === 1 ? 'effect' : 'effects'}
+        </span>
+      </header>
       <div className="browse-grid__filters">
         <input
           className="browse-grid__search"
@@ -34,18 +40,22 @@ export function BrowseGrid({ catalog, onPick }: Props) {
           ))}
         </div>
       </div>
-      <ul className="browse-grid__cards">
-        {shown.map((mft) => (
-          <li key={mft.id}>
-            <button className="browse-grid__card" onClick={() => onPick(mft)}>
-              <span className="browse-grid__card-name">{mft.name}</span>
-              <span className="browse-grid__card-role" data-role={mft.layerRole}>
-                {mft.layerRole}
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
+      {shown.length === 0 ? (
+        <p className="browse-grid__empty">No effects match.</p>
+      ) : (
+        <ul className="browse-grid__cards">
+          {shown.map((mft) => (
+            <li key={mft.id}>
+              <button className="browse-grid__card" onClick={() => onPick(mft)}>
+                <span className="browse-grid__card-name">{mft.name}</span>
+                <span className="browse-grid__card-role" data-role={mft.layerRole}>
+                  {mft.layerRole}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

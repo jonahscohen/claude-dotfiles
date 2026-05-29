@@ -1,0 +1,54 @@
+/* Switch - sliding toggle. 40x40 hit area, accent fill when on, second cue
+   (thumb position) so state is not communicated by hue alone. */
+.tl-switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* keep the 40x40 minimum hit area around the smaller visual track */
+  min-width: var(--hit-min, 40px);
+  min-height: var(--hit-min, 40px);
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  justify-self: start;
+}
+
+.tl-switch__track {
+  position: relative;
+  display: block;
+  width: 32px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--btn-bg);
+  border: 1px solid var(--line-2);
+}
+
+.tl-switch[data-checked='true'] .tl-switch__track {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.tl-switch__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--text);
+}
+
+.tl-switch[data-checked='true'] .tl-switch__thumb {
+  left: auto;
+  right: 2px;
+  background: var(--on-accent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tl-switch__track,
+  .tl-switch__thumb {
+    transition: background 150ms ease, border-color 150ms ease, left 150ms ease, right 150ms ease;
+  }
+}

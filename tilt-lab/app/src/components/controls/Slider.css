@@ -1,0 +1,89 @@
+/* Slider - styled range with accent fill + thumb + inline tabular readout.
+   Depth via surface color + hairline only (no shadow), per DESIGN.md. */
+.tl-slider {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.tl-slider__input {
+  flex: 1;
+  min-width: 0;
+  /* tall transparent control keeps a 40px hit area around a thin visual track */
+  height: var(--hit-min, 40px);
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* WebKit track: line-2 base with an accent fill up to the current value */
+.tl-slider__input::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--accent) 0%,
+    var(--accent) var(--tl-slider-pct, 0%),
+    var(--line-2) var(--tl-slider-pct, 0%),
+    var(--line-2) 100%
+  );
+}
+
+.tl-slider__input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px; /* center the 14px thumb over the 4px track */
+  border-radius: 999px;
+  background: var(--text);
+  border: 1px solid var(--line-2);
+}
+
+/* Firefox track + fill + thumb */
+.tl-slider__input::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line-2);
+}
+
+.tl-slider__input::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.tl-slider__input::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--text);
+  border: 1px solid var(--line-2);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tl-slider__input::-webkit-slider-thumb {
+    transition: transform 100ms ease;
+  }
+  .tl-slider__input::-moz-range-thumb {
+    transition: transform 100ms ease;
+  }
+  .tl-slider__input:active::-webkit-slider-thumb {
+    transform: scale(1.15);
+  }
+  .tl-slider__input:active::-moz-range-thumb {
+    transform: scale(1.15);
+  }
+}
+
+.tl-slider__value {
+  flex: none;
+  min-width: 2.75rem;
+  text-align: right;
+  font-size: 0.7rem;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}

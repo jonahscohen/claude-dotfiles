@@ -39,6 +39,15 @@ export function App() {
         </aside>
         <section className="app__preview">
           <PreviewCanvas layers={layers} />
+          {layers.length === 0 && (
+            <div className="app__preview-empty" aria-hidden="true">
+              <p>
+                <strong>Live preview</strong>
+                Pick an effect from the left to start a stack. What renders here is
+                exactly what exports.
+              </p>
+            </div>
+          )}
         </section>
         <aside className="app__layers">
           <LayerStack
