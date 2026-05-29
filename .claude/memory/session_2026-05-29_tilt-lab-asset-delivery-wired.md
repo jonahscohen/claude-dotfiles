@@ -22,5 +22,8 @@ tsc exit 0; vitest 133/133; node build.js (17 inlined base64 PNGs, 0 broken refs
 - task #2 asset-verify: make tilt-verify run canvas-paint on the 9 (no longer skip) + re-validate; report PASS counts.
 - team-lead: Claude-in-Chrome REAL-CONTENT check - confirm dithered-image dithers the sphere, glass-slideshow shows ocean/desert slides, globe shows land mask, cursor-trail trails item images, etc. THEN the directive is complete.
 
+## Chrome real-content CONFIRMED (team-lead)
+Reloaded playground after asset wiring. Dithered Image now renders REAL content: the warm-sphere sample image with a visible Bayer dither dot-matrix pattern (vs the placeholder before) + full params (ditherMap/pixelSize/threshold/color/backgroundColor). Asset delivery WORKS end-to-end in the live playground. ASCII confirmed full param set incl restored 3d/disco/shapes knobs (renders black ALONE = correct, post needs a base layer beneath). asset-verify agent running the breadth canvas-paint check on all 9.
+
 ## Files
 - runtime/effects/<9>/assets.ts + assets/*.png, runtime/effect-assets.ts, runtime/assets.d.ts, runtime/index.ts, runtime/compositor.ts, runtime/element.ts, build.js, scripts/gen-sample-assets.mjs
