@@ -1,7 +1,7 @@
 # Dotfiles tasks
 
 <!-- Managed by /task-list skill. Hand-edits welcome; preserve the structure. -->
-<!-- Last ID: T-0041 -->
+<!-- Last ID: T-0042 -->
 <!-- Completed tasks are removed once done; full detail lives in .claude/memory/ beats + git history. -->
 
 ## dotfiles
@@ -14,6 +14,7 @@
 
 ## tilt-lab
 ### Active
+- [ ] T-0042 [P1] 2026-05-29 tilt-lab UI audit fixes (sidecoach flowK) - via tilt-ui team. P0 responsive (no @media, fixed 280/1fr/340 grid breaks <700px), P1 focus-visible + param-label clipping + bundle vendor-chunking, P2 modal a11y + 40x40 hit targets + reduced-motion, P3 hardcoded-hex->vars + preview aria + write PRODUCT.md/DESIGN.md. Then QA gate: /sidecoach critique + polish + Claude-in-Chrome verify. See session_2026-05-29_tilt-lab-ui-audit.md + docs/superpowers/tilt-lab-recon/UI-FIX-BRIEF.md.
 - [ ] T-0041 [P3] 2026-05-29 tilt-lab follow-ups after the fidelity restoration (T-0040 done): (a) `marker-list` ParamType + ParamControls UI so globe/mc-globe markers get a UI control (currently drivable via params only); (b) real asset-delivery pipeline so glass-slideshow/infinite-gallery/mc-globe/dithered-image/fake-3d-image/interactive-grid/water-ripple/grain-gradient/cursor-trail get real images instead of procedural fallbacks (ties into Plan-4 handoff); (c) optional: re-fetch spell's 6 named presets verbatim. See session_2026-05-29_tilt-lab-restore-DONE.md.
 ### Done (2026-05-29)
 - T-0040 tilt-lab 1:1 FIDELITY sweep COMPLETE. Re-anchored catalog to original 25-effect list; rebuilt 4 wrongly-dropped (spell animated-gradient, motion-core glass-slideshow/globe/infinite-gallery); removed unrequested swirl; demoted gradient to fixture. Full fidelity restored across all (fluid GPU particles wired, colored scene presets restored on fractal-glass/halftone/mesh-gradient, ascii 3d/disco/shapes modes, etc). Validated: tilt-verify 25 effects/0 fail + Claude-in-Chrome. tsc clean, 133/133 tests.
