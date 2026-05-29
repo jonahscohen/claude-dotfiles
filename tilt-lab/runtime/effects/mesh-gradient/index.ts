@@ -167,7 +167,16 @@ void main() {
 }
 `;
 
-const DEFAULT_COLORS = ['#3a1c71', '#d76d77', '#ffaf7b', '#2c3e50', '#000000'];
+// The 5 built-in scene presets, verbatim from the regent original
+// (app/(app)/tools/mesh-gradient/presets.ts). Each is a 5-stop palette.
+const SCENE_PRESETS: string[][] = [
+  ['#8ecae6', '#219ebc', '#023047', '#ffb703', '#fb8500'],
+  ['#1de9b6', '#0d6b4e', '#7c4dff', '#00e5ff', '#0a0f1a'],
+  ['#0e4d64', '#0d2f5c', '#1a6b7a', '#0a3d6b', '#020408'],
+  ['#00d4ff', '#003366', '#0088cc', '#66bbdd', '#010108'],
+  ['#e64a19', '#8b0000', '#ff8f00', '#ffeb3b', '#050000'],
+];
+const DEFAULT_COLORS = SCENE_PRESETS[0].slice();
 
 function toColorArray(stops: string[]): { colors: THREE.Vector3[]; count: number } {
   const count = Math.min(Math.max(stops.length, 1), 5);
@@ -215,8 +224,17 @@ export function createMeshGradientEffect(): Effect {
       camera.position.set(0, 0.5, 0.4);
       camera.lookAt(0, 0, 0);
 
+      // scene preset (0-4) selects a palette; explicit colorStops / colorN override it.
+      const sceneIdx = opts.params.scene;
+      if (sceneIdx != null && SCENE_PRESETS[Number(sceneIdx)]) {
+        colorStops = SCENE_PRESETS[Number(sceneIdx)].slice();
+      }
       const stops = opts.params.colorStops;
       if (Array.isArray(stops) && stops.length) colorStops = stops.map(String);
+      for (let i = 0; i < 5; i++) {
+        const c = opts.params[`color${i + 1}`];
+        if (typeof c === 'string' && c) colorStops[i] = c;
+      }
 
       material = new THREE.ShaderMaterial({
         vertexShader: VERTEX_SHADER,
@@ -295,6 +313,24 @@ export function createMeshGradientEffect(): Effect {
             syncColors();
           }
           break;
+        case 'scene': {
+          const idx = Number(value);
+          if (SCENE_PRESETS[idx]) {
+            colorStops = SCENE_PRESETS[idx].slice();
+            syncColors();
+          }
+          break;
+        }
+        case 'color1':
+        case 'color2':
+        case 'color3':
+        case 'color4':
+        case 'color5': {
+          const i = Number(key.slice(5)) - 1;
+          colorStops[i] = String(value);
+          syncColors();
+          break;
+        }
         default:
           break;
       }
