@@ -2,6 +2,12 @@
 // 112-rule framework: 22 Polish Standard + 90 Domain Extensions across 10 design domains
 // Validates UI implementations against comprehensive design system
 
+// Tier 2 rule modules (skill-recon). Spread into DOMAIN_RULES below. These
+// modules import only this file's interfaces (types, erased at runtime), so
+// there is no runtime import cycle.
+import { TIER2_CONTENT_PERF_RULES } from './domains/tier2-content-perf';
+import { TIER2_VISUAL_COPY_RULES } from './domains/tier2-visual-copy';
+
 export interface DomainValidationRule {
   id: string;
   domain: string;
@@ -2919,7 +2925,13 @@ const DOMAIN_RULES: DomainValidationRule[] = [
         remediation: 'Use autoFocus on at most one primary input, desktop-only; avoid it on mobile where it forces the keyboard open'
       };
     }
-  }
+  },
+  // Tier 2 rule modules (skill-recon): T-0034 content/perf/touch + T-0035 visual/copy.
+  // Rules join their existing domains (polish, responsive, performance, color,
+  // data-visualization, motion, typography, ux-writing) and surface in any flow
+  // already consulting those domains - no per-flow wiring needed.
+  ...TIER2_CONTENT_PERF_RULES,
+  ...TIER2_VISUAL_COPY_RULES,
 ];
 
 export class ExtendedDomainValidator {

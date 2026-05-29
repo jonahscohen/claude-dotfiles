@@ -4,6 +4,11 @@
 // Validates UI implementations against comprehensive design system
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ExtendedDomainValidator = void 0;
+// Tier 2 rule modules (skill-recon). Spread into DOMAIN_RULES below. These
+// modules import only this file's interfaces (types, erased at runtime), so
+// there is no runtime import cycle.
+const tier2_content_perf_1 = require("./domains/tier2-content-perf");
+const tier2_visual_copy_1 = require("./domains/tier2-visual-copy");
 // T-0030: shared helpers for the forms domain. They assemble a lowercase
 // haystack from whatever markup/style channels are available (raw html,
 // cssRules, a live htmlElement) so each rule can degrade gracefully when a
@@ -2647,7 +2652,13 @@ const DOMAIN_RULES = [
                 remediation: 'Use autoFocus on at most one primary input, desktop-only; avoid it on mobile where it forces the keyboard open'
             };
         }
-    }
+    },
+    // Tier 2 rule modules (skill-recon): T-0034 content/perf/touch + T-0035 visual/copy.
+    // Rules join their existing domains (polish, responsive, performance, color,
+    // data-visualization, motion, typography, ux-writing) and surface in any flow
+    // already consulting those domains - no per-flow wiring needed.
+    ...tier2_content_perf_1.TIER2_CONTENT_PERF_RULES,
+    ...tier2_visual_copy_1.TIER2_VISUAL_COPY_RULES,
 ];
 class ExtendedDomainValidator {
     static validateAll(context) {
