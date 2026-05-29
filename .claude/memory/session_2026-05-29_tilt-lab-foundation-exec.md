@@ -12,7 +12,7 @@ Collaborator: Jonah. 2026-05-29. Executing docs/superpowers/plans/2026-05-29-til
 - [x] Task 2 types.ts (Effect/Manifest/LayerRole/ParamSpec/LayerConfig/EffectOpts/EffectFactory). tsc clean.
 - [x] Task 3 manifest.ts validateManifest - 4 tests green.
 - [x] Task 4 stack.ts validateStack + orderLayers - 7 tests green (bg max1, post max1, mid/pointer stackable, stable role-order sort). 11/11 across both files.
-- [ ] Task 5 element.ts defineEffectElement
+- [x] Task 5 element.ts defineEffectElement - 4 tests green. happy-dom supplies customElements/ResizeObserver/matchMedia/RAF (no stubs needed). Wrapper owns canvas mount, RAF loop, resize, reduced-motion (single static frame), attr->setParam coercion, dispose on disconnect.
 - [ ] Task 6 compositor.ts Compositor + tilt-stack
 - [ ] Task 7 effects/gradient reference effect
 - [ ] Task 8 index.ts barrel + registerBuiltins
