@@ -11,6 +11,7 @@ export interface TasteViolation {
 }
 export interface ValidateTasteOptions {
     iconLibrary?: string;
+    componentsJson?: boolean;
 }
 export declare function validateTaste(htmlContent: string, cssContent?: string, _opts?: ValidateTasteOptions): TasteViolation[];
 export declare function formatViolations(violations: TasteViolation[], filePath: string): string;

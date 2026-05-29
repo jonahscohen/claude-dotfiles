@@ -42,6 +42,49 @@ exports.formatViolations = formatViolations;
 exports.toValidationResult = toValidationResult;
 const fs = __importStar(require("fs"));
 const ICON_LIBRARY_CLASS_PATTERN = /\b(?:lucide|heroicon|tabler|bi|ph|ms)[-_]\w+/i;
+// T-0032: Tailwind/shadcn context detection. Gates the token-utility carve-outs
+// in checkHexInHoverWithCssVars and checkBorderRadiusInconsistency so the strict
+// behavior is unchanged for non-Tailwind input.
+//
+// Directive/channel markers that only appear in a Tailwind or shadcn setup:
+// @tailwind / @apply directives, a tailwind.config reference, or the shadcn
+// hsl(var(--token)) channel convention.
+const TAILWIND_DIRECTIVE_PATTERN = /@tailwind\b|@apply\b|tailwind\.config|(?:hsl|rgb|oklch)\(\s*var\(\s*--/i;
+// Tailwind utility classes backed by theme tokens, including responsive/state
+// variant prefixes (hover:, focus:, md:, dark: ...) and the /<opacity> modifier:
+//   - a color/spacing utility carrying a /<opacity> modifier (bg-primary/90)
+//   - a shadcn semantic-token utility (bg-primary, text-muted-foreground, border-input)
+//   - the radius scale (rounded, rounded-sm ... rounded-2xl, rounded-full)
+const TAILWIND_UTILITY_PATTERN = new RegExp([
+    '(?:bg|text|border|ring|fill|stroke|from|via|to|outline)-[a-z][\\w-]*\\/\\d{1,3}',
+    '(?:bg|text|border|ring|fill|stroke|outline)-(?:primary|secondary|muted|accent|destructive|background|foreground|card|popover|input|ring|border)(?:-foreground)?\\b',
+    'rounded(?:-(?:sm|md|lg|xl|2xl|3xl|full|none))?\\b',
+].join('|'), 'i');
+function detectTailwindContext(html, css, opts) {
+    // T-0032
+    if (opts?.componentsJson)
+        return true;
+    if (TAILWIND_DIRECTIVE_PATTERN.test(css) || TAILWIND_DIRECTIVE_PATTERN.test(html)) {
+        return true;
+    }
+    const classAttrRe = /\bclass(?:Name)?\s*=\s*["']([^"']+)["']/gi;
+    for (const m of html.matchAll(classAttrRe)) {
+        if (TAILWIND_UTILITY_PATTERN.test(m[1]))
+            return true;
+    }
+    return false;
+}
+// T-0032: a declaration block is token-driven when it pulls a value from a CSS
+// custom-property channel (var(--x), hsl(var(--x)), calc(var(--x) ...)) or, in
+// Tailwind context, from an @apply/token utility (bg-primary/90, etc.).
+function blockReferencesToken(body, tailwind) {
+    // T-0032
+    if (/var\(\s*--[\w-]+/.test(body))
+        return true;
+    if (tailwind && TAILWIND_UTILITY_PATTERN.test(body))
+        return true;
+    return false;
+}
 function lineNumberOf(text, index) {
     if (index < 0)
         return -1;
@@ -184,7 +227,7 @@ function checkHeroRadialGradient(allCss) {
     }
     return violations;
 }
-function checkHexInHoverWithCssVars(allCss) {
+function checkHexInHoverWithCssVars(allCss, tailwind) {
     const violations = [];
     const fileHasCssVars = /--[\w-]+\s*:/.test(allCss) || /var\(\s*--[\w-]+/.test(allCss);
     if (!fileHasCssVars)
@@ -194,6 +237,12 @@ function checkHexInHoverWithCssVars(allCss) {
             continue;
         const hexMatches = [...block.body.matchAll(/#[0-9a-fA-F]{3,8}\b/g)];
         if (hexMatches.length === 0)
+            continue;
+        // T-0032: in Tailwind/shadcn context, a token-driven interactive state
+        // (hsl(var(--token)), var(--token), or an @apply/token utility such as
+        // bg-primary/90) is token-compliant, so incidental hex in the same block is
+        // tolerated. Strict behavior is unchanged outside Tailwind context.
+        if (tailwind && blockReferencesToken(block.body, tailwind))
             continue;
         const hexValues = hexMatches.map((h) => h[0]).join(', ');
         violations.push({
@@ -241,13 +290,20 @@ function checkObserverRace(html, allCss) {
     });
     return violations;
 }
-function checkBorderRadiusInconsistency(allCss) {
+function checkBorderRadiusInconsistency(allCss, tailwind) {
     const violations = [];
     const radiusMatches = [...allCss.matchAll(/border-radius\s*:\s*([^;}]+)/g)];
     const values = new Set();
     for (const m of radiusMatches) {
         const v = m[1].trim();
         if (v.startsWith('var('))
+            continue;
+        // T-0032: in Tailwind/shadcn context, radius values derived from a token
+        // (e.g. shadcn's calc(var(--radius) - 2px) rounded-* scale, or clamp/min/max
+        // wrapping a CSS var) are not hand-picked literals. The rounded utilities
+        // (rounded-md, rounded-lg, ...) all derive from --radius. Only relaxed in
+        // Tailwind context; non-Tailwind literals still flag.
+        if (tailwind && /var\(\s*--[\w-]+/.test(v))
             continue;
         values.add(v);
     }
@@ -266,12 +322,14 @@ function validateTaste(htmlContent, cssContent, _opts) {
     const inlineBlocks = extractInlineStyles(htmlContent);
     const inlineCss = inlineBlocks.map((b) => b.content).join('\n');
     const allCss = (cssContent || '') + '\n' + inlineCss;
+    // T-0032: detect Tailwind/shadcn context once, gate the token-utility carve-outs.
+    const tailwind = detectTailwindContext(htmlContent, allCss, _opts);
     violations.push(...checkFabricatedSvg(htmlContent));
     violations.push(...checkTranslateYInHover(allCss));
     violations.push(...checkLargeInlineStyle(htmlContent));
     violations.push(...checkHeroRadialGradient(allCss));
-    violations.push(...checkHexInHoverWithCssVars(allCss));
-    violations.push(...checkBorderRadiusInconsistency(allCss));
+    violations.push(...checkHexInHoverWithCssVars(allCss, tailwind));
+    violations.push(...checkBorderRadiusInconsistency(allCss, tailwind));
     violations.push(...checkObserverRace(htmlContent, allCss));
     return violations;
 }
