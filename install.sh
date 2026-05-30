@@ -622,7 +622,7 @@ deactivate_brain() {
 
 deactivate_config() {
   local f
-  for f in bash-guard.sh content-guard.sh memory-approve.sh; do
+  for f in bash-guard.sh content-guard.sh memory-approve.sh destructive-ops-guard.sh destructive-confirm-detect.sh; do
     if [ -L "$CLAUDE_DIR/hooks/$f" ] && [[ "$(readlink "$CLAUDE_DIR/hooks/$f")" == "$REPO_DIR/"* ]]; then
       rm -f "$CLAUDE_DIR/hooks/$f"
     elif [ -f "$CLAUDE_DIR/hooks/$f" ] && grep -Fq "claude-dotfiles" "$CLAUDE_DIR/hooks/$f" 2>/dev/null; then
@@ -646,7 +646,7 @@ try:
         d = json.load(f)
 except Exception:
     sys.exit(0)
-OUR_HOOK_MARKERS = ["bash-guard.sh", "content-guard.sh", "memory-approve.sh"]
+OUR_HOOK_MARKERS = ["bash-guard.sh", "content-guard.sh", "memory-approve.sh", "destructive-ops-guard.sh"]
 hooks = d.get("hooks", {})
 for hook_type in ["PreToolUse"]:
     entries = hooks.get(hook_type, [])
@@ -1364,7 +1364,7 @@ if picked config; then
   [ -f "$USER_SETTINGS" ] || echo '{}' > "$USER_SETTINGS"
 
   # Copy hook scripts
-  for f in bash-guard.sh content-guard.sh memory-approve.sh; do
+  for f in bash-guard.sh content-guard.sh memory-approve.sh destructive-ops-guard.sh destructive-confirm-detect.sh; do
     if [ -f "$REPO_DIR/claude/hooks/$f" ]; then
       cp "$REPO_DIR/claude/hooks/$f" "$CLAUDE_DIR/hooks/$f"
       chmod +x "$CLAUDE_DIR/hooks/$f"

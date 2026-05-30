@@ -46,6 +46,11 @@
             "type": "command",
             "command": "~/.claude/hooks/bash-guard.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/destructive-ops-guard.sh",
+            "timeout": 5
           }
         ]
       },
@@ -210,6 +215,11 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/voice-toggle.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/destructive-confirm-detect.sh",
             "timeout": 5
           },
           {
