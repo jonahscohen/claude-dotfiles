@@ -17,6 +17,20 @@ describe('infinite-gallery effect', () => {
     expect(() => e.frame(16)).not.toThrow();
   });
 
+  it('exposes image0..image5 tile-upload file params and accepts them via setParam', () => {
+    const uploads = manifest.params.filter((p) => p.type === 'file');
+    expect(uploads.map((p) => p.name)).toEqual(['image0', 'image1', 'image2', 'image3', 'image4', 'image5']);
+
+    const e = createInfiniteGalleryEffect();
+    const canvas = document.createElement('canvas');
+    const params = Object.fromEntries(manifest.params.map((p) => [p.name, p.default]));
+    e.init(canvas, { params, assets: {} });
+    expect(() => {
+      e.setParam('image4', 'blob:mock-tile-4');
+      e.frame(16);
+    }).not.toThrow();
+  });
+
   it('dispose is idempotent', () => {
     const e = createInfiniteGalleryEffect();
     const canvas = document.createElement('canvas');

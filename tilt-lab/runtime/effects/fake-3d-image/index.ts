@@ -175,8 +175,10 @@ export function createFake3DImageEffect(): Effect {
       const program = new Program(rgl, { vertex: VERTEX, fragment: FRAGMENT, uniforms });
       mesh = new Mesh(rgl, { geometry, program });
 
-      const colorSrc = opts.assets.colorSrc;
-      const depthSrc = opts.assets.depthSrc;
+      // Prefer user-uploaded images (the colorSrc / depthSrc file params yield
+      // object URLs) over the bundled defaults; fall back to generated textures.
+      const colorSrc = (typeof p.colorSrc === 'string' && p.colorSrc) || opts.assets.colorSrc;
+      const depthSrc = (typeof p.depthSrc === 'string' && p.depthSrc) || opts.assets.depthSrc;
       if (colorSrc && colorTexture) loadImage(colorSrc, colorTexture, 'uOriginalTextureSize');
       if (depthSrc && depthTexture) loadImage(depthSrc, depthTexture, 'uDepthTextureSize');
     },
@@ -208,6 +210,12 @@ export function createFake3DImageEffect(): Effect {
           break;
         case 'sensitivity':
           sensitivity = Math.min(1, Math.max(0.001, Number(value)));
+          break;
+        case 'colorSrc':
+          if (value && colorTexture) loadImage(String(value), colorTexture, 'uOriginalTextureSize');
+          break;
+        case 'depthSrc':
+          if (value && depthTexture) loadImage(String(value), depthTexture, 'uDepthTextureSize');
           break;
         default:
           break;

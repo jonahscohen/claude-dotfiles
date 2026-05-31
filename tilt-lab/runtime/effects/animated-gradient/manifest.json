@@ -4,6 +4,7 @@
   "category": "generative-gradient",
   "layerRole": "background",
   "params": [
+    { "name": "preset", "type": "select", "default": "custom", "options": ["custom", "Prism", "Lava", "Plasma", "Pulse", "Vortex", "Mist"] },
     { "name": "color1", "type": "color", "default": "#050505" },
     { "name": "color2", "type": "color", "default": "#66B3FF" },
     { "name": "color3", "type": "color", "default": "#FFFFFF" },

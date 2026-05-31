@@ -44,6 +44,38 @@ describe('ParamControls', () => {
     expect(onChange).toHaveBeenCalledWith('fit', 'contain');
   });
 
+  it('renders a text param and emits the typed string', () => {
+    const onChange = vi.fn();
+    const textSpecs: ParamSpec[] = [
+      { name: 'customChars', type: 'text', default: '', placeholder: 'ramp' },
+    ];
+    render(<ParamControls specs={textSpecs} values={{ customChars: '' }} onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText('customChars'), { target: { value: '@#. ' } });
+    expect(onChange).toHaveBeenCalledWith('customChars', '@#. ');
+  });
+
+  it('renders a marker-list param and emits the full array on add', () => {
+    const onChange = vi.fn();
+    const markerSpecs: ParamSpec[] = [
+      { name: 'markers', type: 'marker-list', default: [{ location: [1, 2], size: 0.05 }] },
+    ];
+    render(
+      <ParamControls
+        specs={markerSpecs}
+        values={{ markers: [{ location: [1, 2], size: 0.05 }] }}
+        onChange={onChange}
+      />,
+    );
+    // existing marker row is present
+    expect(screen.getByLabelText('markers marker 1 latitude')).toBeTruthy();
+    // add a second marker
+    fireEvent.click(screen.getByLabelText('Add markers marker'));
+    expect(onChange).toHaveBeenCalledWith('markers', [
+      { location: [1, 2], size: 0.05 },
+      { location: [0, 0], size: 0.05 },
+    ]);
+  });
+
   it('renders a flat list (no groups) at or below the declutter threshold', () => {
     const { container } = render(
       <ParamControls specs={specs} values={values} onChange={() => {}} />,

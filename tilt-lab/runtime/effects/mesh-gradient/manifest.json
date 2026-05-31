@@ -4,7 +4,7 @@
   "category": "gradient",
   "layerRole": "background",
   "params": [
-    { "name": "scene", "type": "select", "default": "0", "options": ["0", "1", "2", "3", "4"] },
+    { "name": "scene", "type": "select", "default": "Default", "options": ["Default", "Aurora", "Deep Ocean", "Regent", "Molten", "Custom"] },
     { "name": "color1", "type": "color", "default": "#8ecae6" },
     { "name": "color2", "type": "color", "default": "#219ebc" },
     { "name": "color3", "type": "color", "default": "#023047" },
@@ -12,7 +12,7 @@
     { "name": "color5", "type": "color", "default": "#fb8500" },
     { "name": "noiseFrequency", "type": "range", "default": 3, "min": 0, "max": 10, "step": 0.1 },
     { "name": "noiseAmount", "type": "range", "default": 0.2, "min": 0, "max": 0.6, "step": 0.01 },
-    { "name": "noiseSpeed", "type": "range", "default": 0.02, "min": 0, "max": 0.3, "step": 0.001 },
+    { "name": "noiseSpeed", "type": "range", "default": 0.02, "min": 0, "max": 0.3, "step": 0.01 },
     { "name": "animFreeze", "type": "toggle", "default": false },
     { "name": "grainIntensity", "type": "range", "default": 0.02, "min": 0, "max": 0.5, "step": 0.01 },
     { "name": "ditherEnabled", "type": "toggle", "default": false },

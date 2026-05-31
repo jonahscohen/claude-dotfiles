@@ -4,6 +4,10 @@
   "category": "slideshow",
   "layerRole": "midground",
   "params": [
+    { "name": "image0", "type": "file", "default": "" },
+    { "name": "image1", "type": "file", "default": "" },
+    { "name": "image2", "type": "file", "default": "" },
+    { "name": "image3", "type": "file", "default": "" },
     { "name": "index", "type": "range", "default": 0, "min": 0, "max": 20, "step": 1 },
     { "name": "transitionDuration", "type": "range", "default": 2000, "min": 200, "max": 8000, "step": 100 },
     { "name": "autoplay", "type": "toggle", "default": true },

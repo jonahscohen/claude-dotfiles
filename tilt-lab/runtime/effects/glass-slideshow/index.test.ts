@@ -17,6 +17,20 @@ describe('glass-slideshow effect', () => {
     expect(() => e.frame(16)).not.toThrow();
   });
 
+  it('exposes image0..image3 slide-upload file params and accepts them via setParam', () => {
+    const uploads = manifest.params.filter((p) => p.type === 'file');
+    expect(uploads.map((p) => p.name)).toEqual(['image0', 'image1', 'image2', 'image3']);
+
+    const e = createGlassSlideshowEffect();
+    const canvas = document.createElement('canvas');
+    const params = Object.fromEntries(manifest.params.map((p) => [p.name, p.default]));
+    e.init(canvas, { params, assets: {} });
+    expect(() => {
+      e.setParam('image2', 'blob:mock-slide-2');
+      e.frame(16);
+    }).not.toThrow();
+  });
+
   it('dispose is idempotent', () => {
     const e = createGlassSlideshowEffect();
     const canvas = document.createElement('canvas');

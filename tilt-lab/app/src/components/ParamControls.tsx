@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import type { ParamSpec } from '../../../runtime/types';
-import { Slider, Switch, Select, ColorField, FileDrop } from './controls';
+import type { ParamSpec, Marker } from '../../../runtime/types';
+import { Slider, Switch, Select, ColorField, FileDrop, TextField, MarkerListEditor } from './controls';
 import './ParamControls.css';
 
 interface Props {
@@ -107,6 +107,24 @@ export function ParamControls({ specs, values, onChange }: Props) {
           <FileDrop
             onChange={(url) => onChange(spec.name, url)}
             accept="image/*,video/*"
+            ariaLabel={spec.name}
+          />
+        );
+      case 'text':
+        return (
+          <TextField
+            value={value == null ? '' : String(value)}
+            placeholder={spec.placeholder}
+            maxLength={spec.maxLength}
+            onChange={(v) => onChange(spec.name, v)}
+            ariaLabel={spec.name}
+          />
+        );
+      case 'marker-list':
+        return (
+          <MarkerListEditor
+            value={Array.isArray(value) ? (value as Marker[]) : []}
+            onChange={(v) => onChange(spec.name, v)}
             ariaLabel={spec.name}
           />
         );

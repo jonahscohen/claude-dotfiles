@@ -18,6 +18,21 @@ describe('fake-3d-image effect', () => {
     expect(() => e.frame(16)).not.toThrow();
   });
 
+  it('exposes colorSrc + depthSrc upload file params and accepts them via setParam', () => {
+    expect(manifest.params.find((p) => p.name === 'colorSrc')?.type).toBe('file');
+    expect(manifest.params.find((p) => p.name === 'depthSrc')?.type).toBe('file');
+
+    const e = createFake3DImageEffect();
+    const canvas = document.createElement('canvas');
+    const params = Object.fromEntries(manifest.params.map((p) => [p.name, p.default]));
+    e.init(canvas, { params, assets: {} });
+    expect(() => {
+      e.setParam('colorSrc', 'blob:mock-color');
+      e.setParam('depthSrc', 'blob:mock-depth');
+      e.frame(16);
+    }).not.toThrow();
+  });
+
   it('dispose is idempotent', () => {
     const e = createFake3DImageEffect();
     const canvas = document.createElement('canvas');

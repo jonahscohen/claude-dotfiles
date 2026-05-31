@@ -33,6 +33,19 @@ describe('dithered-image effect', () => {
     }).not.toThrow();
   });
 
+  it('exposes a src image-upload file param and accepts it via setParam', () => {
+    expect(manifest.params.find((p) => p.name === 'src')?.type).toBe('file');
+
+    const e = createDitheredImageEffect();
+    const canvas = document.createElement('canvas');
+    const params = Object.fromEntries(manifest.params.map((p) => [p.name, p.default]));
+    e.init(canvas, { params, assets: {} });
+    expect(() => {
+      e.setParam('src', 'blob:mock-upload');
+      e.frame(16);
+    }).not.toThrow();
+  });
+
   it('dispose is idempotent', () => {
     const e = createDitheredImageEffect();
     const canvas = document.createElement('canvas');

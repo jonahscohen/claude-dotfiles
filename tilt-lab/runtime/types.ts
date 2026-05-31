@@ -2,7 +2,17 @@
 export type LayerRole = 'background' | 'midground' | 'pointer' | 'post';
 
 /** Supported parameter control types in the playground. */
-export type ParamType = 'range' | 'color' | 'toggle' | 'select' | 'file';
+export type ParamType = 'range' | 'color' | 'toggle' | 'select' | 'file' | 'text' | 'marker-list';
+
+/**
+ * A geo marker on the cobe globe: a [lat, long] location and a dot size.
+ * Mirrors cobe's `Marker` shape (the `color` field is optional there and left
+ * to the effect's global markerColor here). Used by the 'marker-list' control.
+ */
+export interface Marker {
+  location: [number, number]; // [latitude, longitude] in degrees
+  size: number; // dot radius in cobe's normalized units (~0.01..0.2)
+}
 
 export interface ParamSpec {
   name: string;
@@ -12,6 +22,8 @@ export interface ParamSpec {
   max?: number;
   step?: number;
   options?: string[]; // for type: 'select'
+  placeholder?: string; // for type: 'text'
+  maxLength?: number; // for type: 'text'
 }
 
 export type Redistribution = 'ok' | 'personal-only' | 'reimplemented';

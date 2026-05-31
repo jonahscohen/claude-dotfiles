@@ -154,6 +154,50 @@ const NOISE_TILE =
 type PatternShape = 'Checks' | 'Stripes' | 'Edge';
 const PatternShapes: Record<string, number> = { Checks: 0, Stripes: 1, Edge: 2 };
 
+// Spell's 6 built-in presets (verbatim from @spell/animated-gradient registry).
+// Each is a full config the preset selector applies wholesale. `lightColors`
+// is the spell light-theme palette variant - kept here so the full surface is
+// preserved; tilt-lab has no theme switch so the dark `color*` set is applied.
+interface AnimatedGradientPreset {
+  color1: string; color2: string; color3: string;
+  lightColors?: [string, string, string];
+  rotation: number; proportion: number; scale: number; speed: number;
+  distortion: number; swirl: number; swirlIterations: number; softness: number;
+  offset: number; shape: PatternShape; shapeSize: number;
+}
+const PRESETS: Record<string, AnimatedGradientPreset> = {
+  Prism: {
+    color1: '#050505', color2: '#66B3FF', color3: '#FFFFFF', lightColors: ['#FAFAFA', '#66B3FF', '#050505'],
+    rotation: -50, proportion: 1, scale: 0.01, speed: 30, distortion: 0,
+    swirl: 50, swirlIterations: 16, softness: 47, offset: -299, shape: 'Checks', shapeSize: 45,
+  },
+  Lava: {
+    color1: '#FF9F21', color2: '#FF0303', color3: '#000000', lightColors: ['#FF9F21', '#FF0303', '#FAFAFA'],
+    rotation: 114, proportion: 100, scale: 0.52, speed: 30, distortion: 7,
+    swirl: 18, swirlIterations: 20, softness: 100, offset: 717, shape: 'Edge', shapeSize: 12,
+  },
+  Plasma: {
+    color1: '#B566FF', color2: '#000000', color3: '#000000', lightColors: ['#B566FF', '#FAFAFA', '#FAFAFA'],
+    rotation: 0, proportion: 63, scale: 0.75, speed: 30, distortion: 5,
+    swirl: 61, swirlIterations: 5, softness: 100, offset: -168, shape: 'Checks', shapeSize: 28,
+  },
+  Pulse: {
+    color1: '#66FF85', color2: '#000000', color3: '#000000', lightColors: ['#66FF85', '#FAFAFA', '#FAFAFA'],
+    rotation: -167, proportion: 92, scale: 0, speed: 20, distortion: 54,
+    swirl: 75, swirlIterations: 3, softness: 28, offset: -813, shape: 'Checks', shapeSize: 79,
+  },
+  Vortex: {
+    color1: '#000000', color2: '#FFFFFF', color3: '#000000', lightColors: ['#FAFAFA', '#000000', '#FAFAFA'],
+    rotation: 50, proportion: 41, scale: 0.4, speed: 20, distortion: 0,
+    swirl: 100, swirlIterations: 3, softness: 5, offset: -744, shape: 'Stripes', shapeSize: 80,
+  },
+  Mist: {
+    color1: '#050505', color2: '#FF66B8', color3: '#050505', lightColors: ['#FAFAFA', '#FF66B8', '#FAFAFA'],
+    rotation: 0, proportion: 33, scale: 0.48, speed: 39, distortion: 4,
+    swirl: 65, swirlIterations: 5, softness: 100, offset: -235, shape: 'Edge', shapeSize: 48,
+  },
+};
+
 function hexToRgba(hex: string): [number, number, number, number] {
   let r = 0;
   let g = 0;
@@ -198,6 +242,7 @@ export function createAnimatedGradientEffect(): Effect {
   const u: Record<string, WebGLUniformLocation | null> = {};
 
   const p = {
+    preset: 'custom',
     color1: '#050505',
     color2: '#66B3FF',
     color3: '#FFFFFF',
@@ -216,8 +261,33 @@ export function createAnimatedGradientEffect(): Effect {
     noiseScale: 1,
   };
 
+  // Apply a named preset's full param set wholesale (the preset selector's
+  // "apply logic"). 'custom' / unknown names leave the current values alone.
+  function applyPreset(name: string) {
+    p.preset = name;
+    const preset = PRESETS[name];
+    if (!preset) return;
+    p.color1 = preset.color1;
+    p.color2 = preset.color2;
+    p.color3 = preset.color3;
+    p.rotation = preset.rotation;
+    p.proportion = preset.proportion;
+    p.scale = preset.scale;
+    p.speed = preset.speed;
+    p.distortion = preset.distortion;
+    p.swirl = preset.swirl;
+    p.swirlIterations = preset.swirlIterations;
+    p.softness = preset.softness;
+    p.offset = preset.offset;
+    p.shape = preset.shape;
+    p.shapeSize = preset.shapeSize;
+  }
+
   function readParams(params: Record<string, unknown>) {
+    // Preset first, so explicit individual params can override it.
+    if (params.preset != null) applyPreset(String(params.preset));
     for (const key of Object.keys(p)) {
+      if (key === 'preset') continue;
       if (params[key] == null) continue;
       if (key === 'color1' || key === 'color2' || key === 'color3' || key === 'shape') {
         (p as Record<string, unknown>)[key] = String(params[key]);
@@ -347,6 +417,10 @@ export function createAnimatedGradientEffect(): Effect {
     },
 
     setParam(key: string, value: unknown) {
+      if (key === 'preset') {
+        applyPreset(String(value));
+        return;
+      }
       if (key in p) {
         if (key === 'color1' || key === 'color2' || key === 'color3' || key === 'shape') {
           (p as Record<string, unknown>)[key] = String(value);

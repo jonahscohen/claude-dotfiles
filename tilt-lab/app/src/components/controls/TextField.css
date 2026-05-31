@@ -1,0 +1,31 @@
+/* TextField - styled single-line text input for free-form string params.
+   Inset well + hairline border, mono metrics, 40px hit area. Depth via the
+   --input-bg surface and a single hairline only (no shadow), per DESIGN.md. */
+.tl-textfield {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--hit-min, 40px);
+  padding: 0 0.5rem;
+  background: var(--input-bg);
+  color: var(--text);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.tl-textfield::placeholder {
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.tl-textfield:hover {
+  border-color: var(--line-2);
+  background: var(--surface-3);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tl-textfield {
+    transition: border-color 150ms ease, background 150ms ease;
+  }
+}

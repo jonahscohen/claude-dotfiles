@@ -47,6 +47,7 @@ info()  { printf "${CYAN}[info]${NC}  %s\n" "$1"; }
 ok()    { printf "${GREEN}[ok]${NC}    %s\n" "$1"; }
 warn()  { printf "${YELLOW}[warn]${NC}  %s\n" "$1"; }
 err()   { printf "${RED}[error]${NC} %s\n" "$1"; }
+log()   { printf "${CYAN}[info]${NC}  %s\n" "$1"; }  # alias for info (used by sidecoach block)
 
 # ============================================================
 # Component catalogue (parallel arrays for bash 3.2 compatibility)
@@ -133,6 +134,84 @@ DIRS=(
   "$REPO_DIR/claude"           # task-list
 )
 PICKS=(1 1 1 1 1 1 1 1 1 1 1 1 1 1)
+
+# ------------------------------------------------------------
+# Design peer skills - a la carte.
+# Every skill below is ALSO installed by the `skills` bundle above. These
+# entries make each one individually selectable (e.g. `--only icon-source`)
+# without having to take the whole pipeline. Appended (not spliced into the
+# literals above) so the parallel arrays stay aligned by construction.
+# Keys map to ~/.claude/skills/<dir>; the bundle and these share one source.
+# ------------------------------------------------------------
+DESIGN_SKILL_KEYS=(make-interfaces component-gallery fontshare motion design-build curate design-references social-media design-team visual-effects icon-source)
+KEYS+=("${DESIGN_SKILL_KEYS[@]}")
+TITLES+=(
+  "Tactical UI polish (make-interfaces-feel-better)"
+  "Component research (component.gallery)"
+  "Typeface research (fontshare.com)"
+  "GSAP + Lenis motion patterns"
+  "Design pipeline orchestrator (/design-build)"
+  "Design-reference capture wizard (/curate)"
+  "Personal design-reference catalog"
+  "Social platform specs (13 platforms)"
+  "Multi-agent design sprints + CD review"
+  "Shaders + FX + post-processing"
+  "Icon sourcing (8-library protocol)"
+)
+DESCS+=(
+  "Installs the make-interfaces-feel-better skill via the npx skills CLI (jakubkrehel/make-interfaces-feel-better). Tactical UI-polish checklist that auto-triggers on UI work. Requires npx; falls back to a manual command if npx is missing. Also included in the 'skills' bundle - pick this alone for just the polish skill."
+  "Installs component-gallery-reference into ~/.claude/skills/. Researches component.gallery before building/naming/extracting UI components. Bundled file, no npx. Also part of the 'skills' bundle."
+  "Installs fontshare-reference into ~/.claude/skills/. Researches fontshare.com's curated catalog before recommending or implementing typefaces. Bundled file. Also part of the 'skills' bundle."
+  "Installs motion-reference into ~/.claude/skills/. Canonical GSAP + Lenis glue patterns for animation, scroll-driven effects, and page transitions. Bundled file. Also part of the 'skills' bundle."
+  "Installs design-build into ~/.claude/skills/. The design pipeline orchestrator - /design-build runs strategy/research/typography/motion/build/QA in sequence with gate checkpoints. Bundled file. Also part of the 'skills' bundle."
+  "Installs curate into ~/.claude/skills/. Interactive 5-step wizard (/curate) that captures one-off design references into your personal catalog at ~/.claude/design-references/. Bundled file. Also part of the 'skills' bundle."
+  "Installs design-references into ~/.claude/skills/ and seeds the personal catalog directory at ~/.claude/design-references/ (with a starter category vocabulary). Auto-consults your curated catalog on UI builds. Deactivation removes the SKILL but preserves your catalog data. Also part of the 'skills' bundle."
+  "Installs social-media into ~/.claude/skills/. Platform-specific sizing, safe zones, and content rules for 13 social platforms. Bundled file. Also part of the 'skills' bundle."
+  "Installs design-team into ~/.claude/skills/. Orchestrates multi-agent design sprints with 16 roles across research/build/CD-review/revise phases. Bundled file. Also part of the 'skills' bundle."
+  "Installs visual-effects into ~/.claude/skills/ (recursive - ships 35 files of shader source). 14 generative shader backgrounds + 25 transformative FX + 17 post-process effects. Also part of the 'skills' bundle."
+  "Installs icon-source into ~/.claude/skills/. Rigorous protocol for sourcing icons verbatim from 8 approved libraries (Heroicons, Lucide, Tabler, Bootstrap Icons, Phosphor, Material Symbols, plus animated variants). Bundled file. Also part of the 'skills' bundle."
+)
+FILES+=(
+  "~/.claude/skills/make-interfaces-feel-better/ (via npx skills CLI)"
+  "~/.claude/skills/component-gallery-reference/SKILL.md"
+  "~/.claude/skills/fontshare-reference/SKILL.md"
+  "~/.claude/skills/motion-reference/SKILL.md"
+  "~/.claude/skills/design-build/SKILL.md"
+  "~/.claude/skills/curate/SKILL.md"
+  "~/.claude/skills/design-references/SKILL.md\n~/.claude/design-references/ (personal catalog)"
+  "~/.claude/skills/social-media/SKILL.md"
+  "~/.claude/skills/design-team/SKILL.md"
+  "~/.claude/skills/visual-effects/ (recursive)"
+  "~/.claude/skills/icon-source/SKILL.md"
+)
+DIRS+=(
+  "$REPO_DIR/claude/skills"
+  "$REPO_DIR/claude/skills/component-gallery-reference"
+  "$REPO_DIR/claude/skills/fontshare-reference"
+  "$REPO_DIR/claude/skills/motion-reference"
+  "$REPO_DIR/claude/skills/design-build"
+  "$REPO_DIR/claude/skills/curate"
+  "$REPO_DIR/claude/skills/design-references"
+  "$REPO_DIR/claude/skills/social-media"
+  "$REPO_DIR/claude/skills/design-team"
+  "$REPO_DIR/claude/skills/visual-effects"
+  "$REPO_DIR/claude/skills/icon-source"
+)
+PICKS+=(1 1 1 1 1 1 1 1 1 1 1)
+
+# ------------------------------------------------------------
+# Dev apps - a la carte.
+# tilt-lab is a runnable Vite + React + TS app, NOT a dotfile-style symlink.
+# "Installing" it means: npm-install its deps and put a `tilt-lab` launcher on
+# PATH. Nothing is symlinked into ~/.claude beyond the launcher. Appended so
+# the parallel arrays stay aligned by construction.
+# ------------------------------------------------------------
+KEYS+=(tilt-lab)
+TITLES+=("tilt-lab visual-effects playground (dev server)")
+DESCS+=("Installs the tilt-lab visual-effects playground (Vite + React + TypeScript) as a runnable dev app. npm-installs its dependencies in <repo>/tilt-lab and symlinks a 'tilt-lab' launcher onto ~/.local/bin so you can start the playground from any shell. Does NOT auto-start a server during install. After installing, run 'tilt-lab' (or 'cd tilt-lab && npm run dev') to serve it at http://localhost:5180. This is an app, not a dotfile - the only thing placed in your home dir is the launcher symlink on PATH.")
+FILES+=("~/.local/bin/tilt-lab (launcher symlink)\n<repo>/tilt-lab/node_modules/ (npm install)")
+DIRS+=("$REPO_DIR/tilt-lab")
+PICKS+=(1)
 
 # Personal components - hidden from public TUI and --help. Surfaced only when
 # the maintainer passes --personal (undocumented, undocumented-on-purpose).
@@ -237,9 +316,20 @@ Usage:
   ./install.sh --yes            Non-interactive, install everything
   ./install.sh --preset NAME    Non-interactive preset: all | minimal | none
   ./install.sh --only KEYS      Non-interactive, comma-separated keys
-                                (brain, config, memory, skills, statusline, cmux, nvm, ampersand, discord, voice-input, voice-output, reflect, sidecoach, task-list)
   ./install.sh --dry-run        Print resolved picks and exit
   ./install.sh --help           Show this help
+
+Components (for --only KEYS):
+  Core:     brain, config, memory, statusline, nvm, ampersand
+  Channels: discord, voice-input, voice-output
+  Tools:    cmux, sidecoach, reflect, task-list, tilt-lab
+  Skills:   skills (bundle), make-interfaces, component-gallery, fontshare,
+            motion, design-build, curate, design-references, social-media,
+            design-team, visual-effects, icon-source
+
+  'skills' installs the whole design pipeline + peer skills as a bundle; the
+  individual skill keys let you take just one (e.g. --only icon-source).
+  'config' installs the full guard/QA hook suite that settings.json wires.
 EOF
 }
 
@@ -294,6 +384,10 @@ fi
 USER_HOME="$HOME"
 ZSHRC="$HOME/.zshrc"
 CLAUDE_DIR="$HOME/.claude"
+# Canonical path to the user's Claude Code settings.json. Several component
+# install/deactivate blocks (cmux, voice-output, sidecoach) reference this; it
+# must be defined before they run or `set -u` aborts with an unbound variable.
+SETTINGS_JSON="$CLAUDE_DIR/settings.json"
 
 # ============================================================
 # TUI
@@ -561,7 +655,21 @@ detect_component() {
     voice-output) [ -d "$CLAUDE_DIR/voice-output" ] && echo active || echo not-installed ;;
     reflect)    [ -f "$CLAUDE_DIR/skills/reflect/SKILL.md" ] && echo active || echo not-installed ;;
     task-list)  [ -f "$CLAUDE_DIR/skills/task-list/SKILL.md" ] && echo active || echo not-installed ;;
+    sidecoach)  [ -f "$CLAUDE_DIR/skills/sidecoach/SKILL.md" ] && echo active || echo not-installed ;;
+    tilt-lab)   [ -L "$HOME/.local/bin/tilt-lab" ] && echo active || echo not-installed ;;
     justify)     [ -d "$CLAUDE_DIR/justify" ] && echo active || echo not-installed ;;
+    # Design peer skills (a la carte). Each detects its own ~/.claude/skills/ dir.
+    make-interfaces)   [ -d "$CLAUDE_DIR/skills/make-interfaces-feel-better" ] && echo active || echo not-installed ;;
+    component-gallery) [ -d "$CLAUDE_DIR/skills/component-gallery-reference" ] && echo active || echo not-installed ;;
+    fontshare)         [ -d "$CLAUDE_DIR/skills/fontshare-reference" ] && echo active || echo not-installed ;;
+    motion)            [ -d "$CLAUDE_DIR/skills/motion-reference" ] && echo active || echo not-installed ;;
+    design-build)      [ -d "$CLAUDE_DIR/skills/design-build" ] && echo active || echo not-installed ;;
+    curate)            [ -d "$CLAUDE_DIR/skills/curate" ] && echo active || echo not-installed ;;
+    design-references) [ -d "$CLAUDE_DIR/skills/design-references" ] && echo active || echo not-installed ;;
+    social-media)      [ -d "$CLAUDE_DIR/skills/social-media" ] && echo active || echo not-installed ;;
+    design-team)       [ -d "$CLAUDE_DIR/skills/design-team" ] && echo active || echo not-installed ;;
+    visual-effects)    [ -d "$CLAUDE_DIR/skills/visual-effects" ] && echo active || echo not-installed ;;
+    icon-source)       [ -d "$CLAUDE_DIR/skills/icon-source" ] && echo active || echo not-installed ;;
     *)          echo not-installed ;;
   esac
 }
@@ -622,7 +730,10 @@ deactivate_brain() {
 
 deactivate_config() {
   local f
-  for f in bash-guard.sh content-guard.sh memory-approve.sh destructive-ops-guard.sh destructive-confirm-detect.sh; do
+  for f in bash-guard.sh content-guard.sh memory-approve.sh destructive-ops-guard.sh destructive-confirm-detect.sh \
+           agent-teams-guard.sh memory-nudge.sh multiple-choice-detect-stop.sh multiple-choice-inject-prompt.sh \
+           multiple-choice-enforce.sh question-enforcement.sh screenshot-open-mandate.sh screenshot-open-clear.sh \
+           second-fix-gate.sh validation-guard.sh verify-before-done.sh verify-clear.sh verify-manual.sh voice-gate.sh; do
     if [ -L "$CLAUDE_DIR/hooks/$f" ] && [[ "$(readlink "$CLAUDE_DIR/hooks/$f")" == "$REPO_DIR/"* ]]; then
       rm -f "$CLAUDE_DIR/hooks/$f"
     elif [ -f "$CLAUDE_DIR/hooks/$f" ] && grep -Fq "claude-dotfiles" "$CLAUDE_DIR/hooks/$f" 2>/dev/null; then
@@ -903,6 +1014,49 @@ deactivate_task_list() {
   [ -d "$CLAUDE_DIR/skills/task-list" ] && rm -rf "$CLAUDE_DIR/skills/task-list"
 }
 
+deactivate_sidecoach() {
+  [ -d "$CLAUDE_DIR/skills/sidecoach" ] && rm -rf "$CLAUDE_DIR/skills/sidecoach"
+  local f
+  for f in sidecoach-sessionstart.sh sidecoach-postuserp.sh sidecoach-postresponse.sh sidecoach-keyword.sh sidecoach-preamble.sh sidecoach-verbs.json sidecoach-modes.json; do
+    [ -L "$CLAUDE_DIR/hooks/$f" ] && rm -f "$CLAUDE_DIR/hooks/$f"
+  done
+  [ -L "$HOME/.local/bin/sidecoach" ] && rm -f "$HOME/.local/bin/sidecoach"
+  # Remove sidecoach hook entries from settings.json
+  if command -v python3 >/dev/null 2>&1 && [ -f "$SETTINGS_JSON" ]; then
+    python3 -c "
+import json
+p = '$SETTINGS_JSON'
+with open(p) as f: d = json.load(f)
+hooks = d.get('hooks', {})
+for event in ['SessionStart', 'UserPromptSubmit', 'Stop']:
+    out = []
+    for entry in hooks.get(event, []):
+        hl = [h for h in entry.get('hooks', []) if 'sidecoach' not in h.get('command', '')]
+        if hl:
+            entry['hooks'] = hl
+            out.append(entry)
+    if out:
+        hooks[event] = out
+    elif event in hooks:
+        del hooks[event]
+with open(p, 'w') as f: json.dump(d, f, indent=2); f.write('\n')
+"
+  fi
+}
+
+deactivate_tilt_lab() {
+  # Remove only the PATH launcher. Leave <repo>/tilt-lab/node_modules intact -
+  # it's repo-local build state, cheap to keep and expensive to reinstall.
+  [ -L "$HOME/.local/bin/tilt-lab" ] && rm -f "$HOME/.local/bin/tilt-lab"
+}
+
+# Design peer skills: each removes only its own ~/.claude/skills/ dir.
+# design-references deliberately preserves the user's ~/.claude/design-references/ catalog.
+deactivate_design_skill() {
+  local dir="$1"
+  [ -d "$CLAUDE_DIR/skills/$dir" ] && rm -rf "$CLAUDE_DIR/skills/$dir"
+}
+
 deactivate_component() {
   case "$1" in
     brain)      deactivate_brain ;;
@@ -918,7 +1072,20 @@ deactivate_component() {
     voice-output) deactivate_voice_output ;;
     reflect)    deactivate_reflect ;;
     task-list)  deactivate_task_list ;;
+    sidecoach)  deactivate_sidecoach ;;
+    tilt-lab)   deactivate_tilt_lab ;;
     justify) deactivate_justify ;;
+    make-interfaces)   deactivate_design_skill make-interfaces-feel-better ;;
+    component-gallery) deactivate_design_skill component-gallery-reference ;;
+    fontshare)         deactivate_design_skill fontshare-reference ;;
+    motion)            deactivate_design_skill motion-reference ;;
+    design-build)      deactivate_design_skill design-build ;;
+    curate)            deactivate_design_skill curate ;;
+    design-references) deactivate_design_skill design-references ;;
+    social-media)      deactivate_design_skill social-media ;;
+    design-team)       deactivate_design_skill design-team ;;
+    visual-effects)    deactivate_design_skill visual-effects ;;
+    icon-source)       deactivate_design_skill icon-source ;;
   esac
 }
 
@@ -1363,8 +1530,25 @@ if picked config; then
 
   [ -f "$USER_SETTINGS" ] || echo '{}' > "$USER_SETTINGS"
 
-  # Copy hook scripts
-  for f in bash-guard.sh content-guard.sh memory-approve.sh destructive-ops-guard.sh destructive-confirm-detect.sh; do
+  # Copy hook scripts. This is the full guard/QA/enforcement suite that our
+  # claude/settings.json wires into PreToolUse / Stop / UserPromptSubmit /
+  # SessionStart events. The settings.json JSON-merge below references every
+  # one of these by command path, so they must all land on disk or the wired
+  # hooks dangle (command-not-found at runtime). Component-owned hooks
+  # (resume-*, team-reaper, voice-*, reflect-nudge, sidecoach-*) are copied by
+  # their own components and intentionally excluded here.
+  CONFIG_HOOKS=(
+    bash-guard.sh content-guard.sh memory-approve.sh
+    destructive-ops-guard.sh destructive-confirm-detect.sh
+    agent-teams-guard.sh memory-nudge.sh
+    multiple-choice-detect-stop.sh multiple-choice-inject-prompt.sh
+    multiple-choice-enforce.sh question-enforcement.sh
+    screenshot-open-mandate.sh screenshot-open-clear.sh
+    second-fix-gate.sh validation-guard.sh
+    verify-before-done.sh verify-clear.sh verify-manual.sh
+    voice-gate.sh
+  )
+  for f in "${CONFIG_HOOKS[@]}"; do
     if [ -f "$REPO_DIR/claude/hooks/$f" ]; then
       cp "$REPO_DIR/claude/hooks/$f" "$CLAUDE_DIR/hooks/$f"
       chmod +x "$CLAUDE_DIR/hooks/$f"
@@ -1683,6 +1867,89 @@ VOCABEOF
   cp "$REPO_DIR/claude/skills/voice-output/SKILL.md" \
      "$CLAUDE_DIR/skills/voice-output/SKILL.md"
   ok "voice-output installed"
+fi
+
+# ============================================================
+# 4b. Design peer skills (a la carte)
+# ============================================================
+# Each block installs a single skill so `--only icon-source` (etc.) works
+# without taking the whole pipeline. These share their source with the
+# `skills` bundle above; installing both is idempotent (same file copied).
+
+# Helper: copy one bundled skill dir into ~/.claude/skills/. Pass a second arg
+# of 1 to recurse (visual-effects ships subdirectories of shader source).
+install_bundled_skill() {
+  local name="$1" recursive="${2:-0}"
+  if [ ! -d "$REPO_DIR/claude/skills/$name" ]; then
+    warn "skills/$name source missing in repo - skipping"
+    return 0
+  fi
+  mkdir -p "$CLAUDE_DIR/skills/$name"
+  if [ "$recursive" = "1" ]; then
+    cp -r "$REPO_DIR/claude/skills/$name/." "$CLAUDE_DIR/skills/$name/"
+  else
+    cp "$REPO_DIR/claude/skills/$name/SKILL.md" "$CLAUDE_DIR/skills/$name/SKILL.md"
+  fi
+  ok "skills/$name installed"
+}
+
+if picked make-interfaces; then
+  echo ""
+  info "--- make-interfaces-feel-better (a la carte) ---"
+  if command -v npx >/dev/null 2>&1; then
+    if npx --yes skills add jakubkrehel/make-interfaces-feel-better --yes -g 2>/dev/null; then
+      ok "make-interfaces-feel-better installed"
+    else
+      warn "Skill install failed (non-fatal). Run manually:"
+      warn "  npx skills add jakubkrehel/make-interfaces-feel-better --yes -g"
+    fi
+  else
+    warn "npx not found - skipping make-interfaces-feel-better (requires npx)."
+    warn "  npx skills add jakubkrehel/make-interfaces-feel-better --yes -g"
+  fi
+fi
+
+picked component-gallery && { echo ""; info "--- component-gallery-reference (a la carte) ---"; install_bundled_skill component-gallery-reference; }
+picked fontshare         && { echo ""; info "--- fontshare-reference (a la carte) ---"; install_bundled_skill fontshare-reference; }
+picked motion            && { echo ""; info "--- motion-reference (a la carte) ---"; install_bundled_skill motion-reference; }
+picked design-build      && { echo ""; info "--- design-build (a la carte) ---"; install_bundled_skill design-build; }
+picked curate            && { echo ""; info "--- curate (a la carte) ---"; install_bundled_skill curate; }
+picked social-media      && { echo ""; info "--- social-media (a la carte) ---"; install_bundled_skill social-media; }
+picked design-team       && { echo ""; info "--- design-team (a la carte) ---"; install_bundled_skill design-team; }
+picked visual-effects    && { echo ""; info "--- visual-effects (a la carte) ---"; install_bundled_skill visual-effects 1; }
+picked icon-source       && { echo ""; info "--- icon-source (a la carte) ---"; install_bundled_skill icon-source; }
+
+if picked design-references; then
+  echo ""
+  info "--- design-references (a la carte) ---"
+  install_bundled_skill design-references
+  # Seed the personal catalog only if absent (preserve user data).
+  if [ ! -d "$CLAUDE_DIR/design-references" ]; then
+    mkdir -p "$CLAUDE_DIR/design-references/_vocab"
+    cat > "$CLAUDE_DIR/design-references/_vocab/categories.txt" <<'VOCABEOF'
+# Strict Category vocabulary for the design-references catalog.
+# One per line. Lowercase, hyphenated.
+# Adding a new category requires explicit user approval via the `curate` skill.
+
+list
+navigation
+command-palette
+inline-edit
+page-transition
+loading-state
+empty-state
+detail-reveal
+layout-transition
+notification
+data-display
+gesture
+interactive-element
+overlay
+VOCABEOF
+    ok "design-references catalog seeded (empty - populate via /curate)"
+  else
+    ok "design-references catalog already exists - leaving user data intact"
+  fi
 fi
 
 # ============================================================
@@ -2327,6 +2594,43 @@ if picked sidecoach; then
 fi
 
 # ============================================================
+# 17. tilt-lab (visual-effects playground dev app)
+# ============================================================
+# tilt-lab is a runnable Vite app, not a dotfile. "Install" = ensure deps are
+# present and drop a `tilt-lab` launcher on PATH (~/.local/bin). The server is
+# NOT auto-started; the user runs `tilt-lab` (or `cd tilt-lab && npm run dev`)
+# when they want it. Dev server serves at http://localhost:5180.
+
+if picked tilt-lab; then
+  echo ""
+  info "--- tilt-lab (visual-effects playground) ---"
+
+  if command -v npm >/dev/null 2>&1; then
+    if [ ! -d "$REPO_DIR/tilt-lab/node_modules" ]; then
+      info "Installing tilt-lab dependencies (npm install)..."
+      (cd "$REPO_DIR/tilt-lab" && npm install --silent) \
+        && ok "tilt-lab dependencies installed" \
+        || warn "npm install failed (non-fatal). Run manually: cd tilt-lab && npm install"
+    else
+      ok "tilt-lab dependencies already installed"
+    fi
+  else
+    warn "npm not found - install Node, then run 'cd tilt-lab && npm install'."
+  fi
+
+  # Launcher symlink on PATH (mirrors the sidecoach CLI idiom).
+  chmod +x "$REPO_DIR/bin/tilt-lab-launcher.sh"
+  mkdir -p "$HOME/.local/bin"
+  make_symlink "$REPO_DIR/bin/tilt-lab-launcher.sh" "$HOME/.local/bin/tilt-lab"
+  case ":$PATH:" in
+    *":$HOME/.local/bin:"*) : ;;
+    *) warn "~/.local/bin is not on PATH - add it to use the \`tilt-lab\` command" ;;
+  esac
+
+  info "Run 'tilt-lab' (or 'cd tilt-lab && npm run dev') to start the playground at http://localhost:5180"
+fi
+
+# ============================================================
 # Summary
 # ============================================================
 # Suppress when invoked recursively from the returning-flow action loop -
@@ -2362,6 +2666,7 @@ picked voice-input && echo "  - Voice input: whisper-cpp + ffmpeg + ggml-base.en
 picked voice-output && echo "  - Voice output: OpenAI TTS MCP server + ~/.claude/tts-generate (run '~/.claude/tts-generate \"text\" [out.ogg]')"
 picked reflect     && echo "  - Reflect: memory corpus analysis skill + reflect-nudge SessionStart hook"
 picked task-list   && echo "  - Task list: /task-list slash command + TASKS.md at dotfiles root"
+picked tilt-lab    && echo "  - tilt-lab: deps installed + 'tilt-lab' launcher on ~/.local/bin (run 'tilt-lab' -> http://localhost:5180)"
 echo ""
 # Resolve which post-install guidance is actually relevant based on picks.
 NEED_CC=0; NEED_PLUGINS=0; NEED_FONT=0

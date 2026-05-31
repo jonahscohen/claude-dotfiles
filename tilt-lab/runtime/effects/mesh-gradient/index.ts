@@ -220,14 +220,19 @@ export function createMeshGradientEffect(): Effect {
         return;
       }
       scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x000000);
       camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
       camera.position.set(0, 0.5, 0.4);
       camera.lookAt(0, 0, 0);
 
-      // scene preset (0-4) selects a palette; explicit colorStops / colorN override it.
-      const sceneIdx = opts.params.scene;
-      if (sceneIdx != null && SCENE_PRESETS[Number(sceneIdx)]) {
-        colorStops = SCENE_PRESETS[Number(sceneIdx)].slice();
+      // scene preset selects a palette by name (or numeric index); explicit
+      // colorStops / colorN override it. "Custom" leaves DEFAULT_COLORS.
+      const sceneNames = ['Default', 'Aurora', 'Deep Ocean', 'Regent', 'Molten'];
+      const sceneVal = opts.params.scene;
+      if (sceneVal != null && String(sceneVal) !== 'Custom') {
+        let si = sceneNames.indexOf(String(sceneVal));
+        if (si < 0) si = Number(sceneVal);
+        if (SCENE_PRESETS[si]) colorStops = SCENE_PRESETS[si].slice();
       }
       const stops = opts.params.colorStops;
       if (Array.isArray(stops) && stops.length) colorStops = stops.map(String);
@@ -241,7 +246,7 @@ export function createMeshGradientEffect(): Effect {
         fragmentShader: FRAGMENT_SHADER,
         side: THREE.DoubleSide,
         uniforms: {
-          uFrequency: { value: new THREE.Vector2(3, 3) },
+          uFrequency: { value: new THREE.Vector2(3, 6) },
           uTime: { value: 0 },
           uAmount: { value: Number(opts.params.noiseAmount ?? 0.2) },
           uSpeed: { value: Number(opts.params.noiseSpeed ?? 0.02) },
@@ -254,7 +259,7 @@ export function createMeshGradientEffect(): Effect {
         },
       });
       const freq = Number(opts.params.noiseFrequency ?? 3);
-      material.uniforms.uFrequency.value.set(freq, freq);
+      material.uniforms.uFrequency.value.set(freq, freq * 2);
       material.wireframe = Boolean(opts.params.wireframe ?? false);
       freeze = Boolean(opts.params.animFreeze ?? false);
       syncColors();
@@ -283,7 +288,7 @@ export function createMeshGradientEffect(): Effect {
       switch (key) {
         case 'noiseFrequency': {
           const f = Number(value);
-          material.uniforms.uFrequency.value.set(f, f);
+          material.uniforms.uFrequency.value.set(f, f * 2);
           break;
         }
         case 'noiseAmount':
@@ -314,7 +319,14 @@ export function createMeshGradientEffect(): Effect {
           }
           break;
         case 'scene': {
-          const idx = Number(value);
+          // Named presets apply the full 5-stop palette, exactly as the
+          // original MeshGradientControls.selectScene. "Custom" leaves the
+          // per-color pickers in control.
+          const names = ['Default', 'Aurora', 'Deep Ocean', 'Regent', 'Molten'];
+          const sval = String(value);
+          if (sval === 'Custom' || sval === '-1') break;
+          let idx = names.indexOf(sval);
+          if (idx < 0) idx = Number(sval); // numeric fallback
           if (SCENE_PRESETS[idx]) {
             colorStops = SCENE_PRESETS[idx].slice();
             syncColors();

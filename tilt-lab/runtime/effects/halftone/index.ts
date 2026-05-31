@@ -1,30 +1,41 @@
 import type { Effect, EffectOpts } from '../../types';
 import * as THREE from 'three';
-import { FluidSolver } from '../../lib/fluid-solver';
+import {
+  createFluidSim,
+  stepFluidSim,
+  disposeFluidSim,
+  createBackgroundTexture,
+  type FluidSimState,
+  type FluidConstants,
+} from '../../lib/fluid-solver';
 
 /**
- * Halftone - a stable-fluid field (shared CPU FluidSolver) sampled per-cell by
- * a rotated-dot halftone post shader. Verbatim halftone fragment shader from
- * regent's halftone tool; the fluid sim is the shared Stam solver extracted to
- * runtime/lib/fluid-solver.ts. Three.js for the post pass.
+ * Halftone - the verbatim regent halftone tool. A Three.js GPU stable-fluid
+ * field (shared runtime/lib/fluid-solver sim) decays toward a drifting 4-stop
+ * radial background and is sampled per-cell by the verbatim rotated-dot halftone
+ * post shader. Fluid lineage: IndiciumAI bundle (FluidSimulation / MainScene).
  *
- * The CPU solver produces a color field each frame which is uploaded to a
- * FloatType DataTexture; the halftone shader reads it as uSource. Headless-safe:
- * no WebGL context -> dead, methods no-op (solver still runs CPU-side, harmless).
+ * The wrapper drives frame(t); no RAF is owned. Pointer arrives via onPointer.
+ * Headless-safe: with no WebGL context (happy-dom) init marks the effect dead
+ * and every method no-ops.
  */
 
-// halftone fluid constants (lane-1 report)
-const FLUID = {
-  iterations: 2,
-  velocityDecay: 2.5,
-  colorDecay: 4.0,
-  curlStrength: 0.035,
-  curlScale: 1.5,
-  curlChangeRate: 0.025,
-  pointerStrength: 0.35,
-  pointerDrag: 0.32,
-  pointerSpread: 150,
+// Fluid sim constants (verbatim from the original MainScene constructor).
+const FLUID: FluidConstants = {
+  iterations: 2, // FLUID_ITERATIONS
+  timeScale: 0.1, // FLUID_TIME_SCALE
+  velocityDecay: 2.5, // FLUID_VELOCITY_DECAY
+  colorDecay: 4.0, // FLUID_COLOR_DECAY
+  pointerSpread: 150, // FLUID_POINTER_SPREAD
+  curlStrength: 0.035, // FLUID_CURL_STRENGTH
+  curlScale: 1.5, // FLUID_CURL_SCALE
+  curlChangeRate: 0.025, // FLUID_CURL_CHANGE_RATE
+  pointerStrength: 0.35, // FLUID_POINTER_STRENGTH
+  pointerDrag: 0.32, // FLUID_POINTER_DRAG
+  simTextureScale: 0.25, // FLUID_SIM_TEXTURE_SCALE
+  physicsScale: 1, // FLUID_PHYSICS_SCALE (dx)
 };
+const FLUID_CURL_STRENGTH = FLUID.curlStrength;
 
 const HALFTONE_VERTEX = /* glsl */ `
 varying vec2 vUv;
@@ -42,6 +53,7 @@ uniform float uGridAngle;
 uniform float uContrast;
 uniform float uSoftness;
 uniform float uInvert;
+
 varying vec2 vUv;
 
 vec2 rotatePoint(vec2 p, float angle) {
@@ -52,35 +64,64 @@ vec2 rotatePoint(vec2 p, float angle) {
 
 void main() {
   vec2 pixelCoord = vUv * uResolution;
+
+  // Rotate into grid space
   float angleRad = uGridAngle * 3.14159265 / 180.0;
   vec2 rotated = rotatePoint(pixelCoord, angleRad);
+
+  // Cell center in rotated space
   vec2 cellSize = vec2(uDotSize);
   vec2 cell = floor(rotated / cellSize);
   vec2 cellCenter = (cell + 0.5) * cellSize;
+
+  // Unrotate cell center back to UV space for sampling
   vec2 cellCenterPx = rotatePoint(cellCenter, -angleRad);
   vec2 cellUV = cellCenterPx / uResolution;
+
+  // Clamp UV to valid range
   cellUV = clamp(cellUV, vec2(0.0), vec2(1.0));
+
+  // Sample source color at cell center
   vec4 srcColor = texture2D(uSource, cellUV);
 
+  // Luminance-only lift: brighten darks WITHOUT desaturating
   float srcLuma = max(dot(srcColor.rgb, vec3(0.299, 0.587, 0.114)), 0.001);
   float liftedLuma = pow(srcLuma, 0.5);
   float liftScale = liftedLuma / srcLuma;
   vec3 lifted = srcColor.rgb * liftScale;
+
+  // Soft clamp: if any channel would blow past 1.0, normalize down
   float maxChan = max(max(lifted.r, lifted.g), lifted.b);
   if (maxChan > 1.0) lifted /= maxChan;
+
+  // Push saturation further - counteract any residual grey
   float avg = (lifted.r + lifted.g + lifted.b) / 3.0;
   lifted = max(mix(vec3(avg), lifted, 1.5), vec3(0.0));
 
+  // Luminance from saturated lifted color for dot sizing
   float luma = dot(lifted, vec3(0.299, 0.587, 0.114));
+
+  // Apply contrast curve
   luma = pow(clamp(luma, 0.0, 1.0), 1.0 / max(uContrast, 0.05));
+
+  // Invert if requested
   float sizeFactor = mix(luma, 1.0 - luma, uInvert);
+
+  // Dot radius proportional to brightness
   float maxRadius = uDotSize * 0.5;
   float radius = maxRadius * sqrt(sizeFactor);
+
+  // Distance from this pixel to cell center (in rotated space)
   float dist = distance(rotated, cellCenter);
+
+  // Smooth edge
   float edgePx = max(uSoftness * 2.0, 0.5);
   float dotMask = 1.0 - smoothstep(radius - edgePx, radius + edgePx, dist);
+
+  // Subtle dark floor between dots
   vec3 baseColor = lifted * 0.08;
   vec3 finalColor = mix(baseColor, lifted, dotMask);
+
   gl_FragColor = vec4(finalColor, 1.0);
 }
 `;
@@ -97,32 +138,30 @@ interface HalftoneParams {
   contrast: number;
   softness: number;
   invert: boolean;
+  // The 4 base colors that drive the radial source field. Named presets seed
+  // these; editing any one (= the original's Custom mode, scene === -1) lets the
+  // pickers override the palette live.
+  baseColor1: string;
+  baseColor2: string;
+  baseColor3: string;
+  baseColor4: string;
 }
+
+const SCENE_NAMES = ['Indicium', 'Violet Abyss', 'Emerald Depth', 'Crimson Forge', 'Regent'];
 
 // The 5 built-in scene presets, verbatim from the regent original
 // (app/(app)/tools/halftone/presets.ts). baseColor1-4 drive the 4-stop radial
-// source field the halftone dots sample and tint from.
-const SCENE_PRESETS: { baseColor1: string; baseColor2: string; baseColor3: string; baseColor4: string }[] = [
-  { baseColor1: '#030618', baseColor2: '#1040a0', baseColor3: '#78b0dc', baseColor4: '#A0C4E8' }, // Indicium
-  { baseColor1: '#0a0318', baseColor2: '#2d1054', baseColor3: '#6b2fa0', baseColor4: '#B8A8C8' }, // Violet Abyss
-  { baseColor1: '#011a0a', baseColor2: '#0a4a2a', baseColor3: '#1a8a5a', baseColor4: '#A8C8B8' }, // Emerald Depth
-  { baseColor1: '#1a0505', baseColor2: '#5a0a0a', baseColor3: '#b82020', baseColor4: '#C8B0A8' }, // Crimson Forge
-  { baseColor1: '#010102', baseColor2: '#061440', baseColor3: '#0c90d0', baseColor4: '#58c0f8' }, // Regent
+// source field; envColor1-3 are carried verbatim (unused by the halftone renderer).
+const SCENE_PRESETS: {
+  baseColor1: string; baseColor2: string; baseColor3: string; baseColor4: string;
+  envColor1: string; envColor2: string; envColor3: string;
+}[] = [
+  { baseColor1: '#030618', baseColor2: '#1040a0', baseColor3: '#78b0dc', baseColor4: '#A0C4E8', envColor1: '#030620', envColor2: '#1248b0', envColor3: '#68a0d0' }, // Indicium
+  { baseColor1: '#0a0318', baseColor2: '#2d1054', baseColor3: '#6b2fa0', baseColor4: '#B8A8C8', envColor1: '#0f0520', envColor2: '#3a1570', envColor3: '#9b4dca' }, // Violet Abyss
+  { baseColor1: '#011a0a', baseColor2: '#0a4a2a', baseColor3: '#1a8a5a', baseColor4: '#A8C8B8', envColor1: '#021f0e', envColor2: '#0e5535', envColor3: '#2ecc71' }, // Emerald Depth
+  { baseColor1: '#1a0505', baseColor2: '#5a0a0a', baseColor3: '#b82020', baseColor4: '#C8B0A8', envColor1: '#200808', envColor2: '#701212', envColor3: '#ff4444' }, // Crimson Forge
+  { baseColor1: '#010102', baseColor2: '#061440', baseColor3: '#0c90d0', baseColor4: '#58c0f8', envColor1: '#010204', envColor2: '#062050', envColor3: '#00a0e8' }, // Regent
 ];
-
-function srgbToLinear(c: number): number {
-  return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-}
-
-function hexToLinearRGB(hex: string): [number, number, number] {
-  const h = hex.replace('#', '');
-  const n = parseInt(h.length === 3 ? h.split('').map((c) => c + c).join('') : h, 16);
-  return [
-    srgbToLinear(((n >> 16) & 255) / 255),
-    srgbToLinear(((n >> 8) & 255) / 255),
-    srgbToLinear((n & 255) / 255),
-  ];
-}
 
 export function createHalftoneEffect(): Effect {
   let dead = false;
@@ -131,15 +170,22 @@ export function createHalftoneEffect(): Effect {
   let camera: THREE.OrthographicCamera | null = null;
   let material: THREE.ShaderMaterial | null = null;
   let geometry: THREE.PlaneGeometry | null = null;
-  let dataTex: THREE.DataTexture | null = null;
-  let solver: FluidSolver | null = null;
-  let lastT = 0;
+  let bgTex: THREE.DataTexture | null = null;
+  let sim: FluidSimState | null = null;
 
-  let pointerX = 0.5;
-  let pointerY = 0.5;
-  let lastPointerX = 0.5;
-  let lastPointerY = 0.5;
-  let pointerDown = false;
+  let viewW = 256;
+  let viewH = 256;
+  let lastT = 0;
+  let timeAccum = 0;
+  let lastBgRebuild = 0;
+  let lastTonalKey = '';
+  let sceneDirty = false;
+  const phase = { x: Math.random() * Math.PI * 2, y: Math.random() * Math.PI * 2 };
+
+  // Pointer (buffered into pointerLatest by onPointer; shifted per-frame).
+  const pointerLatest = new THREE.Vector3(0.5, 0.5, 1);
+  const pointerUV = new THREE.Vector3(0.5, 0.5, 1);
+  const pointerUVLast = new THREE.Vector3(0.5, 0.5, 1);
 
   let sceneIdx = 0;
 
@@ -155,37 +201,26 @@ export function createHalftoneEffect(): Effect {
     contrast: 1.0,
     softness: 0.4,
     invert: false,
+    baseColor1: SCENE_PRESETS[0].baseColor1,
+    baseColor2: SCENE_PRESETS[0].baseColor2,
+    baseColor3: SCENE_PRESETS[0].baseColor3,
+    baseColor4: SCENE_PRESETS[0].baseColor4,
   };
 
-  // 4-stop radial source field from the active scene's baseColor1-4, with the
-  // highlight/midtone/shadow tonal weights setting each zone's radius share.
-  // Verbatim mapping from the original createBackgroundTexture().
-  function buildBackground(): void {
-    if (!solver) return;
-    const preset = SCENE_PRESETS[sceneIdx] || SCENE_PRESETS[0];
-    const c1 = hexToLinearRGB(preset.baseColor1);
-    const c2 = hexToLinearRGB(preset.baseColor2);
-    const c3 = hexToLinearRGB(preset.baseColor3);
-    const c4 = hexToLinearRGB(preset.baseColor4);
-    const hi = p.highlight;
-    const mi = p.midtone;
-    const sh = p.shadow;
-    const total = hi + mi + sh || 1;
-    const s1 = hi / total;
-    const s2 = (hi + mi) / total;
-    const lerp3 = (a: number[], b: number[], t: number): [number, number, number] => [
-      a[0] + (b[0] - a[0]) * t,
-      a[1] + (b[1] - a[1]) * t,
-      a[2] + (b[2] - a[2]) * t,
-    ];
-    solver.setBackgroundField((u, v) => {
-      const dx = u - 0.5;
-      const dy = v - 0.5;
-      const r = Math.min(1, Math.hypot(dx, dy) * 2);
-      if (r <= s1) return lerp3(c4, c3, s1 > 0 ? r / s1 : 0);
-      if (r <= s2) return lerp3(c3, c2, s2 > s1 ? (r - s1) / (s2 - s1) : 0);
-      return lerp3(c2, c1, s2 < 1 ? (r - s2) / (1 - s2) : 0);
-    });
+  // The active palette: live base colors (preset-seeded or picker-overridden)
+  // for the radial source field; env colors carried from the preset (unused by
+  // the halftone renderer but kept 1:1 with the original ScenePreset).
+  function preset() {
+    const env = SCENE_PRESETS[sceneIdx >= 0 ? sceneIdx : 0] || SCENE_PRESETS[0];
+    return {
+      baseColor1: p.baseColor1,
+      baseColor2: p.baseColor2,
+      baseColor3: p.baseColor3,
+      baseColor4: p.baseColor4,
+      envColor1: env.envColor1,
+      envColor2: env.envColor2,
+      envColor3: env.envColor3,
+    };
   }
 
   return {
@@ -193,15 +228,7 @@ export function createHalftoneEffect(): Effect {
       for (const k of Object.keys(p) as (keyof HalftoneParams)[]) {
         if (k in opts.params) this.setParam(k, opts.params[k]);
       }
-
-      // CPU fluid solver always created (testable, harmless headless)
-      solver = new FluidSolver({
-        width: 96,
-        height: 96,
-        ...FLUID,
-        curlStrength: FLUID.curlStrength * (p.turbulence / 0.1),
-      });
-      buildBackground();
+      sceneDirty = false;
 
       const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
       if (!gl) {
@@ -209,110 +236,219 @@ export function createHalftoneEffect(): Effect {
         return;
       }
       try {
-        renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+        renderer = new THREE.WebGLRenderer({
+          canvas,
+          antialias: false,
+          alpha: false,
+          powerPreference: 'high-performance',
+        });
       } catch {
         dead = true;
         return;
       }
-      scene = new THREE.Scene();
-      camera = new THREE.OrthographicCamera(-0.5, 0.5, 0.5, -0.5, 0, 1);
+      viewW = canvas.width || 256;
+      viewH = canvas.height || 256;
+      renderer.setSize(viewW, viewH, false);
+      renderer.toneMapping = THREE.NoToneMapping;
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.autoClear = false;
 
-      const rgba = solver.colorRGBA;
-      dataTex = new THREE.DataTexture(rgba as unknown as BufferSource, solver.width, solver.height, THREE.RGBAFormat, THREE.FloatType);
-      dataTex.minFilter = THREE.LinearFilter;
-      dataTex.magFilter = THREE.LinearFilter;
-      dataTex.needsUpdate = true;
+      const aspect = viewW / Math.max(1, viewH);
+      const sizeWidth = aspect;
+      const sizeHeight = 1;
+      camera = new THREE.OrthographicCamera(
+        -sizeWidth / 2, sizeWidth / 2,
+        sizeHeight / 2, -sizeHeight / 2,
+        0.0001, 5,
+      );
+      camera.position.set(0, 0, 1);
+      camera.lookAt(0, 0, 0);
+
+      scene = new THREE.Scene();
+
+      // Background texture (drifting 4-stop radial the fluid color decays toward).
+      const initCx = 0.5 + 0.18 * Math.sin(phase.x);
+      const initCy = 0.5 + 0.18 * Math.cos(phase.y);
+      bgTex = createBackgroundTexture(preset(), 512, 512, {
+        highlight: p.highlight, midtone: p.midtone, shadow: p.shadow,
+      }, { x: initCx, y: initCy });
+
+      // Fluid sim (color buffer 512, sim 0.25 -> 128). periodicBoundary=false
+      // gives ClampToEdge textures; original then disables the velocity boundary.
+      sim = createFluidSim(renderer, 512, 512, false, FLUID);
+      sim.sharedUniforms.velocityBoundaryEnabled.value = false;
+      sim.paintColorMat.uniforms.uBackgroundTexture.value = bgTex;
 
       material = new THREE.ShaderMaterial({
         vertexShader: HALFTONE_VERTEX,
         fragmentShader: HALFTONE_FRAGMENT,
         uniforms: {
-          uSource: { value: dataTex },
-          uResolution: { value: new THREE.Vector2(canvas.width || 256, canvas.height || 256) },
+          uSource: { value: sim.color.getTexture() },
+          uResolution: { value: new THREE.Vector2(viewW, viewH) },
           uDotSize: { value: p.dotSize },
           uGridAngle: { value: p.gridAngle },
           uContrast: { value: p.contrast },
           uSoftness: { value: p.softness },
           uInvert: { value: p.invert ? 1 : 0 },
         },
+        depthTest: false,
+        depthWrite: false,
       });
-      geometry = new THREE.PlaneGeometry(1, 1);
-      scene.add(new THREE.Mesh(geometry, material));
+      geometry = new THREE.PlaneGeometry(sizeWidth, sizeHeight, 1, 1);
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.frustumCulled = false;
+      scene.add(mesh);
+
+      lastTonalKey = `s${sceneIdx}:${p.highlight}:${p.midtone}:${p.shadow}:${p.baseColor1}${p.baseColor2}${p.baseColor3}${p.baseColor4}`;
     },
 
     frame(t: number) {
-      const dt = lastT === 0 ? 1 / 60 : Math.min((t - lastT) / 1000, 1 / 30);
+      if (dead || !renderer || !scene || !camera || !material || !sim || !bgTex) return;
+      const now = t;
+      const dt = lastT === 0 ? 1 / 60 : Math.min((t - lastT) / 1000, 0.05);
       lastT = t;
-      if (solver) {
-        if (pointerDown) solver.addPointer(pointerX, pointerY, lastPointerX, lastPointerY, true);
-        solver.step(dt, t / 1000);
-        lastPointerX = pointerX;
-        lastPointerY = pointerY;
+      timeAccum += dt;
+
+      // Scene/theme change - flush fluid color buffer so old palette doesn't linger.
+      if (sceneDirty) {
+        sceneDirty = false;
+        sim.color.clear(renderer);
       }
-      if (dead || !renderer || !scene || !camera || !material || !dataTex || !solver) return;
-      dataTex.image.data = solver.colorRGBA as unknown as Uint8ClampedArray;
-      dataTex.needsUpdate = true;
+
+      // Drifting gradient center (Lissajous) + tonal/scene rebuild (~5fps).
+      const driftCx = 0.5 + 0.18 * Math.sin(timeAccum * 0.04 + phase.x);
+      const driftCy = 0.5 + 0.18 * Math.cos(timeAccum * 0.03 + phase.y);
+      const tonalKey = `s${sceneIdx}:${p.highlight}:${p.midtone}:${p.shadow}:${p.baseColor1}${p.baseColor2}${p.baseColor3}${p.baseColor4}`;
+      const tonalChanged = tonalKey !== lastTonalKey;
+      const driftDue = now - lastBgRebuild > 200;
+      if (tonalChanged || driftDue) {
+        lastTonalKey = tonalKey;
+        lastBgRebuild = now;
+        bgTex.dispose();
+        bgTex = createBackgroundTexture(preset(), 512, 512, {
+          highlight: p.highlight, midtone: p.midtone, shadow: p.shadow,
+        }, { x: driftCx, y: driftCy });
+        sim.paintColorMat.uniforms.uBackgroundTexture.value = bgTex;
+      }
+
+      // Halftone uniforms
+      material.uniforms.uDotSize.value = p.dotSize;
+      material.uniforms.uGridAngle.value = p.gridAngle;
+      material.uniforms.uContrast.value = p.contrast;
+      material.uniforms.uSoftness.value = p.softness;
+      material.uniforms.uInvert.value = p.invert ? 1 : 0;
+
+      // Per-frame pointer shift (latest -> current), with large-jump clamp.
+      pointerUVLast.copy(pointerUV);
+      pointerUV.copy(pointerLatest);
+      const dxp = pointerUVLast.x - pointerUV.x;
+      const dyp = pointerUVLast.y - pointerUV.y;
+      const dSq = dxp * dxp + dyp * dyp;
+      const maxJump = 0.5;
+      if (dSq > maxJump * maxJump) {
+        const d = Math.sqrt(dSq);
+        pointerUVLast.x = pointerUV.x + (dxp / d) * maxJump;
+        pointerUVLast.y = pointerUV.y + (dyp / d) * maxJump;
+      }
+      sim.paintVelocityMat.uniforms.uPointer.value.copy(pointerUV);
+      sim.paintVelocityMat.uniforms.uPointerLast.value.copy(pointerUVLast);
+      sim.paintVelocityMat.uniforms.uTime_s.value = timeAccum;
+      sim.paintColorMat.uniforms.uTime_s.value = timeAccum;
+
+      // Turbulence scales curl strength (verbatim formula).
+      const turbMult = 0.5 + p.turbulence * 1.5;
+      sim.paintVelocityMat.uniforms.uCurlParameters.value.x = FLUID_CURL_STRENGTH * turbMult;
+
+      stepFluidSim(renderer, sim, dt);
+
+      material.uniforms.uSource.value = sim.color.getTexture();
+
+      renderer.setRenderTarget(null);
+      renderer.clear();
       renderer.render(scene, camera);
     },
 
     resize(w: number, h: number) {
-      if (dead || !renderer || !material) return;
-      renderer.setSize(w, h, false);
-      (material.uniforms.uResolution.value as THREE.Vector2).set(w, h);
+      if (dead || !renderer || !material || !camera) return;
+      viewW = Math.max(1, w);
+      viewH = Math.max(1, h);
+      renderer.setSize(viewW, viewH, false);
+      const aspect = viewW / viewH;
+      camera.left = -aspect / 2;
+      camera.right = aspect / 2;
+      camera.top = 0.5;
+      camera.bottom = -0.5;
+      camera.updateProjectionMatrix();
+      if (geometry) geometry.dispose();
+      geometry = new THREE.PlaneGeometry(aspect, 1, 1, 1);
+      const mesh = scene?.children[0] as THREE.Mesh | undefined;
+      if (mesh) mesh.geometry = geometry;
+      (material.uniforms.uResolution.value as THREE.Vector2).set(viewW, viewH);
     },
 
     setParam(key: string, value: unknown) {
       switch (key) {
         case 'scene': {
-          const idx = Number(value);
+          // Named presets seed all 4 base colors (like the original selectScene);
+          // "Custom" (scene = -1) keeps the current base colors for live editing.
+          const sval = String(value);
+          if (sval === 'Custom' || sval === '-1') {
+            sceneIdx = -1;
+            p.scene = -1;
+            sceneDirty = true;
+            break;
+          }
+          let idx = SCENE_NAMES.indexOf(sval);
+          if (idx < 0) idx = Number(sval); // numeric fallback
           if (SCENE_PRESETS[idx]) {
             sceneIdx = idx;
             p.scene = idx;
-            buildBackground();
+            p.baseColor1 = SCENE_PRESETS[idx].baseColor1;
+            p.baseColor2 = SCENE_PRESETS[idx].baseColor2;
+            p.baseColor3 = SCENE_PRESETS[idx].baseColor3;
+            p.baseColor4 = SCENE_PRESETS[idx].baseColor4;
+            sceneDirty = true;
           }
           break;
         }
-        // fluidInfluence: present in the original's param set with this default
-        // but left inert by the original render pipeline; stored to preserve the
-        // full param surface 1:1.
+        case 'baseColor1':
+        case 'baseColor2':
+        case 'baseColor3':
+        case 'baseColor4':
+          p[key] = String(value);
+          sceneDirty = true;
+          break;
+        // fluidInfluence: in the original's param set with this default but left
+        // inert by the original render pipeline; stored to preserve the param surface 1:1.
         case 'fluidInfluence':
           p.fluidInfluence = Number(value);
           break;
         case 'turbulence':
           p.turbulence = Number(value);
-          if (solver) solver.opts.curlStrength = FLUID.curlStrength * (p.turbulence / 0.1);
           break;
         case 'highlight':
           p.highlight = Number(value);
-          buildBackground();
           break;
         case 'midtone':
           p.midtone = Number(value);
-          buildBackground();
           break;
         case 'shadow':
           p.shadow = Number(value);
-          buildBackground();
           break;
         case 'dotSize':
           p.dotSize = Number(value);
-          if (material) material.uniforms.uDotSize.value = p.dotSize;
           break;
         case 'gridAngle':
           p.gridAngle = Number(value);
-          if (material) material.uniforms.uGridAngle.value = p.gridAngle;
           break;
         case 'contrast':
           p.contrast = Number(value);
-          if (material) material.uniforms.uContrast.value = p.contrast;
           break;
         case 'softness':
           p.softness = Number(value);
-          if (material) material.uniforms.uSoftness.value = p.softness;
           break;
         case 'invert':
           p.invert = Boolean(value);
-          if (material) material.uniforms.uInvert.value = p.invert ? 1 : 0;
           break;
         default:
           break;
@@ -320,27 +456,25 @@ export function createHalftoneEffect(): Effect {
     },
 
     onPointer(x: number, y: number) {
-      if (Number.isNaN(x) || Number.isNaN(y)) {
-        pointerDown = false;
-        return;
-      }
-      pointerX = x;
-      pointerY = y;
-      pointerDown = true;
+      if (Number.isNaN(x) || Number.isNaN(y)) return;
+      // Wrapper passes canvas-relative normalized [0,1] (y down). The fluid sim
+      // wants y-up; z<0.5 means "apply drag force" (hover), matching the original.
+      pointerLatest.set(x, 1 - y, 0);
     },
 
     dispose() {
       geometry?.dispose();
       material?.dispose();
-      dataTex?.dispose();
+      bgTex?.dispose();
+      if (sim) disposeFluidSim(sim);
       renderer?.dispose();
       geometry = null;
       material = null;
-      dataTex = null;
+      bgTex = null;
+      sim = null;
       renderer = null;
       scene = null;
       camera = null;
-      solver = null;
       dead = true;
     },
   };

@@ -459,7 +459,9 @@ export function createDitheredImageEffect(): Effect {
       const program = new Program(rgl, { vertex: VERTEX, fragment: FRAGMENT, uniforms });
       mesh = new Mesh(rgl, { geometry, program });
 
-      const src = opts.assets.src;
+      // Prefer a user-uploaded image (the `src` file param yields an object URL)
+      // over the bundled default asset; fall back to the generated test pattern.
+      const src = (typeof p.src === 'string' && p.src) || opts.assets.src;
       if (src) loadSource(src);
     },
 
@@ -498,6 +500,9 @@ export function createDitheredImageEffect(): Effect {
         }
         case 'ditherMap':
           makeThreshold(String(value));
+          break;
+        case 'src':
+          if (value) loadSource(String(value));
           break;
         default:
           break;

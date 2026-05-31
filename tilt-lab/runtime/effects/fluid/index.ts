@@ -639,7 +639,8 @@ export function createFluidEffect(): Effect {
 
     frame(t: number) {
       if (dead || !gl || !ready || !velocity || !pressure || !dye || !divergenceFB) return;
-      const dt = lastT === 0 ? 1 / 60 : Math.min((t - lastT) / 1000, 1 / 30);
+      // Original caps the timestep at 0.02s (Main.hx: Math.min(now - lastTime, 0.02)).
+      const dt = lastT === 0 ? 1 / 60 : Math.min((t - lastT) / 1000, 0.02);
       lastT = t;
 
       const rdx = 1 / CELL_SIZE;
@@ -662,7 +663,7 @@ export function createFluidEffect(): Effect {
       if (drawTo(velocity.write, programs.mouseForce)) {
         const prog = programs.mouseForce!;
         bindTex(prog, 'velocity', velocity.read.tex, 0);
-        gl.uniform1f(gl.getUniformLocation(prog, 'dt'), dt);
+        gl.uniform1f(gl.getUniformLocation(prog, 'dt'), Math.max(dt, 0.001));
         gl.uniform1f(gl.getUniformLocation(prog, 'dx'), dx);
         gl.uniform1i(gl.getUniformLocation(prog, 'isMouseDown'), mouseDown ? 1 : 0);
         gl.uniform2f(gl.getUniformLocation(prog, 'mouseClipSpace'), mouseX, mouseY);
@@ -708,7 +709,7 @@ export function createFluidEffect(): Effect {
       if (drawTo(dye.write, programs.mouseDye)) {
         const prog = programs.mouseDye!;
         bindTex(prog, 'dye', dye.read.tex, 0);
-        gl.uniform1f(gl.getUniformLocation(prog, 'dt'), dt);
+        gl.uniform1f(gl.getUniformLocation(prog, 'dt'), Math.max(dt, 0.001));
         gl.uniform1f(gl.getUniformLocation(prog, 'dx'), dx);
         gl.uniform1i(gl.getUniformLocation(prog, 'isMouseDown'), mouseDown ? 1 : 0);
         gl.uniform2f(gl.getUniformLocation(prog, 'mouseClipSpace'), mouseX, mouseY);
@@ -824,7 +825,17 @@ export function createFluidEffect(): Effect {
     setParam(key: string, value: unknown) {
       switch (key) {
         case 'scene': {
-          const idx = Number(value);
+          // Named presets (Cosmic/Regent/Inferno/Void/Monochrome) apply the
+          // full color set, exactly as the original FluidControls.selectScene.
+          // "Custom" (scene = -1) leaves the color pickers in control.
+          const names = ['Cosmic', 'Regent', 'Inferno', 'Void', 'Monochrome'];
+          const sval = String(value);
+          if (sval === 'Custom' || sval === '-1') {
+            p.scene = -1;
+            break;
+          }
+          let idx = names.indexOf(sval);
+          if (idx < 0) idx = Number(sval); // numeric fallback
           const preset = FLUID_PRESETS[idx];
           if (preset) {
             p.scene = idx;

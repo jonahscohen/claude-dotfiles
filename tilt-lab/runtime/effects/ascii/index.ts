@@ -45,6 +45,7 @@ const MIXED_POOLS = [
 interface AsciiState {
   renderMode: string;
   charSet: string; // preset name OR a custom literal glyph ramp (bright -> dark)
+  customChars: string; // free-form ramp from the 'text' param; overrides charSet when set
   fontSize: number;
   coverage: number;
   edgeEmphasis: number;
@@ -55,6 +56,15 @@ interface AsciiState {
   randomChars: boolean;
   charOpacity: number;
   mosaicShape: string;
+  // Background pass (drawn beneath the glyph grid): 'solid' = black, 'none' =
+  // transparent, 'blur' = the sampled source blurred at bgOpacity.
+  bgMode: string;
+  bgBlur: number;
+  bgOpacity: number;
+  // Faint per-cell grid lines (the "dot grid" overlay).
+  dotGrid: boolean;
+  // globalCompositeOperation for the glyph/tile pass (distinct from overlayBlend).
+  blendMode: string;
   overlayColor: string;
   overlayOpacity: number;
   overlayBlend: string;
@@ -70,6 +80,35 @@ interface AsciiState {
   // Disco (mirror-tile / lens-flare) knobs.
   discoUniformity: number;
   discoSeed: number;
+  // Foreground colour control (ascii-magic "Colour" dropdown):
+  // 'sampled' = source pixel colour, 'mono' = single monoColor, 'palette' =
+  // sampled colour quantized to an 8-step ramp.
+  colorMode: string;
+  monoColor: string;
+  // Shapes/braille tuning (ascii-magic Jitter / Threshold / Posterize sliders).
+  jitter: number;
+  threshold: number;
+  posterize: number;
+  // Animated-ASCII shimmer (ascii-magic Animation panel).
+  animated: boolean;
+  animStyle: string; // wave | cascade | reveal | pulse
+  animSpeed: number; // seconds per cycle
+  animIntensity: number; // 0..100
+  animRandomness: number; // 0..100
+  // Post-processing effect stack (ascii-magic "Post-Processing Effects" panel).
+  fxVignette: boolean;
+  fxScanLines: boolean;
+  fxCRT: boolean;
+  fxChromatic: boolean;
+  fxBloom: boolean;
+  fxFilmGrain: boolean;
+  fxGlitch: boolean;
+  fxRGBSplit: boolean;
+  fxBlur: boolean;
+  fxPixelate: boolean;
+  fxHalftone: boolean;
+  fxFilmDust: boolean;
+  lightMode: boolean;
 }
 
 export function createAsciiEffect(): Effect {
@@ -78,12 +117,16 @@ export function createAsciiEffect(): Effect {
   let ctx: CanvasRenderingContext2D | null = null;
   let offscreen: HTMLCanvasElement | null = null;
   let offCtx: CanvasRenderingContext2D | null = null;
+  // Scratch canvas for read-back post-processing effects.
+  let fxCanvas: HTMLCanvasElement | null = null;
+  let fxCtx: CanvasRenderingContext2D | null = null;
   let w = 1;
   let h = 1;
 
   const s: AsciiState = {
     renderMode: 'characters',
     charSet: 'standard',
+    customChars: '',
     fontSize: 11,
     coverage: 85,
     edgeEmphasis: 60,
@@ -94,6 +137,11 @@ export function createAsciiEffect(): Effect {
     randomChars: false,
     charOpacity: 100,
     mosaicShape: 'square',
+    bgMode: 'blur',
+    bgBlur: 8,
+    bgOpacity: 90,
+    dotGrid: false,
+    blendMode: 'source-over',
     overlayColor: '#ff0000',
     overlayOpacity: 0,
     overlayBlend: 'multiply',
@@ -107,10 +155,37 @@ export function createAsciiEffect(): Effect {
     shape3dFlip: false,
     discoUniformity: 80,
     discoSeed: 1,
+    colorMode: 'sampled',
+    monoColor: '#ffffff',
+    jitter: 30,
+    threshold: 50,
+    posterize: 4,
+    animated: false,
+    animStyle: 'wave',
+    animSpeed: 3,
+    animIntensity: 60,
+    animRandomness: 50,
+    fxVignette: false,
+    fxScanLines: false,
+    fxCRT: false,
+    fxChromatic: false,
+    fxBloom: false,
+    fxFilmGrain: false,
+    fxGlitch: false,
+    fxRGBSplit: false,
+    fxBlur: false,
+    fxPixelate: false,
+    fxHalftone: false,
+    fxFilmDust: false,
+    lightMode: false,
   };
 
-  const STR_KEYS = new Set(['renderMode', 'charSet', 'mosaicShape', 'overlayColor', 'overlayBlend']);
-  const BOOL_KEYS = new Set(['invert', 'randomChars', 'shape3dFlip']);
+  const STR_KEYS = new Set(['renderMode', 'charSet', 'customChars', 'mosaicShape', 'bgMode', 'blendMode', 'overlayColor', 'overlayBlend', 'colorMode', 'monoColor', 'animStyle']);
+  const BOOL_KEYS = new Set([
+    'invert', 'randomChars', 'dotGrid', 'shape3dFlip', 'animated',
+    'fxVignette', 'fxScanLines', 'fxCRT', 'fxChromatic', 'fxBloom', 'fxFilmGrain',
+    'fxGlitch', 'fxRGBSplit', 'fxBlur', 'fxPixelate', 'fxHalftone', 'fxFilmDust', 'lightMode',
+  ]);
 
   function readParams(params: Record<string, unknown>) {
     for (const key of Object.keys(s) as (keyof AsciiState)[]) {
@@ -180,7 +255,10 @@ export function createAsciiEffect(): Effect {
         return MIXED_POOLS[hsh % MIXED_POOLS.length];
       }
       default:
-        // Known preset, else treat charSet as a literal custom ramp (>1 char).
+        // A non-empty custom ramp (the 'customChars' text param, bright -> dark)
+        // overrides everything; else the named charSet preset; else treat charSet
+        // itself as a literal ramp (>1 char); else the standard preset.
+        if (typeof s.customChars === 'string' && s.customChars.length > 1) return s.customChars;
         return CHAR_PRESETS[s.charSet]
           ?? (typeof s.charSet === 'string' && s.charSet.length > 1 ? s.charSet : CHAR_PRESETS.standard);
     }
@@ -271,7 +349,8 @@ export function createAsciiEffect(): Effect {
 
   // Posterized jittered primitives (own pass for `shapes`).
   function drawShapesPass(c: CanvasRenderingContext2D, px: Uint8ClampedArray, iw: number, ih: number, cw: number, ch: number, cols: number, rows: number, minLum: number, lumRange: number, coverageCut: number, darkCut: number) {
-    const levels = 4; // posterize bands
+    const levels = Math.max(2, Math.round(s.posterize)); // posterize bands
+    const jit = Math.max(0, s.jitter / 100);
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
         const sx = Math.min(iw - 1, Math.floor((col + 0.5) * cw));
@@ -287,8 +366,8 @@ export function createAsciiEffect(): Effect {
         const g = clamp255(Math.round((px[pi + 1] / 255) * levels) / levels * 255);
         const b = clamp255(Math.round((px[pi + 2] / 255) * levels) / levels * 255);
         // Positional jitter, deterministic per cell.
-        const jx = (hash01(col, row, 7) - 0.5) * cw * 0.4;
-        const jy = (hash01(row, col, 11) - 0.5) * ch * 0.4;
+        const jx = (hash01(col, row, 7) - 0.5) * cw * jit;
+        const jy = (hash01(row, col, 11) - 0.5) * ch * jit;
         const ccx = col * cw + cw / 2 + jx;
         const ccy = row * ch + ch / 2 + jy;
         const size = Math.min(cw, ch) * (0.3 + 0.7 * q);
@@ -316,6 +395,241 @@ export function createAsciiEffect(): Effect {
     }
   }
 
+  function hexToRgbTriple(hex: string): [number, number, number] {
+    if (typeof hex === 'string' && hex.startsWith('#')) {
+      const c = hex.slice(1);
+      if (c.length === 3) return [parseInt(c[0] + c[0], 16), parseInt(c[1] + c[1], 16), parseInt(c[2] + c[2], 16)];
+      if (c.length >= 6) return [parseInt(c.slice(0, 2), 16), parseInt(c.slice(2, 4), 16), parseInt(c.slice(4, 6), 16)];
+    }
+    return [255, 255, 255];
+  }
+
+  // Resolve the per-cell foreground colour per the colorMode control.
+  function fgColor(r: number, g: number, b: number): [number, number, number] {
+    if (s.colorMode === 'mono') return hexToRgbTriple(s.monoColor);
+    if (s.colorMode === 'palette') {
+      const q = (v: number) => Math.round((v / 255) * 7) / 7 * 255;
+      return [q(r), q(g), q(b)];
+    }
+    return [r, g, b];
+  }
+
+  // Time-driven shimmer modulation added to a cell's charScore (Animation panel).
+  function animMod(col: number, row: number, cols: number, t: number): number {
+    if (!s.animated) return 0;
+    const cycle = Math.max(0.05, s.animSpeed) * 1000;
+    const phase = (t / cycle) * Math.PI * 2;
+    let base = 0;
+    switch (s.animStyle) {
+      case 'cascade': base = Math.sin(phase - row * 0.35); break;
+      case 'reveal': {
+        const sweep = ((t / cycle) % 1 + 1) % 1;
+        base = (col / Math.max(1, cols)) < sweep ? 1 : -1;
+        break;
+      }
+      case 'pulse': base = Math.sin(phase); break;
+      default: base = Math.sin(phase + (col + row) * 0.3); break; // wave
+    }
+    const intensity = Math.max(0, Math.min(1, s.animIntensity / 100));
+    const rand = (hash01(col, row, 99) - 0.5) * Math.max(0, Math.min(1, s.animRandomness / 100));
+    return (base * 0.5 + rand) * intensity * 0.5;
+  }
+
+  function ensureFx(iw: number, ih: number): boolean {
+    if (typeof document === 'undefined') return false;
+    if (!fxCanvas) {
+      fxCanvas = document.createElement('canvas');
+      fxCtx = fxCanvas.getContext('2d');
+    }
+    if (!fxCtx) return false;
+    if (fxCanvas.width !== iw) fxCanvas.width = iw;
+    if (fxCanvas.height !== ih) fxCanvas.height = ih;
+    return true;
+  }
+
+  function anyFxEnabled(): boolean {
+    return s.fxVignette || s.fxScanLines || s.fxCRT || s.fxChromatic || s.fxBloom
+      || s.fxFilmGrain || s.fxGlitch || s.fxRGBSplit || s.fxBlur || s.fxPixelate
+      || s.fxHalftone || s.fxFilmDust || s.lightMode;
+  }
+
+  // Post-processing effect stack, applied to the rendered ASCII canvas in order.
+  // Standard canvas reimplementations of the ascii-magic post-effects panel.
+  function postProcess(c: CanvasRenderingContext2D, iw: number, ih: number, t: number) {
+    const supportsFilter = 'filter' in c;
+    const snapshot = (): HTMLCanvasElement | null => {
+      if (!ensureFx(iw, ih) || !fxCanvas || !fxCtx) return null;
+      fxCtx.clearRect(0, 0, iw, ih);
+      fxCtx.drawImage(canvasRef as HTMLCanvasElement, 0, 0);
+      return fxCanvas;
+    };
+
+    if (s.fxBlur && supportsFilter) {
+      const snap = snapshot();
+      if (snap) {
+        c.save();
+        c.clearRect(0, 0, iw, ih);
+        c.filter = 'blur(1.5px)';
+        c.drawImage(snap, 0, 0);
+        c.filter = 'none';
+        c.restore();
+      }
+    }
+
+    if (s.fxPixelate) {
+      const snap = snapshot();
+      if (snap) {
+        const f = 6;
+        c.save();
+        c.imageSmoothingEnabled = false;
+        c.clearRect(0, 0, iw, ih);
+        c.drawImage(snap, 0, 0, iw, ih, 0, 0, Math.max(1, Math.ceil(iw / f)), Math.max(1, Math.ceil(ih / f)));
+        const tiny = snapshotTiny(iw, ih, f);
+        if (tiny) c.drawImage(tiny, 0, 0, Math.max(1, Math.ceil(iw / f)), Math.max(1, Math.ceil(ih / f)), 0, 0, iw, ih);
+        c.imageSmoothingEnabled = true;
+        c.restore();
+      }
+    }
+
+    if ((s.fxRGBSplit || s.fxChromatic) && supportsFilter) {
+      const snap = snapshot();
+      if (snap) {
+        const dx = s.fxChromatic ? 3 : 5;
+        c.save();
+        c.clearRect(0, 0, iw, ih);
+        c.globalCompositeOperation = 'lighter';
+        c.globalAlpha = 1;
+        c.filter = 'none';
+        // Red shifted left, blue shifted right, green centered.
+        drawTinted(c, snap, -dx, 0, 'rgba(255,0,0,1)', iw, ih);
+        drawTinted(c, snap, 0, 0, 'rgba(0,255,0,1)', iw, ih);
+        drawTinted(c, snap, dx, 0, 'rgba(0,0,255,1)', iw, ih);
+        c.restore();
+      }
+    }
+
+    if (s.fxBloom && supportsFilter) {
+      const snap = snapshot();
+      if (snap) {
+        c.save();
+        c.globalCompositeOperation = 'lighter';
+        c.globalAlpha = 0.6;
+        c.filter = 'blur(4px) brightness(1.4)';
+        c.drawImage(snap, 0, 0);
+        c.filter = 'none';
+        c.restore();
+      }
+    }
+
+    if (s.fxHalftone) {
+      c.save();
+      c.globalCompositeOperation = 'multiply';
+      const step = 4;
+      c.fillStyle = 'rgba(0,0,0,0.5)';
+      for (let y = 0; y < ih; y += step) {
+        for (let x = 0; x < iw; x += step) {
+          c.beginPath();
+          c.arc(x + step / 2, y + step / 2, step * 0.28, 0, Math.PI * 2);
+          c.fill();
+        }
+      }
+      c.restore();
+    }
+
+    if (s.fxScanLines || s.fxCRT) {
+      c.save();
+      c.globalCompositeOperation = 'multiply';
+      c.fillStyle = 'rgba(0,0,0,0.35)';
+      for (let y = 0; y < ih; y += 2) c.fillRect(0, y, iw, 1);
+      c.restore();
+    }
+
+    if (s.fxGlitch) {
+      const snap = snapshot();
+      if (snap) {
+        const slices = 6;
+        for (let i = 0; i < slices; i++) {
+          const sy = Math.floor(hash01(i, Math.floor(t / 80), 5) * ih);
+          const sh = Math.max(2, Math.floor(ih / 40));
+          const dx = Math.floor((hash01(i, Math.floor(t / 80), 9) - 0.5) * iw * 0.12);
+          c.drawImage(snap, 0, sy, iw, sh, dx, sy, iw, sh);
+        }
+      }
+    }
+
+    if (s.fxVignette || s.fxCRT) {
+      c.save();
+      const grad = c.createRadialGradient(iw / 2, ih / 2, Math.min(iw, ih) * 0.3, iw / 2, ih / 2, Math.max(iw, ih) * 0.7);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(1, 'rgba(0,0,0,0.55)');
+      c.fillStyle = grad;
+      c.fillRect(0, 0, iw, ih);
+      c.restore();
+    }
+
+    if (s.fxFilmGrain || s.fxFilmDust) {
+      c.save();
+      const seed = Math.floor(t / 60);
+      if (s.fxFilmGrain) {
+        c.globalCompositeOperation = 'overlay';
+        const step = 2;
+        for (let y = 0; y < ih; y += step) {
+          for (let x = 0; x < iw; x += step) {
+            const n = hash01(x + seed, y, 13);
+            const v = n > 0.5 ? 255 : 0;
+            c.fillStyle = `rgba(${v},${v},${v},0.06)`;
+            c.fillRect(x, y, step, step);
+          }
+        }
+      }
+      if (s.fxFilmDust) {
+        c.globalCompositeOperation = 'source-over';
+        const specks = 24;
+        for (let i = 0; i < specks; i++) {
+          const dx = hash01(i, seed, 17) * iw;
+          const dy = hash01(i, seed, 23) * ih;
+          const bright = hash01(i, seed, 29) > 0.5;
+          c.fillStyle = bright ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)';
+          c.fillRect(dx, dy, 1, Math.max(1, hash01(i, seed, 31) * 4));
+        }
+      }
+      c.restore();
+    }
+
+    if (s.lightMode) {
+      // Invert to a light-on-dark presentation (ascii-magic "Light Mode").
+      c.save();
+      c.globalCompositeOperation = 'difference';
+      c.fillStyle = '#ffffff';
+      c.fillRect(0, 0, iw, ih);
+      c.restore();
+    }
+  }
+
+  // Pixelate helper: snapshot then return a tiny downsample for nearest redraw.
+  function snapshotTiny(iw: number, ih: number, f: number): HTMLCanvasElement | null {
+    if (!ensureFx(iw, ih) || !fxCanvas || !fxCtx) return null;
+    fxCtx.clearRect(0, 0, iw, ih);
+    fxCtx.imageSmoothingEnabled = false;
+    fxCtx.drawImage(canvasRef as HTMLCanvasElement, 0, 0, iw, ih, 0, 0, Math.max(1, Math.ceil(iw / f)), Math.max(1, Math.ceil(ih / f)));
+    return fxCanvas;
+  }
+
+  // Draw `src` tinted by `tint` (via 'multiply' on a temp) at an offset, into c.
+  function drawTinted(c: CanvasRenderingContext2D, src: HTMLCanvasElement, dx: number, dy: number, tint: string, iw: number, ih: number) {
+    if (typeof document === 'undefined') return;
+    const tmp = document.createElement('canvas');
+    tmp.width = iw;
+    tmp.height = ih;
+    const tc = tmp.getContext('2d');
+    if (!tc) return;
+    tc.drawImage(src, 0, 0);
+    tc.globalCompositeOperation = 'multiply';
+    tc.fillStyle = tint;
+    tc.fillRect(0, 0, iw, ih);
+    c.drawImage(tmp, dx, dy);
+  }
+
   return {
     init(canvas: HTMLCanvasElement, opts: EffectOpts) {
       readParams(opts.params);
@@ -331,7 +645,7 @@ export function createAsciiEffect(): Effect {
         dead = true;
       }
     },
-    frame(_t: number) {
+    frame(t: number) {
       if (dead || !ctx || !canvasRef || !offscreen || !offCtx) return;
       const cw = Math.max(2, Math.floor(s.fontSize * 0.6));
       const ch = Math.max(2, Math.floor(s.fontSize));
@@ -379,6 +693,27 @@ export function createAsciiEffect(): Effect {
 
       ctx.clearRect(0, 0, iw, ih);
 
+      // Background pass beneath the glyph grid (verbatim ascii-magic behavior):
+      // 'none' = transparent (already cleared), 'solid' = black at bgOpacity,
+      // 'blur' = the sampled source blurred at bgOpacity.
+      if (s.bgMode === 'solid' || s.bgMode === 'blur') {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, Math.min(1, s.bgOpacity / 100));
+        if (s.bgMode === 'solid') {
+          ctx.fillStyle = '#000000';
+          ctx.fillRect(0, 0, iw, ih);
+        } else {
+          if ('filter' in ctx) ctx.filter = `blur(${Math.max(0, s.bgBlur)}px)`;
+          ctx.drawImage(offscreen, 0, 0, iw, ih);
+          if ('filter' in ctx) ctx.filter = 'none';
+        }
+        ctx.restore();
+      }
+
+      // Glyph/tile pass runs under the selected global composite operation.
+      const prevComposite = ctx.globalCompositeOperation;
+      ctx.globalCompositeOperation = s.blendMode as GlobalCompositeOperation;
+
       // Dedicated passes for modes that do not share the per-cell glyph loop.
       if (s.renderMode === '3d') {
         draw3dPass(ctx, px, iw, ih, minLum, lumRange, coverageCut, darkCut);
@@ -411,12 +746,13 @@ export function createAsciiEffect(): Effect {
             const amplifiedEdge = Math.pow(edgeVal, 0.3);
             const edgeBoost = amplifiedEdge * edgeWeight * 4.0;
 
-            let charScore = normLum + edgeBoost * 0.15;
+            let charScore = normLum + edgeBoost * 0.15 + animMod(col, row, cols, t);
             charScore = Math.max(0, Math.min(1, charScore));
 
             if (charScore < coverageCut) continue;
 
-            const fill = `rgba(${r | 0},${g | 0},${b | 0},${alpha})`;
+            const [fr, fg, fb] = fgColor(r, g, b);
+            const fill = `rgba(${fr | 0},${fg | 0},${fb | 0},${alpha})`;
             const cellX = col * cw;
             const cellY = row * ch;
 
@@ -469,7 +805,7 @@ export function createAsciiEffect(): Effect {
                 ctx.fill();
               }
             } else if (s.renderMode === 'braille') {
-              const char = brailleChar(px, iw, ih, cellX, cellY, cw, ch, minLum + lumRange * 0.5);
+              const char = brailleChar(px, iw, ih, cellX, cellY, cw, ch, minLum + lumRange * (s.threshold / 100));
               if (char === '⠀') continue;
               ctx.fillStyle = fill;
               ctx.fillText(char, cellX, cellY);
@@ -490,6 +826,28 @@ export function createAsciiEffect(): Effect {
         }
       }
 
+      ctx.globalCompositeOperation = prevComposite;
+
+      // Faint per-cell grid lines (dot grid overlay).
+      if (s.dotGrid) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let col = 1; col < cols; col++) {
+          const x = Math.floor(col * cw) + 0.5;
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, ih);
+        }
+        for (let row = 1; row < rows; row++) {
+          const y = Math.floor(row * ch) + 0.5;
+          ctx.moveTo(0, y);
+          ctx.lineTo(iw, y);
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+
       // Optional overlay tint.
       if (s.overlayOpacity > 0) {
         const prevOp = ctx.globalCompositeOperation;
@@ -500,6 +858,15 @@ export function createAsciiEffect(): Effect {
         ctx.fillRect(0, 0, iw, ih);
         ctx.globalCompositeOperation = prevOp;
         ctx.globalAlpha = prevAlpha;
+      }
+
+      // Post-processing effect stack (ascii-magic "Post-Processing Effects").
+      if (anyFxEnabled()) {
+        try {
+          postProcess(ctx, iw, ih, t);
+        } catch {
+          // headless / unsupported canvas ops -> skip the fx pass
+        }
       }
     },
     resize(nw: number, nh: number) {
@@ -519,6 +886,8 @@ export function createAsciiEffect(): Effect {
       ctx = null;
       offCtx = null;
       offscreen = null;
+      fxCtx = null;
+      fxCanvas = null;
       canvasRef = null;
       dead = true;
     },

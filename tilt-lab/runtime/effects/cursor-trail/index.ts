@@ -7,20 +7,73 @@ import type { Effect, EffectOpts } from '../../types';
 //   - distance-gated spawning (spawnDistance px of cursor travel)
 //   - round-robin item cycling, random rotation within rotationRange
 //   - trailLength cap (oldest items animate out)
-//   - per-item age scale: 0.6 + 0.4 * (1 - age / trailLength)
-//   - enter/exit tweens at duration 0.4s, ease cubic-bezier(0.23, 1, 0.32, 1)
-//   - exit adds blur(4px)
+//   - per-item age scale: scaleFloor + (1-scaleFloor) * (1 - age / trailLength)
+//   - enter/exit tweens at duration `fadeDuration`, selectable easing
+//   - exit adds blur(exitBlur px)
 // It renders into a DOM host via mount() and is driven by onPointer() rather
 // than the canvas/frame loop (this is a pointer-role overlay effect).
+//
+// Parity rebuild: every constant the original hard-coded (duration, easing,
+// blur, enter/exit scale + rotation multipliers, age-scale floor) is now an
+// exposed param, plus a preset library of named feels.
 
-const EASE = 'cubic-bezier(0.23, 1, 0.32, 1)';
-const DURATION_MS = 400;
+// Easing curves the original exposed implicitly (expo-out) plus common peers.
+const EASINGS: Record<string, string> = {
+  expoOut: 'cubic-bezier(0.23, 1, 0.32, 1)',
+  easeOut: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+  linear: 'linear',
+  backOut: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+  circOut: 'cubic-bezier(0.075, 0.82, 0.165, 1)',
+};
+
+interface TrailParams {
+  itemSize: number;
+  trailLength: number;
+  spawnDistance: number;
+  rotationRange: number;
+  fadeDuration: number;
+  exitBlur: number;
+  enterScale: number;
+  exitScale: number;
+  scaleFloor: number;
+  enterRotateMult: number;
+  exitRotateMult: number;
+  easing: string;
+  wipeOnLeave: boolean;
+}
+
+const PRESETS: Record<string, Partial<TrailParams>> = {
+  Classic: {
+    itemSize: 120, trailLength: 8, spawnDistance: 80, rotationRange: 20,
+    fadeDuration: 400, exitBlur: 4, enterScale: 0.5, exitScale: 0.3,
+    scaleFloor: 0.6, enterRotateMult: 1.5, exitRotateMult: 0.5, easing: 'expoOut', wipeOnLeave: true,
+  },
+  Subtle: {
+    itemSize: 90, trailLength: 5, spawnDistance: 120, rotationRange: 8,
+    fadeDuration: 650, exitBlur: 8, enterScale: 0.7, exitScale: 0.5,
+    scaleFloor: 0.75, enterRotateMult: 1, exitRotateMult: 0.3, easing: 'easeOut', wipeOnLeave: true,
+  },
+  Wild: {
+    itemSize: 160, trailLength: 14, spawnDistance: 50, rotationRange: 60,
+    fadeDuration: 320, exitBlur: 2, enterScale: 0.3, exitScale: 0.2,
+    scaleFloor: 0.5, enterRotateMult: 2, exitRotateMult: 1, easing: 'backOut', wipeOnLeave: false,
+  },
+  Dense: {
+    itemSize: 80, trailLength: 22, spawnDistance: 28, rotationRange: 25,
+    fadeDuration: 450, exitBlur: 4, enterScale: 0.5, exitScale: 0.3,
+    scaleFloor: 0.6, enterRotateMult: 1.5, exitRotateMult: 0.5, easing: 'expoOut', wipeOnLeave: true,
+  },
+  'Slow Fade': {
+    itemSize: 130, trailLength: 10, spawnDistance: 90, rotationRange: 18,
+    fadeDuration: 950, exitBlur: 12, enterScale: 0.6, exitScale: 0.4,
+    scaleFloor: 0.45, enterRotateMult: 1.2, exitRotateMult: 0.5, easing: 'circOut', wipeOnLeave: true,
+  },
+};
 
 interface TrailNode {
   el: HTMLElement;
   removeTimer: number | null;
-  // Each node keeps its OWN rotation so its exit tween rotates by its own value
-  // (rotation * 0.5), matching the original component (not the new spawn's).
+  // Each node keeps its OWN rotation so its exit tween rotates by its own value.
   rotation: number;
 }
 
@@ -33,18 +86,64 @@ export function createCursorTrailEffect(): Effect {
   let itemCounter = 0;
   let idCounter = 0;
 
-  const p = {
+  const p: TrailParams = {
     itemSize: 120,
     trailLength: 8,
     spawnDistance: 80,
     rotationRange: 20,
+    fadeDuration: 400,
+    exitBlur: 4,
+    enterScale: 0.5,
+    exitScale: 0.3,
+    scaleFloor: 0.6,
+    enterRotateMult: 1.5,
+    exitRotateMult: 0.5,
+    easing: 'expoOut',
+    wipeOnLeave: true,
   };
 
+  function ease(): string {
+    return EASINGS[p.easing] ?? EASINGS.expoOut;
+  }
+
+  function applyParam(key: string, value: unknown): void {
+    switch (key) {
+      case 'preset': {
+        const preset = PRESETS[String(value)];
+        if (preset) Object.assign(p, preset);
+        break;
+      }
+      case 'easing':
+        p.easing = String(value);
+        break;
+      case 'wipeOnLeave':
+        p.wipeOnLeave = Boolean(value);
+        break;
+      case 'itemSize':
+      case 'trailLength':
+      case 'spawnDistance':
+      case 'rotationRange':
+      case 'fadeDuration':
+      case 'exitBlur':
+      case 'enterScale':
+      case 'exitScale':
+      case 'scaleFloor':
+      case 'enterRotateMult':
+      case 'exitRotateMult':
+        (p as unknown as Record<string, number>)[key] = Number(value);
+        break;
+      default:
+        break;
+    }
+  }
+
   function readParams(params: Record<string, unknown>) {
-    if (params.itemSize != null) p.itemSize = Number(params.itemSize);
-    if (params.trailLength != null) p.trailLength = Number(params.trailLength);
-    if (params.spawnDistance != null) p.spawnDistance = Number(params.spawnDistance);
-    if (params.rotationRange != null) p.rotationRange = Number(params.rotationRange);
+    // preset first so explicit params can override the preset's values.
+    if (params.preset != null) applyParam('preset', params.preset);
+    for (const k of Object.keys(params)) {
+      if (k === 'preset') continue;
+      applyParam(k, params[k]);
+    }
   }
 
   function clearTrail() {
@@ -58,30 +157,28 @@ export function createCursorTrailEffect(): Effect {
   }
 
   function exitNode(node: TrailNode) {
-    // Exit tween: opacity 0, scale 0.3, rotate*0.5, blur(4px) - using the node's
-    // OWN rotation, exactly as the original component's exit variant does.
     node.el.style.opacity = '0';
-    node.el.style.filter = 'blur(4px)';
-    node.el.style.transform = `translate(-50%, -50%) rotate(${node.rotation * 0.5}deg) scale(0.3)`;
+    node.el.style.filter = `blur(${p.exitBlur}px)`;
+    node.el.style.transform = `translate(-50%, -50%) rotate(${node.rotation * p.exitRotateMult}deg) scale(${p.exitScale})`;
     if (typeof setTimeout !== 'undefined') {
       node.removeTimer = setTimeout(() => {
         node.el.remove();
-      }, DURATION_MS) as unknown as number;
+      }, p.fadeDuration) as unknown as number;
     } else {
       node.el.remove();
     }
   }
 
-  // Re-derive each live item's resting scale from its age, matching the
-  // original's per-render scale = 0.6 + 0.4 * (1 - age / trailLength). The
-  // newest item is excluded - its enter tween (rAF below) sets its own scale.
+  // Re-derive each live item's resting scale from its age:
+  // scale = scaleFloor + (1-scaleFloor) * (1 - age / trailLength). The newest
+  // item is excluded - its enter tween sets its own scale.
   function rescaleLiveTrail(except: TrailNode) {
     const total = trail.length;
     for (let i = 0; i < total; i++) {
       const node = trail[i];
       if (node === except) continue;
       const age = total - 1 - i;
-      const scale = 0.6 + 0.4 * (1 - age / p.trailLength);
+      const scale = p.scaleFloor + (1 - p.scaleFloor) * (1 - age / p.trailLength);
       node.el.style.opacity = '1';
       node.el.style.filter = 'none';
       node.el.style.transform = `translate(-50%, -50%) rotate(${node.rotation}deg) scale(${scale})`;
@@ -134,10 +231,10 @@ export function createCursorTrailEffect(): Effect {
       wrap.style.userSelect = 'none';
       wrap.style.pointerEvents = 'none';
       wrap.style.zIndex = String(idCounter);
-      wrap.style.transition = `opacity ${DURATION_MS}ms ${EASE}, transform ${DURATION_MS}ms ${EASE}, filter ${DURATION_MS}ms ${EASE}`;
-      // Initial state: opacity 0, scale 0.5, rotate*1.5.
+      wrap.style.transition = `opacity ${p.fadeDuration}ms ${ease()}, transform ${p.fadeDuration}ms ${ease()}, filter ${p.fadeDuration}ms ${ease()}`;
+      // Initial state: opacity 0, enterScale, rotate*enterRotateMult.
       wrap.style.opacity = '0';
-      wrap.style.transform = `translate(-50%, -50%) rotate(${rotation * 1.5}deg) scale(0.5)`;
+      wrap.style.transform = `translate(-50%, -50%) rotate(${rotation * p.enterRotateMult}deg) scale(${p.enterScale})`;
 
       const img = document.createElement('img');
       img.src = imageUrls[itemIndex];
@@ -157,14 +254,11 @@ export function createCursorTrailEffect(): Effect {
         if (oldest) exitNode(oldest);
       }
 
-      // Re-derive resting scale for the existing (older) live items so they
-      // shrink toward 0.6 as the trail grows - the original recomputes this for
-      // every item on each render.
+      // Re-derive resting scale for the existing (older) live items.
       rescaleLiveTrail(node);
 
-      // Per-item age scale, computed for the newest item (age 0) -> scale 1.0.
-      const scale = 0.6 + 0.4 * (1 - 0 / p.trailLength);
-      // Animate the newest item to its resting state on the next frame.
+      // Newest item (age 0) -> scale = scaleFloor + (1-scaleFloor) = 1.0.
+      const scale = p.scaleFloor + (1 - p.scaleFloor) * (1 - 0 / p.trailLength);
       const animateIn = () => {
         wrap.style.opacity = '1';
         wrap.style.transform = `translate(-50%, -50%) rotate(${rotation}deg) scale(${scale})`;
@@ -182,8 +276,7 @@ export function createCursorTrailEffect(): Effect {
     },
 
     onPointerLeave() {
-      // Original unlumen behavior: wipe the trail when the pointer leaves.
-      clearTrail();
+      if (p.wipeOnLeave) clearTrail();
       lastPos = null;
     },
 
@@ -192,9 +285,7 @@ export function createCursorTrailEffect(): Effect {
     },
 
     setParam(key: string, value: unknown) {
-      if (key in p) {
-        (p as Record<string, unknown>)[key] = Number(value);
-      }
+      applyParam(key, value);
     },
 
     dispose() {

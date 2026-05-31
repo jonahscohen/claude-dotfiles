@@ -22,6 +22,27 @@ const SHAPES: Record<string, number> = {
   sphere: 7,
 };
 
+// Paper's 6 built-in grainGradientPresets (verbatim from @paper-design/shaders-react).
+// The preset selector applies the whole set: colors (variable length -> colorsCount),
+// colorBack, shape, softness, intensity, noise, scale.
+interface GrainGradientPreset {
+  colors: string[];
+  colorBack: string;
+  shape: string;
+  softness: number;
+  intensity: number;
+  noise: number;
+  scale: number;
+}
+const PRESETS: Record<string, GrainGradientPreset> = {
+  Default: { colors: ['#7300ff', '#eba8ff', '#00bfff', '#2a00ff'], colorBack: '#000000', shape: 'corners', softness: 0.5, intensity: 0.5, noise: 0.25, scale: 1 },
+  Wave: { colors: ['#c4730b', '#bdad5f', '#d8ccc7'], colorBack: '#000a0f', shape: 'wave', softness: 0.7, intensity: 0.15, noise: 0.5, scale: 1 },
+  Dots: { colors: ['#6f0000', '#0080ff', '#f2ebc9', '#33cc33'], colorBack: '#0a0000', shape: 'dots', softness: 1, intensity: 1, noise: 0.7, scale: 0.6 },
+  Truchet: { colors: ['#6f2200', '#eabb7c', '#39b523'], colorBack: '#0a0000', shape: 'truchet', softness: 0, intensity: 0.2, noise: 1, scale: 1 },
+  Ripple: { colors: ['#6f2d00', '#88ddae', '#2c0b1d'], colorBack: '#140a00', shape: 'ripple', softness: 0.5, intensity: 0.5, noise: 0.5, scale: 0.5 },
+  Blob: { colors: ['#3e6172', '#a49b74', '#568c50'], colorBack: '#0f0e18', shape: 'blob', softness: 0, intensity: 0.15, noise: 0.5, scale: 1.3 },
+};
+
 // Shared sizing vertex shader (paper-design/shaders src/vertex-shader.ts, verbatim).
 const VERTEX_SHADER = `#version 300 es
 precision mediump float;
@@ -523,6 +544,7 @@ export function createGrainGradientEffect(): Effect {
   const u: Record<string, WebGLUniformLocation | null> = {};
 
   const p = {
+    preset: 'Default',
     // Full 7-slot gradient palette (u_colors[7]); default preset uses the first 4.
     color1: '#7300ff',
     color2: '#eba8ff',
@@ -550,8 +572,31 @@ export function createGrainGradientEffect(): Effect {
     fit: 'contain',
   };
 
+  // Apply a named preset's full param set (the preset selector's apply logic).
+  // Variable-length color lists drive colorsCount; slots beyond the preset's
+  // colors are left as-is so they remain available if the count is raised.
+  function applyPreset(name: string) {
+    p.preset = name;
+    const preset = PRESETS[name];
+    if (!preset) return;
+    const slots = ['color1', 'color2', 'color3', 'color4', 'color5', 'color6', 'color7'] as const;
+    preset.colors.forEach((hex, i) => {
+      if (i < slots.length) (p as Record<string, unknown>)[slots[i]] = hex;
+    });
+    p.colorsCount = Math.min(MAX_COLOR_COUNT, preset.colors.length);
+    p.colorBack = preset.colorBack;
+    p.shape = preset.shape;
+    p.softness = preset.softness;
+    p.intensity = preset.intensity;
+    p.noise = preset.noise;
+    p.scale = preset.scale;
+  }
+
   function readParams(params: Record<string, unknown>) {
+    // Preset first, so explicit individual params can override it.
+    if (params.preset != null) applyPreset(String(params.preset));
     for (const key of Object.keys(p)) {
+      if (key === 'preset') continue;
       if (params[key] == null) continue;
       if (key.startsWith('color') && key !== 'colorsCount') {
         (p as Record<string, unknown>)[key] = String(params[key]);
@@ -704,6 +749,10 @@ export function createGrainGradientEffect(): Effect {
       gl.viewport(0, 0, canvasRef.width, canvasRef.height);
     },
     setParam(key: string, value: unknown) {
+      if (key === 'preset') {
+        applyPreset(String(value));
+        return;
+      }
       if (key in p) {
         if ((key.startsWith('color') && key !== 'colorsCount') || key === 'shape' || key === 'fit') {
           (p as Record<string, unknown>)[key] = String(value);

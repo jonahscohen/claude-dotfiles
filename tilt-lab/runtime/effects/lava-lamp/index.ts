@@ -23,6 +23,8 @@ uniform vec3 uFresnelColor;
 uniform float uFresnelPower;
 uniform float uRadius;
 uniform float uSmoothness;
+uniform float uScale;
+uniform vec3 uOffset;
 
 float PI = 3.141592653589793238;
 
@@ -43,7 +45,12 @@ float smin(float a, float b, float k) {
   return min(a,b) - h*h*h*k*(1.0/6.0);
 }
 float sphereSDF(vec3 p, float r) { return length(p) - r; }
+vec3 transformRayPoint(vec3 p) {
+  vec3 translated = p - vec3(uOffset.x * 2.0, uOffset.y * 2.0, 0.0);
+  return rotate(translated, vec3(0.0, 0.0, 1.0), -uOffset.z) / max(uScale, 0.001);
+}
 float sdf(vec3 p) {
+  p = transformRayPoint(p);
   vec3 p1 = rotate(p, vec3(0.0, 0.0, 1.0), uTime/5.0);
   vec3 p2 = rotate(p, vec3(1.), -uTime/5.0);
   vec3 p3 = rotate(p, vec3(1., 1., 0.), -uTime/4.5);
@@ -129,6 +136,14 @@ export function createLavaLampEffect(): Effect {
   let program: Program | null = null;
   let dead = false;
   let speed = 1;
+  // Transform controls (offsetX/offsetY/rotation pack into the uOffset vec3;
+  // rotation is stored in degrees and converted to radians for the shader).
+  let offsetX = 0;
+  let offsetY = 0;
+  let rotationDeg = 0;
+  const syncOffset = () => {
+    (uniforms.uOffset.value as Vec3).set(offsetX, offsetY, (rotationDeg * Math.PI) / 180);
+  };
   const uniforms: Record<string, { value: unknown }> = {
     uTime: { value: 0 },
     uResolution: { value: new Vec4(1, 1, 1, 1) },
@@ -137,6 +152,8 @@ export function createLavaLampEffect(): Effect {
     uFresnelPower: { value: 3 },
     uRadius: { value: 1 },
     uSmoothness: { value: 0.1 },
+    uScale: { value: 1 },
+    uOffset: { value: new Vec3(0, 0, 0) },
   };
 
   return {
@@ -152,6 +169,11 @@ export function createLavaLampEffect(): Effect {
       if (opts.params.fresnelPower != null) uniforms.uFresnelPower.value = Number(opts.params.fresnelPower);
       if (opts.params.radius != null) uniforms.uRadius.value = Number(opts.params.radius);
       if (opts.params.smoothness != null) uniforms.uSmoothness.value = Number(opts.params.smoothness);
+      if (opts.params.scale != null) uniforms.uScale.value = Number(opts.params.scale);
+      if (opts.params.offsetX != null) offsetX = Number(opts.params.offsetX);
+      if (opts.params.offsetY != null) offsetY = Number(opts.params.offsetY);
+      if (opts.params.rotation != null) rotationDeg = Number(opts.params.rotation);
+      syncOffset();
 
       const dpr = Math.min(2, (typeof globalThis !== 'undefined' && (globalThis as { devicePixelRatio?: number }).devicePixelRatio) || 1);
       renderer = new Renderer({ canvas, alpha: true, dpr });
@@ -185,6 +207,17 @@ export function createLavaLampEffect(): Effect {
       else if (key === 'fresnelPower') uniforms.uFresnelPower.value = Number(value);
       else if (key === 'radius') uniforms.uRadius.value = Number(value);
       else if (key === 'smoothness') uniforms.uSmoothness.value = Number(value);
+      else if (key === 'scale') uniforms.uScale.value = Number(value);
+      else if (key === 'offsetX') {
+        offsetX = Number(value);
+        syncOffset();
+      } else if (key === 'offsetY') {
+        offsetY = Number(value);
+        syncOffset();
+      } else if (key === 'rotation') {
+        rotationDeg = Number(value);
+        syncOffset();
+      }
     },
     dispose() {
       if (mesh) mesh.setParent(null);

@@ -170,6 +170,9 @@ interface PlaneData {
   imageIndex: number;
 }
 
+// Number of tile upload slots (matches the image0..image5 file params in the
+// manifest). At least this many tile textures always exist.
+const UPLOAD_SLOTS = 6;
 const SPACING = 3.0; // world units between planes
 const CAMERA_Z = 6.0; // camera sits at +z looking down -z
 const PLANE_W = 3.2;
@@ -322,8 +325,10 @@ export function createInfiniteGalleryEffect(): Effect {
       scene = new Transform();
 
       // Texture pool from assets (image0, image1, ...) or generated fallbacks.
+      // At least UPLOAD_SLOTS tiles exist so each image* file param has a tile
+      // to fill on upload (the manifest exposes image0..image5 upload controls).
       const keys = collectImageKeys(opts.assets);
-      const count = Math.max(keys.length, 6);
+      const count = Math.max(keys.length, UPLOAD_SLOTS);
       textures = [];
       texSizes = [];
       for (let i = 0; i < count; i++) {
@@ -340,7 +345,13 @@ export function createInfiniteGalleryEffect(): Effect {
       }
 
       buildPlanes();
-      keys.forEach((k, i) => loadTile(opts.assets[k], i));
+      // Wire each tile's source (override the fallback gradient as it loads). A
+      // user-uploaded image* file param (object URL) wins over the bundled asset.
+      for (let i = 0; i < textures.length; i++) {
+        const up = opts.params[`image${i}`];
+        const url = (typeof up === 'string' && up) || opts.assets[`image${i}`];
+        if (url) loadTile(url, i);
+      }
     },
 
     frame(t: number) {
@@ -399,6 +410,14 @@ export function createInfiniteGalleryEffect(): Effect {
 
     setParam(key: string, value: unknown) {
       if (dead) return;
+      // Tile uploads: an image* file param loads its texture into the matching
+      // pool slot (every plane showing that slot updates on the next wrap).
+      const slot = /^image(\d+)$/.exec(key);
+      if (slot) {
+        const i = parseInt(slot[1], 10);
+        if (value && i < textures.length) loadTile(String(value), i);
+        return;
+      }
       switch (key) {
         case 'visibleCount': {
           const next = Math.max(2, Math.floor(Number(value)));

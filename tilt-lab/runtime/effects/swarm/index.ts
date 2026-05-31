@@ -69,43 +69,56 @@ function hexToRgb(hex: string): [number, number, number] {
 function drawShape(ctx: CanvasRenderingContext2D, shape: DotShape, x: number, y: number, r: number): void {
   ctx.beginPath();
   switch (shape) {
+    case 'circle':
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      break;
     case 'square':
       ctx.rect(x - r, y - r, r * 2, r * 2);
       break;
     case 'diamond':
-      ctx.moveTo(x, y - r);
+      ctx.moveTo(x, y - r * 1.3);
       ctx.lineTo(x + r, y);
-      ctx.lineTo(x, y + r);
+      ctx.lineTo(x, y + r * 1.3);
       ctx.lineTo(x - r, y);
       ctx.closePath();
       break;
     case 'triangle':
-      ctx.moveTo(x, y - r);
-      ctx.lineTo(x + r * 0.866, y + r * 0.5);
-      ctx.lineTo(x - r * 0.866, y + r * 0.5);
+      ctx.moveTo(x, y - r * 1.2);
+      ctx.lineTo(x + r * 1.1, y + r * 0.8);
+      ctx.lineTo(x - r * 1.1, y + r * 0.8);
       ctx.closePath();
       break;
     case 'sparkle': {
-      // 4-point star
-      const o = r * 0.4;
-      ctx.moveTo(x, y - r);
-      ctx.lineTo(x + o, y - o);
-      ctx.lineTo(x + r, y);
-      ctx.lineTo(x + o, y + o);
-      ctx.lineTo(x, y + r);
-      ctx.lineTo(x - o, y + o);
-      ctx.lineTo(x - r, y);
-      ctx.lineTo(x - o, y - o);
+      const inner = r * 0.35;
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2 - Math.PI / 2;
+        const aNext = ((i + 0.5) / 4) * Math.PI * 2 - Math.PI / 2;
+        if (i === 0)
+          ctx.moveTo(x + Math.cos(a) * r * 1.3, y + Math.sin(a) * r * 1.3);
+        else
+          ctx.lineTo(x + Math.cos(a) * r * 1.3, y + Math.sin(a) * r * 1.3);
+        ctx.lineTo(x + Math.cos(aNext) * inner, y + Math.sin(aNext) * inner);
+      }
       ctx.closePath();
       break;
     }
     case 'cross': {
-      const t = r * 0.4;
-      ctx.rect(x - t, y - r, t * 2, r * 2);
-      ctx.rect(x - r, y - t, r * 2, t * 2);
+      const w = r * 0.45;
+      ctx.moveTo(x - w, y - r);
+      ctx.lineTo(x + w, y - r);
+      ctx.lineTo(x + w, y - w);
+      ctx.lineTo(x + r, y - w);
+      ctx.lineTo(x + r, y + w);
+      ctx.lineTo(x + w, y + w);
+      ctx.lineTo(x + w, y + r);
+      ctx.lineTo(x - w, y + r);
+      ctx.lineTo(x - w, y + w);
+      ctx.lineTo(x - r, y + w);
+      ctx.lineTo(x - r, y - w);
+      ctx.lineTo(x - w, y - w);
+      ctx.closePath();
       break;
     }
-    case 'circle':
     default:
       ctx.arc(x, y, r, 0, Math.PI * 2);
       break;
@@ -264,7 +277,14 @@ export function createSwarmEffect(): Effect {
     setParam(key: string, value: unknown) {
       switch (key) {
         case 'scene': {
-          const preset = SWARM_PRESETS[Number(value)];
+          // Named presets apply the full color + alpha set (the original
+          // selectScene). "Custom" keeps the current pickers/sliders.
+          const names = ['Ghost Grid', 'Regent', 'Ember', 'Phosphor', 'Violet Haze'];
+          const sval = String(value);
+          if (sval === 'Custom' || sval === '-1') break;
+          let idx = names.indexOf(sval);
+          if (idx < 0) idx = Number(sval); // numeric fallback
+          const preset = SWARM_PRESETS[idx];
           if (preset) {
             p.idleColor = preset.idleColor;
             p.swarmColor = preset.swarmColor;

@@ -268,6 +268,10 @@ function collectImageKeys(assets: Record<string, string>): string[] {
     });
 }
 
+// Number of slide upload slots (matches the image0..image3 file params in the
+// manifest). At least this many slide textures always exist.
+const UPLOAD_SLOTS = 4;
+
 export function createGlassSlideshowEffect(): Effect {
   let dead = false;
   let renderer: Renderer | null = null;
@@ -347,8 +351,10 @@ export function createGlassSlideshowEffect(): Effect {
       viewH = Math.max(1, canvas.height || 1);
 
       // Build slide textures from assets (image0, image1, ...) or fallbacks.
+      // At least UPLOAD_SLOTS slots exist so each image* file param has a slide
+      // to fill on upload (the manifest exposes image0..image3 upload controls).
       const keys = collectImageKeys(opts.assets);
-      const count = keys.length >= 2 ? keys.length : Math.max(2, keys.length, 4);
+      const count = Math.max(UPLOAD_SLOTS, keys.length, 2);
       textures = [];
       texSizes = [];
       for (let i = 0; i < count; i++) {
@@ -389,8 +395,13 @@ export function createGlassSlideshowEffect(): Effect {
       mesh = new Mesh(rgl, { geometry, program });
       setSlideTextures();
 
-      // Wire real assets (override fallbacks as they load).
-      keys.forEach((k, i) => loadSlide(opts.assets[k], i));
+      // Wire each slot's source (override the fallback gradient as it loads). A
+      // user-uploaded image* file param (object URL) wins over the bundled asset.
+      for (let i = 0; i < textures.length; i++) {
+        const up = opts.params[`image${i}`];
+        const url = (typeof up === 'string' && up) || opts.assets[`image${i}`];
+        if (url) loadSlide(url, i);
+      }
     },
 
     frame(t: number) {
@@ -436,6 +447,14 @@ export function createGlassSlideshowEffect(): Effect {
 
     setParam(key: string, value: unknown) {
       if (dead || !uniforms) return;
+      // Slide uploads: an image* file param loads its texture into the matching
+      // slot (the slide shows next time that slot is the transition target).
+      const slot = /^image(\d+)$/.exec(key);
+      if (slot) {
+        const i = parseInt(slot[1], 10);
+        if (value && i < textures.length) loadSlide(String(value), i);
+        return;
+      }
       switch (key) {
         case 'transitionDuration':
           transitionDuration = Math.max(1, Number(value));

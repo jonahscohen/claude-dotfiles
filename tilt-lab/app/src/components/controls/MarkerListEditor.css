@@ -1,0 +1,89 @@
+/* MarkerListEditor - compact list editor for geo markers ([lat,long]+size).
+   Lives inside the param panel, so it stays dense: small mono number wells, a
+   trailing 40px icon button per row. Depth via --input-bg + hairline only. */
+.tl-markers {
+  display: grid;
+  gap: var(--sp-xs);
+  min-width: 0;
+}
+
+.tl-markers__list {
+  display: grid;
+  gap: var(--sp-tight);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tl-markers__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: var(--sp-tight);
+  align-items: center;
+  min-width: 0;
+}
+
+/* The add row sits under a hairline so it reads as a distinct affordance. */
+.tl-markers__row--add {
+  padding-top: var(--sp-xs);
+  border-top: 1px solid var(--line);
+}
+
+.tl-markers__num {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--hit-min, 40px);
+  padding: 0 0.35rem;
+  background: var(--input-bg);
+  color: var(--text);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.tl-markers__num::placeholder {
+  color: var(--muted);
+  opacity: 0.7;
+  font-variant-numeric: normal;
+}
+
+.tl-markers__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--hit-min, 40px);
+  height: var(--hit-min, 40px);
+  flex: none;
+  padding: 0;
+  background: var(--btn-bg);
+  color: var(--muted);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+}
+
+.tl-markers__btn:hover {
+  background: var(--btn-bg-hover);
+  color: var(--text);
+}
+
+.tl-markers__btn--remove:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.tl-markers__btn--add:hover {
+  color: var(--on-accent);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .tl-markers__num,
+  .tl-markers__btn {
+    transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+  }
+}

@@ -1,7 +1,7 @@
 import type { Manifest, LayerRole, ParamSpec, ParamType, Redistribution } from './types';
 
 const LAYER_ROLES: LayerRole[] = ['background', 'midground', 'pointer', 'post'];
-const PARAM_TYPES: ParamType[] = ['range', 'color', 'toggle', 'select', 'file'];
+const PARAM_TYPES: ParamType[] = ['range', 'color', 'toggle', 'select', 'file', 'text', 'marker-list'];
 const REDIST: Redistribution[] = ['ok', 'personal-only', 'reimplemented'];
 
 function reqString(obj: Record<string, unknown>, key: string): string {
@@ -33,6 +33,8 @@ function validateParam(raw: unknown, i: number): ParamSpec {
     max: typeof p.max === 'number' ? p.max : undefined,
     step: typeof p.step === 'number' ? p.step : undefined,
     options: Array.isArray(p.options) ? (p.options as string[]) : undefined,
+    placeholder: typeof p.placeholder === 'string' ? p.placeholder : undefined,
+    maxLength: typeof p.maxLength === 'number' ? p.maxLength : undefined,
   };
 }
 

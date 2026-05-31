@@ -16,9 +16,10 @@ import type { Effect, EffectOpts } from '../../types';
  * render the globe scene followed by the additive atmosphere scene. No internal
  * RAF.
  *
- * Scope: this restores the full VISUAL tunable surface of the original (radius,
- * point count/size, land color, auto-rotate, polar lock, the complete Fresnel
- * rim config, and the complete atmosphere config). The original's marker /
+ * Scope: this restores the full VISUAL tunable surface of the original (display
+ * scale/offset/rotation, point count/size, land color, auto-rotate, polar lock,
+ * the complete Fresnel rim config, and the complete atmosphere config). The
+ * original's marker /
  * tooltip / focus-on data-viz layer is a content WIDGET outside tilt-lab's
  * Effect contract (lane-8a recon), so the marker uniform arrays are kept present
  * for shader compilation but left empty (uMarkerCount = 0) and the DOM marker
@@ -29,6 +30,8 @@ import type { Effect, EffectOpts } from '../../types';
  */
 
 const MAX_SHADER_MARKERS = 128;
+
+const DEFAULT_GLOBE_SCALE = 1;
 
 const PI = Math.PI;
 const AUTO_ROTATE_SPEED = (2 * PI) / 30;
@@ -54,9 +57,13 @@ precision highp float;
 
 varying vec2 vUv;
 
+uniform float uTime;
 uniform vec2 uResolution;
 uniform vec2 uRotation;
 uniform float uScale;
+uniform float uDisplayScale;
+uniform vec2 uDisplayOffset;
+uniform float uDisplayRotation;
 uniform float uDots;
 uniform float uPointRadius;
 uniform vec3 uBaseColor;
@@ -77,6 +84,22 @@ const float kSphereRadius = 0.8;
 const int kMaxMarkers = ${MAX_SHADER_MARKERS};
 
 float byDots;
+
+vec2 rotate2(vec2 p, float angle) {
+  float c = cos(angle);
+  float s = sin(angle);
+  return vec2(p.x * c - p.y * s, p.x * s + p.y * c);
+}
+
+vec2 transformUv(vec2 uv) {
+  float aspect = uResolution.x / max(1.0, uResolution.y);
+  vec2 centered = vec2((uv.x - 0.5) * aspect, uv.y - 0.5);
+  vec2 transformed = rotate2(
+    centered - vec2(uDisplayOffset.x * aspect, uDisplayOffset.y),
+    -radians(uDisplayRotation)
+  ) / max(uDisplayScale, 0.001);
+  return vec2(transformed.x / aspect + 0.5, transformed.y + 0.5);
+}
 
 mat3 rotate(float theta, float phi) {
   float cx = cos(theta);
@@ -186,7 +209,7 @@ vec3 linearToSrgb(vec3 color) {
 void main() {
   byDots = 1.0 / max(1.0, uDots);
 
-  vec2 uv = vUv * 2.0 - 1.0;
+  vec2 uv = transformUv(vUv) * 2.0 - 1.0;
   uv.x *= uResolution.x / max(1.0, uResolution.y);
   uv /= max(0.0001, uScale);
 
@@ -222,7 +245,19 @@ void main() {
 
       vec4 marker = uMarkerData[i];
       float markerDist = length(globePoint - marker.xyz);
-      float markerDot = smoothstep(marker.w, marker.w * 0.62, markerDist);
+      float markerCore = smoothstep(marker.w, marker.w * 0.62, markerDist);
+      float pulse = fract(uTime * 0.85 + float(i) * 0.173);
+      float pulseRadius = marker.w * mix(1.15, 2.8, pulse);
+      float pulseWidth = marker.w * 0.42;
+      float pulseInner = smoothstep(
+        pulseRadius - pulseWidth,
+        pulseRadius,
+        markerDist
+      );
+      float pulseOuter =
+        1.0 - smoothstep(pulseRadius, pulseRadius + pulseWidth, markerDist);
+      float markerPulse = pulseInner * pulseOuter * (1.0 - pulse);
+      float markerDot = max(markerCore, markerPulse * 0.72);
       markerMask = max(markerMask, markerDot);
       markerWeightSum += markerDot;
       markerColor += uMarkerColor[i] * markerDot;
@@ -254,6 +289,9 @@ varying vec2 vUv;
 
 uniform vec2 uResolution;
 uniform float uScale;
+uniform float uDisplayScale;
+uniform vec2 uDisplayOffset;
+uniform float uDisplayRotation;
 uniform vec3 uAtmosphereColor;
 uniform float uAtmosphereScale;
 uniform float uAtmospherePower;
@@ -261,6 +299,22 @@ uniform float uAtmosphereCoefficient;
 uniform float uAtmosphereIntensity;
 
 const float kSphereRadius = 0.8;
+
+vec2 rotate2(vec2 p, float angle) {
+  float c = cos(angle);
+  float s = sin(angle);
+  return vec2(p.x * c - p.y * s, p.x * s + p.y * c);
+}
+
+vec2 transformUv(vec2 uv) {
+  float aspect = uResolution.x / max(1.0, uResolution.y);
+  vec2 centered = vec2((uv.x - 0.5) * aspect, uv.y - 0.5);
+  vec2 transformed = rotate2(
+    centered - vec2(uDisplayOffset.x * aspect, uDisplayOffset.y),
+    -radians(uDisplayRotation)
+  ) / max(uDisplayScale, 0.001);
+  return vec2(transformed.x / aspect + 0.5, transformed.y + 0.5);
+}
 
 vec3 linearToSrgb(vec3 color) {
   vec3 safe = max(color, vec3(0.0));
@@ -271,7 +325,7 @@ vec3 linearToSrgb(vec3 color) {
 }
 
 void main() {
-  vec2 uv = vUv * 2.0 - 1.0;
+  vec2 uv = transformUv(vUv) * 2.0 - 1.0;
   uv.x *= uResolution.x / max(1.0, uResolution.y);
   uv /= max(0.0001, uScale);
 
@@ -290,6 +344,7 @@ void main() {
     discard;
   }
 
+  // Smooth outward blur profile (no hard ring cutoff at shell boundary).
   float falloff = exp(-pow(max(0.0, x), 1.2) * max(0.15, uAtmospherePower * 0.09));
   float finalFactor =
     falloff * uAtmosphereIntensity * max(0.0, uAtmosphereCoefficient);
@@ -306,11 +361,6 @@ function clamp(value: number, min: number, max: number): number {
 
 function clampTheta(value: number, lockPolar: boolean): number {
   return lockPolar ? LOCKED_THETA : clamp(value, MIN_THETA, MAX_THETA);
-}
-
-// Matches motion-core: toScale(radius) = max(0.001, radius / 2).
-function toScale(nextRadius: number): number {
-  return Math.max(0.001, nextRadius / 2);
 }
 
 // Matches motion-core: toPointRadius(pointSize) = max(0.001, pointSize * 0.16).
@@ -411,7 +461,10 @@ export function createMcGlobeEffect(): Effect {
         wrapT: rgl.REPEAT,
       });
 
-      const radius = Number(p.radius ?? 2);
+      const scale = Number(p.scale ?? 1);
+      const offsetX = Number(p.offsetX ?? 0);
+      const offsetY = Number(p.offsetY ?? 0);
+      const rotation = Number(p.rotation ?? 0);
       const pointCount = Number(p.pointCount ?? 15000);
       const pointSize = Number(p.pointSize ?? 0.05);
 
@@ -421,9 +474,13 @@ export function createMcGlobeEffect(): Effect {
       const landPointColor = hexToLinearRgb(String(p.landPointColor ?? '#f77114'), [247 / 255, 113 / 255, 20 / 255]);
 
       uniforms = {
+        uTime: { value: 0 },
         uResolution: { value: new Vec2(1, 1) },
         uRotation: { value: new Vec2(0, clampTheta(0, lockedPolarAngle)) },
-        uScale: { value: toScale(radius) },
+        uScale: { value: DEFAULT_GLOBE_SCALE },
+        uDisplayScale: { value: scale },
+        uDisplayOffset: { value: new Vec2(offsetX, offsetY) },
+        uDisplayRotation: { value: rotation },
         uDots: { value: Math.max(1, Math.floor(pointCount)) },
         uPointRadius: { value: toPointRadius(pointSize) },
         uBaseColor: { value: new Vec3(baseColor[0], baseColor[1], baseColor[2]) },
@@ -504,6 +561,7 @@ export function createMcGlobeEffect(): Effect {
       const delta = started ? Math.max(0, tSec - previous) : 0;
       previous = tSec;
       started = true;
+      uniforms.uTime.value += delta;
 
       if (autoRotate) {
         targetPhi -= AUTO_ROTATE_SPEED * delta;
@@ -532,8 +590,17 @@ export function createMcGlobeEffect(): Effect {
     setParam(key: string, value: unknown) {
       if (dead || !uniforms) return;
       switch (key) {
-        case 'radius':
-          uniforms.uScale.value = toScale(Number(value));
+        case 'scale':
+          uniforms.uDisplayScale.value = Number(value);
+          break;
+        case 'offsetX':
+          uniforms.uDisplayOffset.value.set(Number(value), uniforms.uDisplayOffset.value.y);
+          break;
+        case 'offsetY':
+          uniforms.uDisplayOffset.value.set(uniforms.uDisplayOffset.value.x, Number(value));
+          break;
+        case 'rotation':
+          uniforms.uDisplayRotation.value = Number(value);
           break;
         case 'pointCount':
           uniforms.uDots.value = Math.max(1, Math.floor(Number(value)));

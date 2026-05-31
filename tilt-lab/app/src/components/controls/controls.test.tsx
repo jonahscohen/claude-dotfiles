@@ -5,6 +5,9 @@ import { Switch } from './Switch';
 import { Select } from './Select';
 import { ColorField } from './ColorField';
 import { FileDrop } from './FileDrop';
+import { TextField } from './TextField';
+import { MarkerListEditor } from './MarkerListEditor';
+import type { Marker } from '../../../../runtime/types';
 
 describe('Slider', () => {
   it('emits a coerced numeric value on change', () => {
@@ -123,5 +126,77 @@ describe('FileDrop', () => {
     const file = new File(['x'], 'pic.png', { type: 'image/png' });
     fireEvent.change(screen.getByLabelText('texture'), { target: { files: [file] } });
     expect(onChange).toHaveBeenCalledWith('blob:mock');
+  });
+});
+
+describe('TextField', () => {
+  it('renders the current string value', () => {
+    render(<TextField ariaLabel="charSet" value="@#*. " onChange={() => {}} />);
+    expect((screen.getByLabelText('charSet') as HTMLInputElement).value).toBe('@#*. ');
+  });
+
+  it('emits the raw string on change', () => {
+    const onChange = vi.fn();
+    render(<TextField ariaLabel="charSet" value="" onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText('charSet'), { target: { value: '01' } });
+    expect(onChange).toHaveBeenCalledWith('01');
+  });
+
+  it('honors placeholder and maxLength', () => {
+    render(<TextField ariaLabel="charSet" value="" placeholder="ramp" maxLength={8} onChange={() => {}} />);
+    const el = screen.getByLabelText('charSet') as HTMLInputElement;
+    expect(el.placeholder).toBe('ramp');
+    expect(el.maxLength).toBe(8);
+  });
+});
+
+describe('MarkerListEditor', () => {
+  const markers: Marker[] = [
+    { location: [37.77, -122.41], size: 0.05 },
+    { location: [40.71, -74.0], size: 0.1 },
+  ];
+
+  it('renders a numeric row per marker', () => {
+    render(<MarkerListEditor ariaLabel="markers" value={markers} onChange={() => {}} />);
+    expect(screen.getByLabelText('markers marker 1 latitude')).toBeTruthy();
+    expect(screen.getByLabelText('markers marker 2 size')).toBeTruthy();
+  });
+
+  it('emits the full list with the edited field changed', () => {
+    const onChange = vi.fn();
+    render(<MarkerListEditor ariaLabel="markers" value={markers} onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText('markers marker 1 latitude'), { target: { value: '10' } });
+    expect(onChange).toHaveBeenCalledWith([
+      { location: [10, -122.41], size: 0.05 },
+      { location: [40.71, -74.0], size: 0.1 },
+    ]);
+  });
+
+  it('removes a marker via its trash button', () => {
+    const onChange = vi.fn();
+    render(<MarkerListEditor ariaLabel="markers" value={markers} onChange={onChange} />);
+    fireEvent.click(screen.getByLabelText('Remove markers marker 1'));
+    expect(onChange).toHaveBeenCalledWith([{ location: [40.71, -74.0], size: 0.1 }]);
+  });
+
+  it('appends a marker from the add row', () => {
+    const onChange = vi.fn();
+    render(<MarkerListEditor ariaLabel="markers" value={markers} onChange={onChange} />);
+    fireEvent.change(screen.getByLabelText('markers new latitude'), { target: { value: '5' } });
+    fireEvent.change(screen.getByLabelText('markers new longitude'), { target: { value: '6' } });
+    fireEvent.change(screen.getByLabelText('markers new size'), { target: { value: '0.2' } });
+    fireEvent.click(screen.getByLabelText('Add markers marker'));
+    expect(onChange).toHaveBeenLastCalledWith([
+      ...markers,
+      { location: [5, 6], size: 0.2 },
+    ]);
+  });
+
+  it('tolerates an empty / non-array value (renders only the add row)', () => {
+    const onChange = vi.fn();
+    render(<MarkerListEditor ariaLabel="markers" value={[]} onChange={onChange} />);
+    fireEvent.click(screen.getByLabelText('Add markers marker'));
+    // default add-row fields: lat 0, long 0, size 0.05
+    expect(onChange).toHaveBeenCalledWith([{ location: [0, 0], size: 0.05 }]);
   });
 });

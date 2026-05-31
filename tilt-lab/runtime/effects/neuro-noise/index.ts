@@ -215,6 +215,19 @@ void main() {
 // Paper's sizing `fit` enum maps the string to the shader's u_fit float.
 const FIT_MAP: Record<string, number> = { none: 0, contain: 1, cover: 2 };
 
+// Paper's 4 built-in neuroNoisePresets (verbatim from @paper-design/shaders-react).
+// The preset selector applies colorFront/Mid/Back + brightness + contrast + scale.
+interface NeuroNoisePreset {
+  colorFront: string; colorMid: string; colorBack: string;
+  brightness: number; contrast: number; scale: number;
+}
+const PRESETS: Record<string, NeuroNoisePreset> = {
+  Default: { colorFront: '#ffffff', colorMid: '#47a6ff', colorBack: '#000000', brightness: 0.05, contrast: 0.3, scale: 1 },
+  Sensation: { colorFront: '#00c8ff', colorMid: '#fbff00', colorBack: '#8b42ff', brightness: 0.19, contrast: 0.12, scale: 3 },
+  Bloodstream: { colorFront: '#ff0000', colorMid: '#ff0000', colorBack: '#ffffff', brightness: 0.24, contrast: 0.17, scale: 0.7 },
+  Ghost: { colorFront: '#ffffff', colorMid: '#000000', colorBack: '#ffffff', brightness: 0.0, contrast: 1.0, scale: 0.55 },
+};
+
 function hexToRgba(hex: string): [number, number, number, number] {
   let r = 0;
   let g = 0;
@@ -258,6 +271,7 @@ export function createNeuroNoiseEffect(): Effect {
   const u: Record<string, WebGLUniformLocation | null> = {};
 
   const p = {
+    preset: 'Default',
     colorFront: '#ffffff',
     colorMid: '#47a6ff',
     colorBack: '#000000',
@@ -276,7 +290,22 @@ export function createNeuroNoiseEffect(): Effect {
     fit: 'none',
   };
 
+  // Apply a named preset's full param set (the preset selector's apply logic).
+  function applyPreset(name: string) {
+    p.preset = name;
+    const preset = PRESETS[name];
+    if (!preset) return;
+    p.colorFront = preset.colorFront;
+    p.colorMid = preset.colorMid;
+    p.colorBack = preset.colorBack;
+    p.brightness = preset.brightness;
+    p.contrast = preset.contrast;
+    p.scale = preset.scale;
+  }
+
   function readParams(params: Record<string, unknown>) {
+    // Preset first, so explicit individual params can override it.
+    if (params.preset != null) applyPreset(String(params.preset));
     if (params.colorFront != null) p.colorFront = String(params.colorFront);
     if (params.colorMid != null) p.colorMid = String(params.colorMid);
     if (params.colorBack != null) p.colorBack = String(params.colorBack);
@@ -380,6 +409,10 @@ export function createNeuroNoiseEffect(): Effect {
       gl.viewport(0, 0, canvasRef.width, canvasRef.height);
     },
     setParam(key: string, value: unknown) {
+      if (key === 'preset') {
+        applyPreset(String(value));
+        return;
+      }
       if (key in p) {
         if (key === 'colorFront' || key === 'colorMid' || key === 'colorBack' || key === 'fit') {
           (p as Record<string, unknown>)[key] = String(value);

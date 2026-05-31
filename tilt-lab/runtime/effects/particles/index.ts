@@ -48,6 +48,19 @@ function hexToRgb(hex: string): number {
   return parseInt(m[1], 16);
 }
 
+// Preset library - each bundles a shape + render style + base color so the user
+// gets a gallery of ready-made swarm "looks" out of the box.
+const PARTICLE_PRESETS: Record<string, { shape: ShapeName; renderStyle: RenderStyle; color: string }> = {
+  'Emerald Sphere': { shape: 'sphere', renderStyle: 'spark', color: '#00ff88' },
+  'Plasma Torus': { shape: 'torus', renderStyle: 'plasma', color: '#ff0055' },
+  'Helix Rainbow': { shape: 'helix', renderStyle: 'vector', color: '#00aaff' },
+  'Cyber Cube': { shape: 'cube', renderStyle: 'cyber', color: '#00ff88' },
+  'Ink Cloud': { shape: 'sphere', renderStyle: 'ink', color: '#88aaff' },
+  'Steel Sphere': { shape: 'sphere', renderStyle: 'steel', color: '#cccccc' },
+  'Glass Torus': { shape: 'torus', renderStyle: 'glass', color: '#88ddff' },
+  'Paint Helix': { shape: 'helix', renderStyle: 'paint', color: '#ffaa00' },
+};
+
 export function createParticlesEffect(): Effect {
   let dead = false;
 
@@ -419,6 +432,17 @@ export function createParticlesEffect(): Effect {
       renderStyle = (String(p.renderStyle ?? 'spark') as RenderStyle) || 'spark';
       baseColorHex = hexToRgb(String(p.color ?? '#00ff88'));
 
+      // A non-"Custom" preset overrides shape/style/color defaults.
+      const presetName = String(p.preset ?? 'Custom');
+      if (presetName !== 'Custom') {
+        const preset = PARTICLE_PRESETS[presetName];
+        if (preset) {
+          shape = preset.shape;
+          renderStyle = preset.renderStyle;
+          baseColorHex = hexToRgb(preset.color);
+        }
+      }
+
       viewW = canvas.width || 1;
       viewH = canvas.height || 1;
 
@@ -528,6 +552,16 @@ export function createParticlesEffect(): Effect {
     setParam(key: string, value: unknown) {
       if (dead) return;
       switch (key) {
+        case 'preset': {
+          const preset = PARTICLE_PRESETS[String(value)];
+          if (preset) {
+            shape = preset.shape;
+            renderStyle = preset.renderStyle;
+            baseColorHex = hexToRgb(preset.color);
+            buildMesh(true);
+          }
+          break;
+        }
         case 'count':
           count = Math.max(1, Math.floor(Number(value)));
           buildMesh(true);

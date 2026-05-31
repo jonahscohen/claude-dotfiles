@@ -4,6 +4,22 @@
   "category": "particles",
   "layerRole": "midground",
   "params": [
+    {
+      "name": "preset",
+      "type": "select",
+      "default": "Custom",
+      "options": [
+        "Custom",
+        "Emerald Sphere",
+        "Plasma Torus",
+        "Helix Rainbow",
+        "Cyber Cube",
+        "Ink Cloud",
+        "Steel Sphere",
+        "Glass Torus",
+        "Paint Helix"
+      ]
+    },
     { "name": "count", "type": "range", "default": 20000, "min": 1000, "max": 50000, "step": 1000 },
     { "name": "shape", "type": "select", "default": "sphere", "options": ["sphere", "cube", "helix", "torus"] },
     {

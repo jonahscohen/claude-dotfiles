@@ -4,7 +4,7 @@
   "category": "particles",
   "layerRole": "pointer",
   "params": [
-    { "name": "scene", "type": "select", "default": "0", "options": ["0", "1", "2", "3", "4"] },
+    { "name": "scene", "type": "select", "default": "Ghost Grid", "options": ["Ghost Grid", "Regent", "Ember", "Phosphor", "Violet Haze", "Custom"] },
     { "name": "gridSpacing", "type": "range", "default": 18, "min": 8, "max": 40, "step": 1 },
     { "name": "dotRadius", "type": "range", "default": 1, "min": 0.5, "max": 6, "step": 0.1 },
     { "name": "dotShape", "type": "select", "default": "circle", "options": ["circle", "square", "diamond", "triangle", "sparkle", "cross"] },
@@ -13,7 +13,7 @@
     { "name": "repelMode", "type": "toggle", "default": false },
     { "name": "orbitRadius", "type": "range", "default": 30, "min": 0, "max": 100, "step": 1 },
     { "name": "orbitJitter", "type": "range", "default": 0.6, "min": 0, "max": 2, "step": 0.01 },
-    { "name": "friction", "type": "range", "default": 0.92, "min": 0.8, "max": 0.99, "step": 0.01 },
+    { "name": "friction", "type": "range", "default": 0.92, "min": 0.8, "max": 0.99, "step": 0.001 },
     { "name": "returnStrength", "type": "range", "default": 0.008, "min": 0.001, "max": 0.05, "step": 0.001 },
     { "name": "idleColor", "type": "color", "default": "#ffffff" },
     { "name": "swarmColor", "type": "color", "default": "#ffffff" },
