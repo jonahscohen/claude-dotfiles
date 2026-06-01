@@ -14,7 +14,9 @@ class RecordingEffect implements Effect {
   resize(_w: number, _h: number) {
     RecordingEffect.log.push(`resize:${this.id}`);
   }
-  setParam() {}
+  setParam(key: string, value: unknown) {
+    RecordingEffect.log.push(`setParam:${this.id}:${key}=${String(value)}`);
+  }
   dispose() {
     RecordingEffect.log.push(`dispose:${this.id}`);
   }
@@ -140,5 +142,30 @@ describe('Compositor', () => {
     c.clear();
     expect(RecordingEffect.log).toEqual(['dispose:grad']);
     expect(root.querySelectorAll('canvas').length).toBe(0);
+  });
+
+  it('updates params in place via setParam (no teardown) when structure is unchanged', () => {
+    RecordingEffect.log = [];
+    const root = document.createElement('div');
+    const c = new Compositor(root, (id) => new RecordingEffect(id));
+    c.setLayers([{ effectId: 'grad', layerRole: 'background', params: { hue: 1 }, blendMode: 'source-over' }]);
+    RecordingEffect.log = [];
+    // Same effect + order, only a param changed -> in place, no dispose/init.
+    c.setLayers([{ effectId: 'grad', layerRole: 'background', params: { hue: 2 }, blendMode: 'source-over' }]);
+    expect(RecordingEffect.log).toContain('setParam:grad:hue=2');
+    expect(RecordingEffect.log.some((l) => l.startsWith('dispose:'))).toBe(false);
+    expect(RecordingEffect.log.some((l) => l.startsWith('init:'))).toBe(false);
+  });
+
+  it('rebuilds (teardown + init) when the effect set or order changes', () => {
+    RecordingEffect.log = [];
+    const root = document.createElement('div');
+    const c = new Compositor(root, (id) => new RecordingEffect(id));
+    c.setLayers([layer('grad', 'background')]);
+    RecordingEffect.log = [];
+    // Adding a layer changes the structure -> full rebuild.
+    c.setLayers([layer('grad', 'background'), layer('ascii', 'post')]);
+    expect(RecordingEffect.log).toContain('init:ascii');
+    expect(RecordingEffect.log.some((l) => l.startsWith('dispose:'))).toBe(true);
   });
 });

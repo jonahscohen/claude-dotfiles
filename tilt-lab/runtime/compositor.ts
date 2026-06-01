@@ -56,6 +56,61 @@ export class Compositor {
   };
 
   setLayers(configs: LayerConfig[]): void {
+    // Fast path: when the effect set and its order are unchanged, apply param /
+    // opacity / visibility / blend changes IN PLACE (via each effect's setParam
+    // and the surface styles) instead of tearing the whole stack down and
+    // re-initialising it. Rebuilding on every tweak made the preview flicker and
+    // reload; effects are contracted to update their params live via setParam.
+    if (this.sameStructure(configs)) {
+      this.applyConfigChanges(configs);
+      return;
+    }
+    this.rebuild(configs);
+  }
+
+  /** True when configs match the mounted layers 1:1 by count + effectId + order. */
+  private sameStructure(configs: LayerConfig[]): boolean {
+    if (configs.length !== this.layers.length) return false;
+    for (let i = 0; i < configs.length; i++) {
+      if (configs[i].effectId !== this.layers[i].config.effectId) return false;
+    }
+    return true;
+  }
+
+  /** Apply param + composition changes to the already-mounted layers in place. */
+  private applyConfigChanges(configs: LayerConfig[]): void {
+    configs.forEach((config, i) => {
+      const layer = this.layers[i];
+      const prev = layer.config;
+      // Param diffs -> setParam for each changed key (covers added/removed keys).
+      const keys = new Set([...Object.keys(prev.params), ...Object.keys(config.params)]);
+      for (const key of keys) {
+        if (!Object.is(prev.params[key], config.params[key])) {
+          try {
+            layer.effect.setParam(key, config.params[key]);
+          } catch {
+            /* one bad param must not break the rest of the update */
+          }
+        }
+      }
+      // Composition styles update the surface directly - no rebuild needed.
+      if ((config.opacity ?? 1) !== (prev.opacity ?? 1)) {
+        layer.surface.style.opacity = String(config.opacity ?? 1);
+      }
+      if ((config.enabled === false) !== (prev.enabled === false)) {
+        layer.surface.style.display = config.enabled === false ? 'none' : '';
+      }
+      const nextBlend = config.blendMode && config.blendMode !== 'source-over' ? config.blendMode : '';
+      const prevBlend = prev.blendMode && prev.blendMode !== 'source-over' ? prev.blendMode : '';
+      if (nextBlend !== prevBlend) {
+        layer.surface.style.mixBlendMode = nextBlend;
+      }
+      layer.config = config;
+    });
+  }
+
+  /** Full teardown + re-create. Used only when the effect set or order changes. */
+  private rebuild(configs: LayerConfig[]): void {
     this.clear();
     // Render in the user's EXPLICIT stack order (composition-panel order maps
     // top -> bottom onto back -> front). The order the user sets IS the visual
