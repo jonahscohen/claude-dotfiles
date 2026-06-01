@@ -26,9 +26,13 @@ DONE + Chrome-verified: **halo.backgroundColor**. Added uBackgroundAlpha; line 1
 
 DONE + Chrome-verified: **specular-band.backgroundColor** (same pattern as halo; output alpha = mix(uBackgroundAlpha, 1.0, softMask)). Stacked Globe + Specular Band, dropped bg alpha to #17181A73 -> globe shows through the dark background while the orange bands flow on top.
 
-REMAINING bg-color params, by tractability:
-- already output vec4(color, opacity) -> aurora.skyColor1/2, grain-gradient.colorBack, neuro-noise.colorBack (modulate output alpha where the bg colour dominates; more entangled - the whole field is "the colour").
-- context is alpha:FALSE (opaque) -> swarm (Canvas2D alpha:false), dithered-image (OGL alpha:false, and it's a POST effect that already composites over beneath) -> need a context-mode change; assess vs risk.
-- fluid.bgColor -> bg is mixed into the sim output, not a clean region; hardest.
+DONE + Chrome-verified: **swarm.bgColor** (the 3rd distinct-background effect). Canvas2D context flipped alpha:false -> alpha:true; each frame now clearRect + fillStyle = toCssRgba(bgColor) (8-digit hex is also a valid CSS color). Safe because swarm fully repaints the bg each frame (no trail accumulation). Stacked Globe + Swarm(pointer role, no validateStack cap), dropped bg alpha to #0606089E -> globe shows through while swarm's grid renders on top.
 
-Note the validateStack 1-background cap: to verify a translucent background effect you must stack it over a NON-background layer (used Globe midground), since two backgrounds are rejected.
+## STOPPED HERE (user choice via AskUserQuestion: "Add swarm, stop there")
+The 3 effects with a DISTINCT background (halo, specular-band, swarm) honor bg-alpha + are Chrome-verified. Deliberately NOT wired (semantically ambiguous / higher risk, per the user):
+- gradient fields where the "background color" is one of several blended colors, not a region: aurora.skyColor1/2, grain-gradient.colorBack, neuro-noise.colorBack (transparency would punch holes in the gradient).
+- dithered-image.backgroundColor: a POST effect that already composites over beneath.
+- fluid.bgColor: mixed into the sim output, not a clean region.
+The picker still lets you SET transparency on any color everywhere; these effects just render it opaque. Wire on request.
+
+Note the validateStack 1-background cap: to verify a translucent background effect, stack it over a NON-background layer (used Globe midground), since two backgrounds are rejected.

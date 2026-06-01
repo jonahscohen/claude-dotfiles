@@ -1,6 +1,6 @@
 import type { Effect, EffectOpts } from '../../types';
 import { SWARM_PRESETS, SWARM_SCENE_NAMES } from './presets';
-import { rgb255 } from '../../color';
+import { rgb255, toCssRgba } from '../../color';
 
 /**
  * Swarm - a grid of spring-return dots that the pointer attracts (or repels)
@@ -172,7 +172,10 @@ export function createSwarmEffect(): Effect {
 
   return {
     init(canvas: HTMLCanvasElement, opts: EffectOpts) {
-      ctx = canvas.getContext('2d', { alpha: false }) as CanvasRenderingContext2D | null;
+      // alpha:true so a translucent bgColor lets the layer beneath show through
+      // (the background is repainted fresh each frame, so there is no trail
+      // accumulation to worry about).
+      ctx = canvas.getContext('2d', { alpha: true }) as CanvasRenderingContext2D | null;
       if (!ctx) {
         dead = true;
         return;
@@ -189,7 +192,10 @@ export function createSwarmEffect(): Effect {
       if (dead || !ctx || !ctx.fillRect) return;
       if (prevSpacing !== p.gridSpacing) buildGrid(p.gridSpacing);
 
-      ctx.fillStyle = p.bgColor;
+      // Clear first, then paint the background at its own alpha, so a translucent
+      // bgColor reveals the layer beneath instead of accumulating frames.
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = toCssRgba(p.bgColor);
       ctx.fillRect(0, 0, w, h);
 
       const idleRgb = hexToRgb(p.idleColor);
