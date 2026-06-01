@@ -19,5 +19,15 @@ Collaborator: Jonah. 2026-06-01.
 ## Verified in Chrome (tabId 1827119115)
 Added Lava Lamp -> color row shows swatch + alpha fader + #17181A. Dragged the fader to ~45% -> hex became #17181A73 and the swatch shows the checkerboard through the translucent colour. Lava Lamp still renders (its parser safely drops alpha). Picker "allows transparent values" CONFIRMED.
 
-## Stage B (NEXT, same scope) - honor alpha on background colors
-Wire alpha so a transparent background color lets the layer beneath show through, for: fluid.bgColor, swarm.bgColor, dithered-image.backgroundColor, halo.backgroundColor, specular-band.backgroundColor, grain-gradient.colorBack, neuro-noise.colorBack, aurora.skyColor1/2. Per-shader (fragment output alpha / rgba fill). Verify one end-to-end over a lower layer.
+## Stage B (in progress) - honor alpha on background colors
+Pattern: parse the bg color's alpha (parseHexColor(...).a), add a uBackgroundAlpha uniform, output it as the fragment alpha where the background dominates (glow/foreground stays opaque). Needs the GL context to be alpha-capable.
+
+DONE + Chrome-verified: **halo.backgroundColor**. Added uBackgroundAlpha; line 181 (pure bg) outputs vec4(bg, uBackgroundAlpha), the halo line outputs mix(uBackgroundAlpha, 1.0, softMask) so the glow stays solid but the dark background fades. Verified: stacked Globe(midground, back) + Halo(background, front); dropped Halo bg alpha to #17181A73 -> the dotted globe shows through Halo's dark background while the ring glows on top. (renderer already alpha:true.)
+
+REMAINING bg-color params, by tractability:
+- alpha:true, clean bg output -> specular-band.backgroundColor (same pattern as halo).
+- already output vec4(color, opacity) -> aurora.skyColor1/2, grain-gradient.colorBack, neuro-noise.colorBack (modulate output alpha where the bg colour dominates; more entangled - the whole field is "the colour").
+- context is alpha:FALSE (opaque) -> swarm (Canvas2D alpha:false), dithered-image (OGL alpha:false, and it's a POST effect that already composites over beneath) -> need a context-mode change; assess vs risk.
+- fluid.bgColor -> bg is mixed into the sim output, not a clean region; hardest.
+
+Note the validateStack 1-background cap: to verify a translucent background effect you must stack it over a NON-background layer (used Globe midground), since two backgrounds are rejected.

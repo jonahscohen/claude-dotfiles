@@ -1,6 +1,6 @@
 import { Renderer, Program, Mesh, Triangle, Vec2, Vec3 } from 'ogl';
 import type { Effect, EffectOpts } from '../../types';
-import { rgb01 } from '../../color';
+import { rgb01, parseHexColor } from '../../color';
 
 /**
  * Halo - procedural Rayleigh + Mie atmospheric-scattering halo with a rotating
@@ -32,6 +32,7 @@ varying vec2 vUv;
 uniform float uTime;
 uniform vec2 uResolution;
 uniform vec3 uBackgroundColor;
+uniform float uBackgroundAlpha;
 uniform float uRotationSpeed;
 uniform float uCameraDistance;
 uniform float uFov;
@@ -178,7 +179,7 @@ void mainImage(out vec4 fragColor, in vec2 uv) {
   vec3 l = normalize(uSunDir);
   vec2 e = ray_vs_sphere(eye, dir, R);
   if (e.x > e.y) {
-    fragColor = vec4(uBackgroundColor, 1.0);
+    fragColor = vec4(uBackgroundColor, uBackgroundAlpha);
     return;
   }
   vec2 f = ray_vs_sphere(eye, dir, R_INNER);
@@ -187,7 +188,9 @@ void mainImage(out vec4 fragColor, in vec2 uv) {
   vec3 halo = I * uIntensity * 10.0;
   float softMask = 1.0 - exp(-1.2 * colorLuma(halo));
   vec3 rgb = blendAdaptive(uBackgroundColor, halo, softMask);
-  fragColor = vec4(rgb, 1.0);
+  // The halo glow stays opaque; the dark background fades to uBackgroundAlpha so
+  // a translucent background colour lets the layer beneath show through.
+  fragColor = vec4(rgb, mix(uBackgroundAlpha, 1.0, softMask));
 }
 
 void main() {
@@ -231,6 +234,7 @@ export function createHaloEffect(): Effect {
       sunY = Number(p.sunY ?? 0);
       sunZ = Number(p.sunZ ?? 1);
       const bg = hexToLinearRgb(String(p.backgroundColor ?? '#17181A'));
+      const bgA = parseHexColor(p.backgroundColor ?? '#17181A').a;
 
       renderer = new Renderer({ canvas, dpr: 1, alpha: true });
       const rgl = renderer.gl;
@@ -241,6 +245,7 @@ export function createHaloEffect(): Effect {
         uTime: { value: 0 },
         uResolution: { value: new Vec2(w, h) },
         uBackgroundColor: { value: new Vec3(bg[0], bg[1], bg[2]) },
+        uBackgroundAlpha: { value: bgA },
         uRotationSpeed: { value: Number(p.rotationSpeed ?? 0.5) },
         uCameraDistance: { value: Number(p.cameraDistance ?? 3.0) },
         uFov: { value: Number(p.fov ?? 55.0) },
@@ -276,6 +281,7 @@ export function createHaloEffect(): Effect {
         case 'backgroundColor': {
           const c = hexToLinearRgb(String(value));
           uniforms.uBackgroundColor.value.set(c[0], c[1], c[2]);
+          uniforms.uBackgroundAlpha.value = parseHexColor(value).a;
           break;
         }
         case 'cameraDistance':
