@@ -12,9 +12,9 @@ export interface SliderProps {
 
 /**
  * Range slider with a styled track + accent fill + thumb and a tabular numeric
- * readout. The readout is a pro-tool scrubber: drag it horizontally to adjust
- * (left=down, right=up), double-click to type an exact value, or focus it and
- * use arrow keys. Hold Shift on any of those paths for 10x larger steps. Every
+ * readout. The readout is a pro-tool field: CLICK it to type an exact value,
+ * DRAG it horizontally to adjust (left=down, right=up), or focus it and use
+ * arrow keys. Hold Shift on the drag/arrow paths for 10x larger steps. Every
  * path funnels through the same clamp+step+onChange as the range input, so the
  * result is identical regardless of how the value was entered.
  *
@@ -22,6 +22,10 @@ export interface SliderProps {
  * ariaLabel and native semantics). The scrubber is a sighted-pointer/keyboard
  * augmentation layered on top.
  */
+// Pointer travel (px) before a press on the readout counts as a drag-to-scrub
+// rather than a click-to-type. Keeps a plain click falling through to the editor.
+const DRAG_THRESHOLD = 3;
+
 export function Slider({ value, min = 0, max = 1, step = 0.01, onChange, ariaLabel }: SliderProps) {
   const decimals = step < 1 ? (String(step).split('.')[1]?.length ?? 0) : 0;
   const num = Number.isFinite(value) ? value : min;
@@ -31,6 +35,7 @@ export function Slider({ value, min = 0, max = 1, step = 0.01, onChange, ariaLab
   const scrubRef = useRef<HTMLSpanElement>(null);
   const editRef = useRef<HTMLInputElement>(null);
   const dragRef = useRef<{ startX: number; startValue: number } | null>(null);
+  const draggedRef = useRef(false); // did this press cross the drag threshold?
   const editingRef = useRef(false);
   const prevEditing = useRef(false);
   const [editing, setEditing] = useState(false);
@@ -53,12 +58,21 @@ export function Slider({ value, min = 0, max = 1, step = 0.01, onChange, ariaLab
     e.preventDefault();
     scrubRef.current?.focus();
     dragRef.current = { startX: e.clientX, startValue: num };
-    e.currentTarget.setPointerCapture(e.pointerId);
+    draggedRef.current = false;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* pointer capture is a nicety; an environment without it (e.g. jsdom) is fine */
+    }
   };
 
   const onPointerMove = (e: React.PointerEvent<HTMLSpanElement>) => {
     const drag = dragRef.current;
     if (!drag) return;
+    // Only begin scrubbing once the pointer has clearly moved, so a plain click
+    // (with no real travel) falls through to the type-in editor on pointer-up.
+    if (!draggedRef.current && Math.abs(e.clientX - drag.startX) <= DRAG_THRESHOLD) return;
+    draggedRef.current = true;
     const PX_PER_STEP = 4; // travel needed to move one step
     const mult = e.shiftKey ? 10 : 1;
     const stepsMoved = Math.round((e.clientX - drag.startX) / PX_PER_STEP);
@@ -68,9 +82,15 @@ export function Slider({ value, min = 0, max = 1, step = 0.01, onChange, ariaLab
   const onPointerUp = (e: React.PointerEvent<HTMLSpanElement>) => {
     if (!dragRef.current) return;
     dragRef.current = null;
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
+    try {
+      if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+    } catch {
+      /* unsupported pointer capture (e.g. jsdom) - nothing to release */
     }
+    // A press that never crossed the drag threshold is a click -> type-in.
+    if (!draggedRef.current) startEditing();
   };
 
   // --- Keyboard nudge (arrows when the readout is focused) ---------------
@@ -166,11 +186,10 @@ export function Slider({ value, min = 0, max = 1, step = 0.01, onChange, ariaLab
           ref={scrubRef}
           className="tl-slider__value"
           tabIndex={0}
-          title="Drag to adjust. Double-click to type. Arrow keys to nudge (Shift = 10x)."
+          title="Click to type. Drag to adjust. Arrow keys to nudge (Shift = 10x)."
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
-          onDoubleClick={startEditing}
           onKeyDown={onScrubKeyDown}
         >
           {num.toFixed(decimals)}

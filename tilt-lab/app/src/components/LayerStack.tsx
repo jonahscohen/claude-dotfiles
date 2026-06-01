@@ -70,6 +70,16 @@ function ChannelCard({
 }: ChannelCardProps) {
   const [collapsed, setCollapsed] = useState(false);
   const pct = Math.round(opacity * 100);
+  // Click-to-type on the opacity percentage (parity with the param Slider readout).
+  const [editingOpacity, setEditingOpacity] = useState(false);
+  const [opacityDraft, setOpacityDraft] = useState('');
+  const commitOpacity = () => {
+    const parsed = Number(opacityDraft);
+    if (Number.isFinite(parsed) && opacityDraft.trim() !== '') {
+      onSetOpacity?.(i, Math.min(1, Math.max(0, parsed / 100)));
+    }
+    setEditingOpacity(false);
+  };
 
   return (
     <li
@@ -123,7 +133,43 @@ function ChannelCard({
               style={{ ['--channel-opacity-pct' as string]: `${pct}%` }}
               onChange={(e) => onSetOpacity?.(i, Number(e.target.value))}
             />
-            <output className="channel__opacity-value value">{pct}%</output>
+            {editingOpacity ? (
+              <input
+                className="channel__opacity-value value channel__opacity-edit"
+                type="text"
+                inputMode="numeric"
+                aria-label={`${name} opacity percent`}
+                autoFocus
+                value={opacityDraft}
+                onChange={(e) => setOpacityDraft(e.target.value)}
+                onFocus={(e) => e.currentTarget.select()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitOpacity();
+                  else if (e.key === 'Escape') setEditingOpacity(false);
+                }}
+                onBlur={commitOpacity}
+              />
+            ) : (
+              <output
+                className="channel__opacity-value value channel__opacity-readout"
+                title="Click to type a percentage"
+                tabIndex={0}
+                role="button"
+                onClick={() => {
+                  setOpacityDraft(String(pct));
+                  setEditingOpacity(true);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setOpacityDraft(String(pct));
+                    setEditingOpacity(true);
+                  }
+                }}
+              >
+                {pct}%
+              </output>
+            )}
           </div>
 
           <div className="channel__actions">

@@ -35,10 +35,13 @@ describe('Slider', () => {
     expect(onChange).toHaveBeenLastCalledWith(5);
   });
 
-  it('double-click -> type -> Enter commits a clamped+stepped value', () => {
+  it('click -> type -> Enter commits a clamped+stepped value', () => {
     const onChange = vi.fn();
     render(<Slider ariaLabel="speed" value={1} min={0} max={5} step={0.5} onChange={onChange} />);
-    fireEvent.doubleClick(screen.getByText('1.0'));
+    // A click (press + release with no drag) opens the type-in editor.
+    const readout = screen.getByText('1.0');
+    fireEvent.pointerDown(readout, { clientX: 0 });
+    fireEvent.pointerUp(readout, { clientX: 0 });
     const edit = screen.getByLabelText('speed exact value');
     fireEvent.change(edit, { target: { value: '9' } });
     fireEvent.keyDown(edit, { key: 'Enter' });
@@ -50,7 +53,9 @@ describe('Slider', () => {
     // multi-digit start (mirrors the 1.10 repro) - without select-all the first
     // keystroke would merge into the old digits.
     render(<Slider ariaLabel="speed" value={1.1} min={0} max={5} step={0.5} onChange={onChange} />);
-    fireEvent.doubleClick(screen.getByText('1.1'));
+    const readout = screen.getByText('1.1');
+    fireEvent.pointerDown(readout, { clientX: 0 });
+    fireEvent.pointerUp(readout, { clientX: 0 });
     const edit = screen.getByLabelText('speed exact value') as HTMLInputElement;
     // entering edit mode selects the whole existing value
     expect(edit.selectionStart).toBe(0);
@@ -61,10 +66,12 @@ describe('Slider', () => {
     expect(onChange).toHaveBeenLastCalledWith(4);
   });
 
-  it('double-click -> type -> Escape cancels without emitting', () => {
+  it('click -> type -> Escape cancels without emitting', () => {
     const onChange = vi.fn();
     render(<Slider ariaLabel="speed" value={1} min={0} max={5} step={0.5} onChange={onChange} />);
-    fireEvent.doubleClick(screen.getByText('1.0'));
+    const readout = screen.getByText('1.0');
+    fireEvent.pointerDown(readout, { clientX: 0 });
+    fireEvent.pointerUp(readout, { clientX: 0 });
     const edit = screen.getByLabelText('speed exact value');
     fireEvent.change(edit, { target: { value: '3' } });
     fireEvent.keyDown(edit, { key: 'Escape' });

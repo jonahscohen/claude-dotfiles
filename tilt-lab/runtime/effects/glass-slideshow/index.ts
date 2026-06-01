@@ -375,7 +375,9 @@ export function createGlassSlideshowEffect(): Effect {
           width: 256,
           height: 256,
           generateMipmaps: false,
-          flipY: false,
+          // flipY:true so loaded images render upright (WebGL's texture origin is
+          // bottom-left; without the flip the slides appear upside down).
+          flipY: true,
         });
         textures.push(tex);
         texSizes.push([256, 256]);

@@ -168,6 +168,8 @@ interface PlaneData {
   uniforms: Record<string, { value: any }>;
   z: number;
   imageIndex: number;
+  /** Unit direction off the centre axis; scaled by `spread` for x/y position. */
+  offset: [number, number];
 }
 
 // Number of tile upload slots (matches the image0..image5 file params in the
@@ -178,6 +180,7 @@ const CAMERA_Z = 6.0; // camera sits at +z looking down -z
 const PLANE_W = 3.2;
 const PLANE_H = 2.0;
 const AUTO_VELOCITY = 1.0; // drift speed once autoplay engages
+const GOLDEN_ANGLE = 2.39996323; // radians; spreads planes evenly around the axis
 const IDLE_MS = 3000; // inactivity before autoplay kicks in
 
 export function createInfiniteGalleryEffect(): Effect {
@@ -195,6 +198,9 @@ export function createInfiniteGalleryEffect(): Effect {
   // Tunable params.
   let visibleCount = 8;
   let speed = 1;
+  // Off-axis spread: how far planes fan out from the centre line so several
+  // images show at once. 0 = single-file tunnel dead-centre.
+  let spread = 1.5;
   let fadeInStart = 0.05;
   let fadeInEnd = 0.15;
   let fadeOutStart = 0.85;
@@ -256,8 +262,12 @@ export function createInfiniteGalleryEffect(): Effect {
       mesh.setParent(scene);
       // Nearest plane just in front of camera, the rest receding into the tunnel.
       const z = CAMERA_Z - SPACING * (i + 1);
-      mesh.position.z = z;
-      const pd: PlaneData = { mesh, uniforms, z, imageIndex: i };
+      // Fan planes out on a golden-angle spiral so several images are visible at
+      // once (the original's look). spread=0 stacks them single-file dead-centre.
+      const angle = i * GOLDEN_ANGLE;
+      const offset: [number, number] = [Math.cos(angle), Math.sin(angle)];
+      mesh.position.set(offset[0] * spread, offset[1] * spread, z);
+      const pd: PlaneData = { mesh, uniforms, z, imageIndex: i, offset };
       assignTexture(pd);
       planes.push(pd);
     }
@@ -303,6 +313,7 @@ export function createInfiniteGalleryEffect(): Effect {
       const p = opts.params;
       visibleCount = Math.max(2, Math.floor(Number(p.visibleCount ?? 8)));
       speed = Number(p.speed ?? 1);
+      spread = Number(p.spread ?? 1.5);
       fadeInStart = Number(p.fadeInStart ?? 0.05);
       fadeInEnd = Number(p.fadeInEnd ?? 0.15);
       fadeOutStart = Number(p.fadeOutStart ?? 0.85);
@@ -338,7 +349,9 @@ export function createInfiniteGalleryEffect(): Effect {
           width: 256,
           height: 256,
           generateMipmaps: false,
-          flipY: false,
+          // flipY:true so loaded images render upright (WebGL's texture origin is
+          // bottom-left; without the flip the gallery planes appear upside down).
+          flipY: true,
         });
         textures.push(tex);
         texSizes.push([256, 256]);
@@ -375,7 +388,9 @@ export function createInfiniteGalleryEffect(): Effect {
       }
 
       const range = totalRange();
-      const scrollDelta = scrollVelocity * delta * 10 * speed;
+      // Baseline advance per second. Lowered from 10 -> 4: the default felt too
+      // fast; the `speed` param still scales it up to a quick fly-through.
+      const scrollDelta = scrollVelocity * delta * 4 * speed;
       for (const pd of planes) {
         let newZ = pd.z + scrollDelta;
         // Wrap once a plane passes the camera; advance its image index.
@@ -429,6 +444,13 @@ export function createInfiniteGalleryEffect(): Effect {
         }
         case 'speed':
           speed = Number(value);
+          break;
+        case 'spread':
+          spread = Number(value);
+          for (const pd of planes) {
+            pd.mesh.position.x = pd.offset[0] * spread;
+            pd.mesh.position.y = pd.offset[1] * spread;
+          }
           break;
         case 'fadeInStart':
           fadeInStart = Number(value);
