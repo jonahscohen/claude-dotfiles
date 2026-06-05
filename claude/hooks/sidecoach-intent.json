@@ -1,0 +1,49 @@
+{
+  "_meta": {
+    "purpose": "Front-end/design INTENT registry for sidecoach-keyword.sh. The verb/mode registries fire on explicit sidecoach vocabulary (polish, forge, ...). This third tier fires on NATURAL front-end/design requests that contain no sidecoach verb, injecting a light, advisory self-question ('would sidecoach help here?') rather than a hard route. The goal is to ingrain sidecoach into the default evaluation of front-end work without bogging down trivial edits.",
+    "fire_rule": "After no verb/mode match and outside the cooldown window, the intent nudge fires when (a strong build/design ACTION co-occurs with a SUBSTANTIVE_TARGET) OR (any STANDALONE signal appears). Informational framings (what is X / how to X / explain X / define X) are suppressed by the same logic the verb tier uses.",
+    "exempt_rule": "A trivial-modify framing (EXEMPT) with no NEW_BUILD signal and no STANDALONE signal stays silent - it is a tweak, not design work. Minor targets (button, icon, color, font, label) are deliberately NOT in SUBSTANTIVE_TARGETS, so they never fire alone.",
+    "cooldown_rule": "On ANY sidecoach engagement (verb route, mode route, or intent nudge) the hook touches config.cooldown_state_file. Intent nudges are suppressed while that file is younger than config.cooldown_seconds, so an active build and its follow-up tweaks are not re-nagged. Explicit verb/mode routes are NEVER suppressed by cooldown. Override seconds with env SIDECOACH_INTENT_COOLDOWN and the state-file path with env SIDECOACH_INTENT_COOLDOWN_FILE (used by the test harness).",
+    "pattern_syntax": "Values are regex FRAGMENTS, matched case-insensitively with hyphen-aware word boundaries (?<![\\w-]){pattern}(?![\\w-]). Use [- ]? for optional space/hyphen and (?:a|b) for alternation. Tune freely - this file is the single source of truth for intent triggering."
+  },
+  "config": {
+    "cooldown_seconds": 1800,
+    "cooldown_state_file": "~/.claude/.sidecoach-intent-cooldown"
+  },
+  "actions": [
+    "build", "create", "design", "redesign", "re-?design", "restyle", "re-?style",
+    "revamp", "rework", "re-?work", "lay ?out", "mock ?up", "wireframe", "prototype",
+    "scaffold", "implement", "put together", "spin up", "code up", "style", "theme", "make"
+  ],
+  "substantive_targets": [
+    "page", "landing ?page", "home ?page", "hero", "hero section", "section",
+    "nav", "navbar", "navigation", "header", "footer", "sidebar", "menu",
+    "layout", "dashboard", "form", "modal", "dialog", "drawer", "component",
+    "ui", "interface", "front[- ]?end", "website", "web ?page", "site", "screen",
+    "view", "design ?system", "style ?guide", "component library", "gallery",
+    "carousel", "table", "grid", "pricing (?:page|table)", "feature section", "banner"
+  ],
+  "standalone": [
+    "front[- ]?end", "ui/ux", "ui / ux", "user interface", "user experience",
+    "design ?system", "style ?guide", "component library", "landing ?page",
+    "marketing (?:site|page)", "responsive", "breakpoints", "mobile layout",
+    "typography", "type ?system", "font pairing", "color ?palette", "dark mode",
+    "theming", "animation", "transition", "hover state", "micro-?interaction",
+    "motion design", "accessibility", "a11y", "wcag", "redesign", "restyle",
+    "looks? (?:off|bad|cheap|dated|generic|boring|amateur|ugly)",
+    "feels? (?:off|clunky|cheap|dated|janky)",
+    "make it (?:look|feel|pop)", "more modern", "cleaner", "prettier", "nicer looking"
+  ],
+  "new_build": [
+    "build", "create", "design", "redesign", "re-?design", "from scratch",
+    "lay ?out", "mock ?up", "wireframe", "prototype", "scaffold", "net-new", "brand new"
+  ],
+  "exempt": [
+    "tweak", "adjust", "nudge", "bump", "tidy", "shift", "rename",
+    "fix the (?:padding|margin|spacing|alignment|gap|color|colour|typo|wording|copy)",
+    "change the (?:color|colour|text|copy|label|wording|value|number)",
+    "resize", "move the", "a bit", "slightly", "just (?:change|move|resize|rename|bump|tweak)",
+    "bigger", "smaller", "increase the", "decrease the"
+  ],
+  "nudge": "This prompt reads as front-end / design work. Before hand-coding, ask yourself: would a sidecoach flow or mode produce a stronger result here? Sidecoach owns design strategy, tokens, typography, references, motion, and the audit -> critique -> polish QA gate (see /sidecoach list and /sidecoach help <verb>). Use it for substantive UI work; skip it for genuinely trivial tweaks. If a hero or section wants a generative or shader background, sidecoach's tilt-lab capability (the /tilt-lab skill) can supply one - audition and export it, then mount via mountStack. This is a self-evaluation prompt, not a mandate: decide, then proceed."
+}

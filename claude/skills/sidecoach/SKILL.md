@@ -14,6 +14,12 @@ Three command surfaces share the same flow chains:
 - **Verb commands** - 22 verb commands that mirror the canonical design verb vocabulary 1:1 and route to the same underlying flows. The orchestrator appends per-verb guidance (canonical reference sections plus sidecoach extensions) so output speaks the verb language while keeping sidecoach's validators, BuildReport, taste validation, and memory.
 - **Modes** - 6 sticky one-word "shape of work" keywords that bundle 3-5 verbs into a recognizable arc (analogs of oh-my-claudecode's autopilot/ralph/ultrawork, with `ralph` carried forward verbatim for cross-tool familiarity). Magic-keyword triggerable via the same `sidecoach-keyword.sh` hook that handles verbs.
 
+## Dependent capabilities
+
+Sidecoach delegates specialized work to dependent tools. Treat these as part of sidecoach, not separate detours:
+
+- **tilt-lab** (`/tilt-lab` skill) - generative and shader BACKGROUNDS. When a flow produces a hero or section that wants an animated, shader, or gradient backdrop, that is sidecoach's job, fulfilled through tilt-lab: audition and tune the effect stack in the workbench, export the self-contained embed, and mount it with `mountStack` behind the content (absolute, reduced-motion-aware, with the design tokens the flow already established). `craft`, `bloom`, `animate`, and `overdrive` are the verbs most likely to reach for it. Do not hand-write a background shader when tilt-lab can supply a tuned, faithful one.
+
 ## Modes
 
 Modes name the shape of work itself, not a single step. Each mode is a curated chain of verbs. Type a mode word in any prompt (`forge the homepage`, `kiln this release`) and the UserPromptSubmit hook injects the chain so the receiving session runs the verbs in order. Modes take precedence over verbs - if a prompt contains both, the mode wins because its chain already names the lower-level verbs.

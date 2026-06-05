@@ -258,6 +258,8 @@ Scope (clarified 2026-05-26):
 
 The `/sidecoach` skill is the front door for every design or QA task. It auto-triggers on design verbs and owns its own command list, routing tables, design-stack diagram, and detailed QA gate protocol. Load the skill for any UI work - do not improvise routing.
 
+**Default evaluation gate (front-end/design intent).** Sidecoach is part of the default evaluation for ALL front-end work, not just when a verb is typed. The `sidecoach-keyword.sh` UserPromptSubmit hook watches for natural front-end/design requests (via the tunable `sidecoach-intent.json` lexicon) and injects a one-line self-question: would a sidecoach flow or mode produce a stronger result here? Treat that injection as a real prompt to yourself - for substantive UI work (a new component, page, layout, redesign, or visual/UX/motion/typography pass) evaluate sidecoach before hand-coding; for genuinely trivial edits (one-line CSS, a copy change, a single prop) skip it and proceed. The hook deliberately stays silent on trivial tweaks and during an active build (cooldown), so when it does fire, take it seriously. Even when the hook does not fire, keep the question live for any front-end task. The trigger lexicon and cooldown live in `claude/hooks/sidecoach-intent.json` and are yours to tune.
+
 **Project setup gate.** Do not improvise design on a project without a real PRODUCT.md (under 200 chars or containing `[TODO]` counts as missing). If missing, run `/sidecoach teach` first. If DESIGN.md is missing and the project has CSS, nudge the user once per session to run `/sidecoach document` and proceed if they skip.
 
 **DESIGN.md must conform to the Google spec** (YAML token frontmatter + six-section markdown body in canonical order). After writing or modifying it, run `npx @google/design.md lint DESIGN.md` and resolve every finding. Generated UI code must reference tokens via `{path.to.token}` rather than hard-coded hex.
@@ -270,6 +272,8 @@ The `/sidecoach` skill is the front door for every design or QA task. It auto-tr
 5. If DESIGN.md exists: `npx @google/design.md lint DESIGN.md` with zero findings.
 
 Trivial copy tweaks or named-token swaps can skip the gate. Substantive aesthetic work cannot. "I'll skip polish because it probably looks fine" is not a valid judgment.
+
+**Sidecoach dependents.** tilt-lab (the local visual-effects workbench, `/tilt-lab` skill) is a sidecoach-dependent capability: it owns generative and shader BACKGROUNDS. When a hero or section calls for an animated/shader/gradient backdrop, that is a sidecoach concern delegated to tilt-lab - audition and tune the effect there, export the embed, and mount it with `mountStack` behind the content (absolute, reduced-motion-aware, tokens matched). Reach for it through sidecoach's flow, not as a separate detour.
 
 **Sidecoach is NOT for:** backend logic, non-UI refactors, build-tool work, infrastructure changes.
 

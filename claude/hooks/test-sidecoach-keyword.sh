@@ -297,6 +297,67 @@ else
   ((FAIL++))
 fi
 
+# ---------------------------------------------------------------------------
+# Intent tier (sidecoach-intent.json): natural front-end/design requests fire a
+# light ADVISORY nudge; trivial tweaks / informational questions / backend work
+# stay silent; the cooldown suppresses follow-ups. Each case uses an isolated
+# cooldown file so cases never bleed into each other or the real state file.
+# ---------------------------------------------------------------------------
+intent_out() {
+  local prompt="$1" cdfile="$2"
+  local input
+  input=$(python3 -c 'import json,sys; print(json.dumps({"prompt": sys.argv[1]}))' "$prompt")
+  echo "$input" | SIDECOACH_INTENT_COOLDOWN_FILE="$cdfile" bash "$HOOK" 2>/dev/null
+}
+
+assert_intent_fires() {
+  local label="$1" prompt="$2"
+  local cd; cd=$(mktemp -u /tmp/sc-cd-XXXXXX)
+  local out; out=$(intent_out "$prompt" "$cd"); rm -f "$cd"
+  if echo "$out" | grep -q "sidecoach flow or mode"; then
+    echo "PASS: $label"; ((PASS++))
+  else
+    echo "FAIL: $label (expected intent nudge, got: $out)"; FAIL_LABELS+=("$label"); ((FAIL++))
+  fi
+}
+
+assert_intent_silent() {
+  local label="$1" prompt="$2"
+  local cd; cd=$(mktemp -u /tmp/sc-cd-XXXXXX)
+  local out; out=$(intent_out "$prompt" "$cd"); rm -f "$cd"
+  if [ -z "$out" ]; then
+    echo "PASS: $label"; ((PASS++))
+  else
+    echo "FAIL: $label (expected silence, got: $out)"; FAIL_LABELS+=("$label"); ((FAIL++))
+  fi
+}
+
+assert_intent_fires  "intent: build a pricing page"   "can you build me a pricing page for the launch"
+assert_intent_fires  "intent: design a landing page"  "design a landing page for the new product"
+assert_intent_fires  "intent: redesign the nav"       "redesign the navigation, it feels clunky"
+assert_intent_fires  "intent: aesthetic complaint"    "this dashboard looks dated and generic"
+assert_intent_fires  "intent: standalone design sys"  "we need a design system for the app"
+assert_intent_silent "intent: trivial color tweak"    "make the button blue"
+assert_intent_silent "intent: trivial padding fix"    "fix the padding on the header"
+assert_intent_silent "intent: rename label"           "rename the submit label to Save"
+assert_intent_silent "intent: informational design"   "what is a design system"
+assert_intent_silent "intent: backend task"           "add a database migration for the users table"
+
+# Explicit verbs still hard-route even with the intent tier present.
+assert_fires "verb routes alongside intent tier" "polish the checkout flow" "polish"
+
+# Cooldown: a second intent prompt within the window is suppressed.
+CDX=$(mktemp -u /tmp/sc-cd-XXXXXX)
+intent_out "design a landing page" "$CDX" >/dev/null
+cool_second=$(intent_out "build a hero section" "$CDX")
+rm -f "$CDX"
+if [ -z "$cool_second" ]; then
+  echo "PASS: cooldown suppresses the second intent nudge"; ((PASS++))
+else
+  echo "FAIL: cooldown suppresses the second intent nudge (got: $cool_second)"
+  FAIL_LABELS+=("cooldown suppresses second intent nudge"); ((FAIL++))
+fi
+
 echo ""
 echo "============================================================"
 echo "RESULTS: $PASS passed, $FAIL failed"

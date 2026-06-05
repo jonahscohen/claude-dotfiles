@@ -30,22 +30,25 @@
 HOOK_DIR="$(cd "$(dirname "$0")" && pwd)"
 VERB_FILE="$HOOK_DIR/sidecoach-verbs.json"
 MODE_FILE="$HOOK_DIR/sidecoach-modes.json"
+INTENT_FILE="$HOOK_DIR/sidecoach-intent.json"
 
-if [[ ! -f "$VERB_FILE" && ! -f "$MODE_FILE" ]]; then
+if [[ ! -f "$VERB_FILE" && ! -f "$MODE_FILE" && ! -f "$INTENT_FILE" ]]; then
   # No registries, nothing to do. Stay out of the prompt path.
   exit 0
 fi
 
 INPUT="$(cat)"
 
-VERB_FILE_PATH="$VERB_FILE" MODE_FILE_PATH="$MODE_FILE" PROMPT_RAW="$INPUT" python3 <<'PYEOF'
+VERB_FILE_PATH="$VERB_FILE" MODE_FILE_PATH="$MODE_FILE" INTENT_FILE_PATH="$INTENT_FILE" PROMPT_RAW="$INPUT" python3 <<'PYEOF'
 import json
 import os
 import re
 import sys
+import time
 
 verb_file = os.environ.get("VERB_FILE_PATH", "")
 mode_file = os.environ.get("MODE_FILE_PATH", "")
+intent_file = os.environ.get("INTENT_FILE_PATH", "")
 raw_input = os.environ.get("PROMPT_RAW", "")
 
 try:
@@ -99,7 +102,54 @@ if mode_file:
     except Exception:
         modes = []
 
-if not verbs and not modes:
+# Load the intent registry (third tier). Fires a light, advisory self-question
+# on NATURAL front-end/design requests that carry no explicit sidecoach verb.
+intent = {}
+if intent_file:
+    try:
+        with open(intent_file, "r", encoding="utf-8") as fh:
+            loaded = json.load(fh)
+        if isinstance(loaded, dict):
+            intent = loaded
+    except Exception:
+        intent = {}
+
+# Cooldown plumbing. Any sidecoach engagement (verb/mode route OR intent nudge)
+# touches a state file; intent nudges are suppressed while that file is younger
+# than the window, so an active build and its follow-up tweaks are not
+# re-nagged. Explicit verb/mode routes are NEVER suppressed by the cooldown.
+_cfg = intent.get("config", {}) if isinstance(intent.get("config"), dict) else {}
+cooldown_file = os.environ.get("SIDECOACH_INTENT_COOLDOWN_FILE") or os.path.expanduser(
+    _cfg.get("cooldown_state_file", "~/.claude/.sidecoach-intent-cooldown")
+)
+try:
+    cooldown_seconds = int(
+        os.environ.get("SIDECOACH_INTENT_COOLDOWN", _cfg.get("cooldown_seconds", 1800))
+    )
+except Exception:
+    cooldown_seconds = 1800
+
+
+def touch_cooldown():
+    try:
+        with open(cooldown_file, "w", encoding="utf-8") as fh:
+            fh.write(str(int(time.time())))
+    except Exception:
+        pass
+
+
+def in_cooldown():
+    if cooldown_seconds <= 0:
+        return False
+    try:
+        with open(cooldown_file, "r", encoding="utf-8") as fh:
+            ts = int((fh.read() or "0").strip() or "0")
+        return (time.time() - ts) < cooldown_seconds
+    except Exception:
+        return False
+
+
+if not verbs and not modes and not intent:
     sys.exit(0)
 
 
@@ -204,50 +254,128 @@ def match_entries(entries, key_name):
 matched_modes = match_entries(modes, "mode")
 matched_verbs = match_entries(verbs, "verb")
 
-if not matched_modes and not matched_verbs:
-    # No-op output. Letting the prompt through untouched.
+if matched_modes or matched_verbs:
+    if matched_modes:
+        if len(matched_modes) > 1:
+            names = [m.get("mode") for m in matched_modes]
+            print(
+                f"sidecoach-keyword: multiple modes matched {names}; "
+                f"tie-breaking to first in registry: {names[0]}",
+                file=sys.stderr,
+            )
+        chosen = matched_modes[0]
+        chosen_name = chosen.get("mode", "")
+        chain = chosen.get("chain", []) or []
+        chain_str = ",".join(str(c) for c in chain) if isinstance(chain, list) else ""
+        one_line = chosen.get("oneLineExplanation") or chosen.get("description") or ""
+        context = (
+            f"User intends to invoke the sidecoach <mode>{chosen_name}</mode>. "
+            f"This mode runs the curated chain <chain>{chain_str}</chain>. "
+            f"{one_line} Execute the verbs in order; do not compress the chain."
+        )
+    else:
+        if len(matched_verbs) > 1:
+            names = [v.get("verb") for v in matched_verbs]
+            print(
+                f"sidecoach-keyword: multiple verbs matched {names}; "
+                f"tie-breaking to first in registry: {names[0]}",
+                file=sys.stderr,
+            )
+        chosen = matched_verbs[0]
+        chosen_name = chosen.get("verb", "")
+        context = (
+            f"User intends to invoke the sidecoach <verb>{chosen_name}</verb> flow. "
+            f"Route accordingly."
+        )
+
+    # Explicit sidecoach use quiets the intent nudge for the cooldown window.
+    touch_cooldown()
+    print(
+        json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "UserPromptSubmit",
+                    "additionalContext": context,
+                }
+            }
+        )
+    )
     sys.exit(0)
 
-if matched_modes:
-    if len(matched_modes) > 1:
-        names = [m.get("mode") for m in matched_modes]
-        print(
-            f"sidecoach-keyword: multiple modes matched {names}; "
-            f"tie-breaking to first in registry: {names[0]}",
-            file=sys.stderr,
-        )
-    chosen = matched_modes[0]
-    chosen_name = chosen.get("mode", "")
-    chain = chosen.get("chain", []) or []
-    chain_str = ",".join(str(c) for c in chain) if isinstance(chain, list) else ""
-    one_line = chosen.get("oneLineExplanation") or chosen.get("description") or ""
-    context = (
-        f"User intends to invoke the sidecoach <mode>{chosen_name}</mode>. "
-        f"This mode runs the curated chain <chain>{chain_str}</chain>. "
-        f"{one_line} Execute the verbs in order; do not compress the chain."
-    )
-else:
-    if len(matched_verbs) > 1:
-        names = [v.get("verb") for v in matched_verbs]
-        print(
-            f"sidecoach-keyword: multiple verbs matched {names}; "
-            f"tie-breaking to first in registry: {names[0]}",
-            file=sys.stderr,
-        )
-    chosen = matched_verbs[0]
-    chosen_name = chosen.get("verb", "")
-    context = (
-        f"User intends to invoke the sidecoach <verb>{chosen_name}</verb> flow. "
-        f"Route accordingly."
-    )
+# ---------------------------------------------------------------------------
+# Intent tier: no explicit verb/mode matched. Fire a light, ADVISORY
+# self-question on natural front-end/design requests - unless we are inside the
+# cooldown window (active build / recently engaged) or the prompt is a trivial
+# tweak. Everything here is driven by sidecoach-intent.json (tune it freely).
+# ---------------------------------------------------------------------------
+if not intent or in_cooldown():
+    sys.exit(0)
 
-output = {
-    "hookSpecificOutput": {
-        "hookEventName": "UserPromptSubmit",
-        "additionalContext": context,
-    }
-}
-print(json.dumps(output))
+actions = intent.get("actions", []) or []
+targets = intent.get("substantive_targets", []) or []
+standalone = intent.get("standalone", []) or []
+exempt = intent.get("exempt", []) or []
+new_build = intent.get("new_build", []) or []
+
+
+def matched_list(patterns):
+    out = []
+    for p in patterns:
+        if not isinstance(p, str) or not p:
+            continue
+        try:
+            rx = re.compile(rf"(?<![\w-]){p}(?![\w-])", re.IGNORECASE)
+        except re.error:
+            continue
+        if rx.search(sanitized):
+            out.append(p)
+    return out
+
+
+def any_match(patterns):
+    return len(matched_list(patterns)) > 0
+
+
+# Drop matches that only appear inside an informational framing (what is X /
+# how to X / explain X / ...), reusing the verb tier's suppression logic.
+def substantive_match(patterns):
+    return [p for p in matched_list(patterns) if not is_informational(sanitized, p)]
+
+
+has_action = any_match(actions)
+has_target = len(substantive_match(targets)) > 0
+has_standalone = len(substantive_match(standalone)) > 0
+has_exempt = any_match(exempt)
+has_new_build = any_match(new_build)
+
+# Fire when a build/design ACTION co-occurs with a SUBSTANTIVE target, or when a
+# STANDALONE design signal appears on its own.
+intent_fires = has_standalone or (has_action and has_target)
+
+# Trivial-tweak suppression: a small-modify framing, with no clear new-build
+# signal and no standalone design signal, is a tweak - stay silent.
+if has_exempt and not has_new_build and not has_standalone:
+    intent_fires = False
+
+if not intent_fires:
+    sys.exit(0)
+
+nudge = intent.get("nudge") or (
+    "This prompt reads as front-end / design work. Before hand-coding, ask "
+    "yourself whether a sidecoach flow or mode would help (see /sidecoach list). "
+    "Use it for substantive UI work; skip trivial tweaks."
+)
+touch_cooldown()
+print(
+    json.dumps(
+        {
+            "hookSpecificOutput": {
+                "hookEventName": "UserPromptSubmit",
+                "additionalContext": nudge,
+            }
+        }
+    )
+)
 PYEOF
 
 exit 0
