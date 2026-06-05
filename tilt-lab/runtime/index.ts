@@ -1,7 +1,7 @@
 import { defineEffectElement } from './element';
-import { defineStackElement, setStackFactory } from './compositor';
+import { Compositor, defineStackElement, setStackFactory } from './compositor';
 import { validateManifest } from './manifest';
-import type { Effect, EffectFactory } from './types';
+import type { Effect, EffectFactory, LayerConfig } from './types';
 
 // Effect factories + manifests (one import pair per effect).
 import { createGradientEffect } from './effects/gradient/index';
@@ -118,6 +118,63 @@ export function registerBuiltins(): void {
     return factory();
   });
   defineStackElement();
+}
+
+/** Options for {@link mountStack}. */
+export interface MountStackOptions {
+  /**
+   * Honor `prefers-reduced-motion: reduce` by rendering a single static frame
+   * instead of running the animation loop. Defaults to `true`; pass `false` to
+   * always animate. (The <tilt-stack> element does NOT guard reduced-motion;
+   * this is the accessible mount path the embed snippet uses.)
+   */
+  respectReducedMotion?: boolean;
+}
+
+/**
+ * Imperatively mount an exported stack config into a host element, no hosting or
+ * custom-element wiring required. This is the portable entry point the embed
+ * snippet uses: it inlines the config and calls mountStack, so a stack renders
+ * wherever the runtime bundle is served - the preview IS the export.
+ *
+ * Registers the built-in effects (idempotent), composites the layers into
+ * `host`, and drives a RAF loop - unless reduced-motion is requested, in which
+ * case it paints one static frame. Returns a disposer that stops the loop and
+ * tears the compositor down.
+ */
+export function mountStack(
+  host: HTMLElement,
+  config: { layers: LayerConfig[] },
+  opts: MountStackOptions = {},
+): () => void {
+  registerBuiltins();
+  const compositor = new Compositor(host, (id: string): Effect => {
+    const factory = effectFactories[id];
+    if (!factory) throw new Error(`unknown effect id: ${id}`);
+    return factory();
+  });
+  compositor.setLayers(config.layers);
+
+  const reduced =
+    opts.respectReducedMotion !== false &&
+    typeof window !== 'undefined' &&
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+
+  if (reduced) {
+    compositor.renderFrame(0); // single static frame; no animation loop
+    return () => compositor.dispose();
+  }
+
+  let raf = 0;
+  const loop = (t: number) => {
+    compositor.renderFrame(t);
+    raf = requestAnimationFrame(loop);
+  };
+  raf = requestAnimationFrame(loop);
+  return () => {
+    cancelAnimationFrame(raf);
+    compositor.dispose();
+  };
 }
 
 export { effectAssets } from './effect-assets';

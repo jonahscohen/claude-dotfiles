@@ -2,8 +2,8 @@ import { useRef, useState } from 'react';
 import type { LayerConfig } from '../../../runtime/types';
 import { ProjectPicker } from './ProjectPicker';
 import { Tooltip } from './Tooltip';
-import { PlusIcon, DownloadIcon, CopyIcon, CheckIcon } from './icons';
-import { downloadStackConfig, copyStackConfig } from '../lib/export';
+import { PlusIcon, DownloadIcon, CopyIcon, CheckIcon, CodeXmlIcon } from './icons';
+import { downloadStackConfig, copyStackConfig, copyEmbedSnippet } from '../lib/export';
 
 interface Props {
   projects: string[];
@@ -31,7 +31,9 @@ export function TopBar({
   layers = [],
 }: Props) {
   const [copied, setCopied] = useState(false);
+  const [embedCopied, setEmbedCopied] = useState(false);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const embedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const canExport = layers.length > 0;
   const disabledTitle = 'Add a layer to the stack to export';
 
@@ -41,6 +43,18 @@ export function TopBar({
         setCopied(true);
         if (copyTimer.current) clearTimeout(copyTimer.current);
         copyTimer.current = setTimeout(() => setCopied(false), 1200);
+      })
+      .catch(() => {
+        /* clipboard denied; leave the label unchanged */
+      });
+  };
+
+  const handleCopyEmbed = () => {
+    copyEmbedSnippet(layers)
+      .then(() => {
+        setEmbedCopied(true);
+        if (embedTimer.current) clearTimeout(embedTimer.current);
+        embedTimer.current = setTimeout(() => setEmbedCopied(false), 1200);
       })
       .catch(() => {
         /* clipboard denied; leave the label unchanged */
@@ -96,6 +110,24 @@ export function TopBar({
             aria-label={copied ? 'Copied' : 'Copy config'}
           >
             {copied ? <CheckIcon {...ACTION_GLYPH} /> : <CopyIcon {...ACTION_GLYPH} />}
+          </button>
+        </Tooltip>
+        <Tooltip
+          label={
+            canExport
+              ? 'Copy a self-contained embed snippet (paste into any project)'
+              : disabledTitle
+          }
+          placement="bottom"
+        >
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={handleCopyEmbed}
+            disabled={!canExport}
+            aria-label={embedCopied ? 'Embed copied' : 'Copy embed snippet'}
+          >
+            {embedCopied ? <CheckIcon {...ACTION_GLYPH} /> : <CodeXmlIcon {...ACTION_GLYPH} />}
           </button>
         </Tooltip>
       </div>

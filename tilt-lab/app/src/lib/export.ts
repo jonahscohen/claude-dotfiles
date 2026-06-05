@@ -87,3 +87,77 @@ export function downloadStackConfig(
 export function copyStackConfig(layers: LayerConfig[]): Promise<void> {
   return navigator.clipboard.writeText(serializeStackConfig(layers));
 }
+
+export const EMBED_SNIPPET_FILENAME = 'tilt-lab-embed.html';
+
+/** Default path the consumer is expected to serve the runtime bundle from. */
+export const DEFAULT_RUNTIME_URL = './tilt-runtime.js';
+
+/** Default CSS class on the generated background host element. */
+export const DEFAULT_EMBED_CLASS = 'tilt-bg';
+
+export interface EmbedSnippetOptions {
+  /** URL the consumer serves `tilt-runtime.js` from. Defaults to {@link DEFAULT_RUNTIME_URL}. */
+  runtimeUrl?: string;
+  /** CSS class applied to the generated background host. Defaults to {@link DEFAULT_EMBED_CLASS}. */
+  className?: string;
+}
+
+/**
+ * Build a self-contained, paste-anywhere embed snippet for the current stack.
+ *
+ * Unlike the bare config JSON (which is inert without a host + runtime) or the
+ * <tilt-stack config-src> element (which needs the JSON hosted at a fetchable
+ * URL), this emits a single HTML block that inlines the config and calls the
+ * runtime's `mountStack` - so dropping it behind any element renders the exact
+ * previewed stack. The consumer's only job is to serve `tilt-runtime.js`.
+ *
+ * The host is absolutely positioned to fill its parent (give that parent
+ * `position: relative` and render content at z-index >= 1). A classic <script>
+ * is used deliberately: `document.currentScript` is null inside ES modules, so
+ * the snippet captures the host synchronously in a classic script, then
+ * dynamic-imports the runtime to mount.
+ */
+export function buildEmbedSnippet(layers: LayerConfig[], opts: EmbedSnippetOptions = {}): string {
+  const runtimeUrl = opts.runtimeUrl ?? DEFAULT_RUNTIME_URL;
+  const className = opts.className ?? DEFAULT_EMBED_CLASS;
+  const config = serializeStackConfig(layers);
+  return [
+    `<!-- tilt-lab embed: self-contained background effect.`,
+    `     1. Copy tilt-lab's dist/tilt-runtime.js into your project, served at ${runtimeUrl}`,
+    `     2. Paste this block inside the element you want the effect behind. Give that`,
+    `        parent position:relative and render your content at z-index 1 or above. -->`,
+    `<div class="${className}" style="position:absolute; inset:0; z-index:0; pointer-events:none; overflow:hidden"></div>`,
+    `<script>`,
+    `  (function () {`,
+    `    var host = document.currentScript.previousElementSibling;`,
+    `    var config = ${config};`,
+    `    import(${JSON.stringify(runtimeUrl)}).then(function (m) { m.mountStack(host, config); });`,
+    `  })();`,
+    `</script>`,
+  ].join('\n');
+}
+
+/** Copy the self-contained embed snippet to the clipboard. */
+export function copyEmbedSnippet(layers: LayerConfig[], opts: EmbedSnippetOptions = {}): Promise<void> {
+  return navigator.clipboard.writeText(buildEmbedSnippet(layers, opts));
+}
+
+/** Trigger a browser download of the embed snippet as a standalone .html file. */
+export function downloadEmbedSnippet(
+  layers: LayerConfig[],
+  opts: EmbedSnippetOptions = {},
+  filename: string = EMBED_SNIPPET_FILENAME,
+): void {
+  const html = buildEmbedSnippet(layers, opts);
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
