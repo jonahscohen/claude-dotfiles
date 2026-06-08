@@ -3,6 +3,7 @@ name: tilt-lab UI audit (sidecoach flowK) + fix queue
 description: 5-dimension audit of the tilt-lab playground UI. Anti-patterns clean but generic; responsive=1 (worst), a11y=2, perf=2, theming=2. P0-P3 findings + the tilt-ui fix team assignments.
 type: project
 relates_to: [session_2026-05-29_tilt-lab-ui-exec.md, session_2026-05-29_tilt-lab-media-and-post-pipeline.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-29. /sidecoach audit (flowK_multi_lens_audit, conf 1) on tilt-lab/app/src. No PRODUCT.md/DESIGN.md for tilt-lab (audited on general principles).

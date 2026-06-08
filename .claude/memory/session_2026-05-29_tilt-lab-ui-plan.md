@@ -3,6 +3,7 @@ name: tilt-lab playground UI plan (Plan 3)
 description: Wrote Plan 3 - the Vite + React playground UI for tilt-lab. 9 tasks: vite/react tooling, catalog loader+filter, validity-gated stack store, manifest-driven param controls, browse grid, preview canvas (bridges React to runtime Compositor), view components, app shell, and a cmux + sidecoach QA-gate verification task.
 type: project
 relates_to: [session_2026-05-29_tilt-lab-foundation-exec.md, session_2026-05-29_tilt-lab-brainstorm.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-29. Via writing-plans (user chose "draft Plan 3 UI now" while recon runs). Plan independent of recon - it is catalog-driven, fully exercisable with just the gradient reference effect.

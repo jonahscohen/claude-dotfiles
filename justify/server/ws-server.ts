@@ -293,6 +293,10 @@ IP.1 = 127.0.0.1
       }
 
       if (req.method === 'POST' && req.url === '/respond') {
+        // Responding is Claude activity too - keep watch-status fresh so the
+        // browser doesn't flash "Connection lost" the moment a result lands.
+        this.lastMcpActivity = Date.now();
+        this.watchSessionActive = true;
         let body = '';
         req.on('data', (chunk: Buffer) => { body += chunk; });
         req.on('end', () => {
@@ -317,12 +321,43 @@ IP.1 = 127.0.0.1
         return;
       }
 
+      // POST /activate - toggle the toolbar on every connected client. Mirrors
+      // the justify_activate MCP tool over HTTP so /justify can run fully
+      // session-independent (server-as-daemon + curl), no MCP required.
+      if (req.method === 'POST' && req.url === '/activate') {
+        this.broadcastToClients('activate');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+        return;
+      }
+
       if (req.method === 'GET' && req.url === '/prompts') {
         this.lastPromptPoll = Date.now();
+        // A /prompts poll IS the watch heartbeat in the daemon/HTTP model (no
+        // MCP). watch-status.active is what tells the browser "Claude is
+        // connected" so it transmits queued tasks; mark it here so a pure-curl
+        // listen loop (the /justify model) is recognized as a live watcher.
+        this.watchSessionActive = true;
+        this.lastMcpActivity = Date.now();
         const promptFile = join(this.distDir, '..', 'prompts.json');
         try {
           if (existsSync(promptFile)) {
             const content = readFileSync(promptFile, 'utf-8');
+            // In the HTTP (curl) listen model a GET /prompts that returns
+            // pending prompts IS Claude claiming them - the same moment the MCP
+            // justify_watch/justify_get_prompts tools fire justify_working. Mirror
+            // it here so the browser advances "Sending to Claude" -> "Working".
+            // The browser ignores the event unless its state is 'sending', so
+            // re-broadcasting on every poll while the prompt sits in the queue is
+            // a harmless no-op.
+            try {
+              const parsed = JSON.parse(content);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                for (const p of parsed) {
+                  this.broadcastToClients('justify_working', { promptId: p.id, timestamp: Date.now() });
+                }
+              }
+            } catch {}
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(content);
           } else {
@@ -344,7 +379,12 @@ IP.1 = 127.0.0.1
             pendingCount = JSON.parse(readFileSync(promptFile, 'utf-8')).length;
           }
         } catch {}
-        const recentActivity = this.lastMcpActivity > 0 && (Date.now() - this.lastMcpActivity) < 10000;
+        // Window is generous (30s) because Claude stops polling /prompts while
+        // it is busy applying a change; a tight window made the browser declare
+        // "Connection lost" mid-apply. The browser also suppresses the disconnect
+        // bar entirely while in the 'working' state, with the 60s retry timeout
+        // as the real backstop for a genuinely dead Claude.
+        const recentActivity = this.lastMcpActivity > 0 && (Date.now() - this.lastMcpActivity) < 30000;
         const active = this.watchSessionActive && recentActivity;
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ active, session: this.watchSessionActive, lastActivity: this.lastMcpActivity, pendingCount }));
@@ -352,6 +392,8 @@ IP.1 = 127.0.0.1
       }
 
       if (req.method === 'POST' && req.url === '/prompts/clear') {
+        this.lastMcpActivity = Date.now();
+        this.watchSessionActive = true;
         const promptFile = join(this.distDir, '..', 'prompts.json');
         try { writeFileSync(promptFile, '[]'); } catch {}
         res.writeHead(200, { 'Content-Type': 'application/json' });

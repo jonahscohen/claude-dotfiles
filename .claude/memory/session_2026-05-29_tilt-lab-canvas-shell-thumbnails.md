@@ -3,6 +3,7 @@ name: tilt-lab canvas-dominant shell + live-thumbnail browse (Builder A)
 description: App.tsx shell (collapse/fullscreen), BrowseGrid live-thumbnail grid, ThumbnailPreview shared-RAF mini-canvas
 type: project
 relates_to: [session_2026-05-29_tilt-lab-instrument-foundation.md, session_2026-05-29_tilt-lab-design-direction.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah

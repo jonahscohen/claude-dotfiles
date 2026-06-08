@@ -3,6 +3,7 @@ name: tilt-lab Builder C - scrub numerics + server-free export
 description: Slider scrub-to-edit, server-free config export (download/copy), instrument TopBar + modal restyle
 type: project
 relates_to: [session_2026-05-29_tilt-lab-instrument-foundation.md, session_2026-05-29_tilt-lab-design-direction.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. tilt-design team rebuild of tilt-lab playground (INSTRUMENT, NOT DASHBOARD). Builder C task #6.

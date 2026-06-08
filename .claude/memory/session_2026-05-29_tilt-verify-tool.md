@@ -3,6 +3,7 @@ name: tilt-verify - our own expect-inspired verification tool (built + passing)
 description: tool-dev (#1) built tilt-lab/verify/ - our custom Playwright browser-verifier (no expect branding), 5 functional checks, diff-aware. Full-catalog run = 25 effects, 114 pass, 10 skip (asset), 1 fail (fluid perf, headless-GPU artifact).
 type: project
 relates_to: [decision_behavioral_verifier_build_own.md, session_2026-05-29_tilt-lab-restoration-complete.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-29. All 7 tilt-restore tasks done.

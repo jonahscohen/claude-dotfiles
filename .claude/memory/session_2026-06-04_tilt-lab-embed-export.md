@@ -3,6 +3,7 @@ name: tilt-lab self-contained embed export (mountStack + buildEmbedSnippet + Cop
 description: Deliverable 1 of 2 (Jonah, 2026-06-04). Made tilt-lab's export portable - a paste-anywhere embed snippet that renders the exact previewed stack in ANY project, not just an inert config JSON. New runtime mountStack() entry point (inline config, no hosting, reduced-motion guard), buildEmbedSnippet/copyEmbedSnippet/downloadEmbedSnippet in export.ts, a Copy-embed button (lucide code-xml icon) in TopBar. tsc clean, 254 tests pass (8 new), bundle re-exports mountStack. Browser verification pending.
 type: project
 relates_to: [session_2026-06-03_tilt-lab-export-and-skill-PLAN.md, session_2026-06-01_no-flicker-incremental-params.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-06-04. Implements deliverable 1 of the plan in session_2026-06-03_tilt-lab-export-and-skill-PLAN.md (built after Full Disk Access / TCC was restored).

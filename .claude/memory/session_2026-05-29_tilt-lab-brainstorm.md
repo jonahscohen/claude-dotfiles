@@ -3,6 +3,7 @@ name: tilt-lab brainstorm + design spec
 description: Brainstormed and spec'd tilt-lab - a sidecoach-owned, locally-served visual-effects playground that catalogs ~25 effects from 9 sources, layers them, and ships framework-agnostic web-component packages into target projects for Claude to wire up
 type: project
 relates_to: [session_2026-05-29_new-website-queued.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-29. Brainstormed via superpowers:brainstorming, then wrote the design spec. Design APPROVED by user; spec written; next step is writing-plans, then a team dispatch for the build.

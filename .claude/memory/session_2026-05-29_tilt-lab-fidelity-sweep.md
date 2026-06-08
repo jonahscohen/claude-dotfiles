@@ -3,6 +3,7 @@ name: tilt-lab fidelity sweep - mesh-gradient exemplar + continuation
 description: Per-effect 1:1 fidelity restoration against originals (user mandate). mesh-gradient done as the worked exemplar (restored dropped scene presets + colorStops). 21 effects remain. The audit method + continuation plan.
 type: project
 relates_to: [feedback_tilt_lab_fidelity_mandate.md, session_2026-05-29_tilt-lab-ui-exec.md, session_2026-05-29_tilt-lab-compositor-bug.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-29. User chose to do the sweep sequentially (not a team - the acquisition team is what dropped the settings; the careful auditor restores). Compositor render bug already fixed (lava-lamp + aurora render full-screen).

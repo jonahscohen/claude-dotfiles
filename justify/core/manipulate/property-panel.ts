@@ -155,9 +155,9 @@ const darkTheme: Record<string, string> = {
   [cssVars.textTertiary]: 'color-mix(in srgb, #ffffff 50%, transparent)',
   [cssVars.border]: 'color-mix(in srgb, #ffffff 10%, transparent)',
   [cssVars.inputBg]: 'color-mix(in srgb, #ffffff 5%, transparent)',
-  [cssVars.blueBg]: 'color-mix(in srgb, #0768CF 50%, transparent)',
-  [cssVars.blueText]: '#0D99FF',
-  [cssVars.blue500]: '#0D99FF',
+  [cssVars.blueBg]: 'color-mix(in srgb, #A94B30 50%, transparent)',
+  [cssVars.blueText]: '#D97757',
+  [cssVars.blue500]: '#D97757',
   [cssVars.surfaceActive]: 'color-mix(in srgb, #ffffff 5%, transparent)',
   [cssVars.black]: '#1c1917',
   [cssVars.white]: '#ffffff',
@@ -2594,7 +2594,7 @@ export class PropertyPanel {
       height: '72px',
     });
 
-    const activeColor = '#0D99FF';
+    const activeColor = '#D97757';
     const inactiveColor = '#a8a29e';
 
     const positions = [

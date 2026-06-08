@@ -2,6 +2,7 @@
 name: tilt-lab regent shader fidelity audit (lane-1, 5 effects)
 description: 1:1 fidelity audit+fix of fluid, mesh-gradient, halftone, fractal-glass, swarm against original regent repo
 type: project
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah

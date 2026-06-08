@@ -3,6 +3,7 @@ name: tilt-lab header refresh + layer drag-and-drop (Jonah punch list)
 description: 5 edits - header to 60px, project picker -> centered contextual menu, rightmost actions -> icon-only (Lucide), removed paint-order caption, pointer-based drag-and-drop reorder on the layer list with grip handle + drop-line.
 type: project
 relates_to: [session_2026-05-29_tilt-lab-qa-gate.md, session_2026-05-29_tilt-lab-cd-review.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-30. Punch list after the redesign + QA pass. CD direct edits (builders idle).

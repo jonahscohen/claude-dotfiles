@@ -3,6 +3,7 @@ name: tilt-lab role filter -> dropdown
 description: Replaced the BrowseGrid role-filter pill row (all/background/midground/pointer/post) with the Select primitive (5 options -> styled native dropdown), per Jonah's screenshot request. Chrome-verified filtering.
 type: project
 relates_to: [session_2026-05-29_tilt-lab-taste-DONE.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-29. Screenshot feedback: the role filter "should be a dropdown."

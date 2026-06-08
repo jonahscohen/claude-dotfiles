@@ -3,6 +3,7 @@ name: tilt-lab acquisition plan (Plan 2)
 description: Wrote Plan 2 - acquisition. Code-complete tasks for the contract addendum (optional onPointer + mount host), renderer deps (three/ogl/cobe), shared Stam fluid solver, and a conformance-test template; then a TEAM fan-out (one agent per recon lane porting verbatim source into the contract) and central registration + integration verification.
 type: project
 relates_to: [session_2026-05-29_tilt-lab-recon-synthesis.md, session_2026-05-29_tilt-lab-pointer-contract-gap.md, session_2026-05-29_tilt-lab-foundation-exec.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-29. Via writing-plans, grounded in the recon synthesis. Recon team already torn down (TeamDelete tilt-recon).

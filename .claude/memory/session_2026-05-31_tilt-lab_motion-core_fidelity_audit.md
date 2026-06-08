@@ -2,6 +2,7 @@
 name: tilt-lab motion-core shader fidelity audit (6 effects)
 description: 1:1 fidelity audit of dithered-image, fake-3d-image, glass-slideshow, mc-globe, halo, infinite-gallery against motion-core source; mc-globe had major dropped shader content + a fabricated param, all restored
 type: project
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah

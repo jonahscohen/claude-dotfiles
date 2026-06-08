@@ -3,6 +3,7 @@ name: tilt-lab Image/Video media layer + post-pipeline fix (the missed capabilit
 description: Added the user-supplied media background (image/video upload) the source tools had and I'd dropped, plus fixed the post-process pipeline so a post effect actually samples the layers beneath it. Verified in Chrome - ASCII now asciifies a Media background.
 type: project
 relates_to: [session_2026-05-29_tilt-lab-asset-gap-FAILURE.md, session_2026-05-29_tilt-lab-FUNCTIONAL-COMPLETE.md, feedback_tilt_lab_fidelity_mandate.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-29. User caught a real miss: the source tools (ascii-magic, motion-core image effects) let users UPLOAD images/videos as the content a post-process shader acts on; a post effect over an empty stack does nothing. I never gave a way to supply media. Fixed.

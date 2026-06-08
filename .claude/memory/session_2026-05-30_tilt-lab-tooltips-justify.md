@@ -4,6 +4,7 @@ description: Reworked the Tooltip to resemble Justify's tooltips - pill shape, d
 type: project
 relates_to: [session_2026-05-30_tilt-lab-tooltips.md]
 supersedes: session_2026-05-30_tilt-lab-tooltips.md
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-30. Jonah: tooltips should resemble Justify's + "instantly fade in the way they do in Justify" - I had matched our own system instead of studying Justify. Connectivity issues -> spun a fresh agent (tt-justify-2) after the first (tt-justify).

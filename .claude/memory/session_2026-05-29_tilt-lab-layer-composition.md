@@ -3,6 +3,7 @@ name: tilt-lab layer composition (enable/opacity/drag)
 description: Builder B - per-layer enable toggle, opacity fader, drag-to-reorder channel strips; compositor honors enable+opacity
 type: project
 relates_to: [session_2026-05-29_tilt-lab-instrument-foundation.md, session_2026-05-29_tilt-lab-design-direction.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Builder B (tilt-design team, task #5). Turned the LayerStack "stacking" UI into per-layer "composition" and wired enable/opacity through the runtime. Collaborator: Jonah.

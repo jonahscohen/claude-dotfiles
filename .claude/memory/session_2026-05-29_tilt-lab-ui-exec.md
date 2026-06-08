@@ -3,6 +3,7 @@ name: tilt-lab UI execution (Plan 3)
 description: Building the Vite + React playground inline per Plan 3. Progress log; UI is catalog-driven over the 23 registered effects.
 type: project
 relates_to: [session_2026-05-29_tilt-lab-ui-plan.md, session_2026-05-29_tilt-lab-acquisition-exec.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-29. User chose "execute Plan 3 (build the UI)" after acquisition completed (23 effects, 106 tests green).

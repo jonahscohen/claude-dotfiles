@@ -3,6 +3,7 @@ name: tilt-lab instrument redesign - CD review + fixes
 description: Creative-director review of the 3-builder instrument redesign. Look transformed (mono wordmark, warm dark, dominant preview, composition panel). Found 3 dead features (enable/opacity/export) from App.tsx wiring gap - fixed directly. Thumbnails broken by WebGL context cap - needs Builder A re-architecture. Added &dev logo per Jonah.
 type: project
 relates_to: [session_2026-05-29_tilt-lab-instrument-foundation.md, session_2026-05-29_tilt-lab-design-direction.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-29. CD review of tilt-design build phase (builders A/B/C all reported done). Verified in Claude-in-Chrome at :5180. tsc clean, 160/160 tests.

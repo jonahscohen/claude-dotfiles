@@ -3,6 +3,7 @@ name: tilt-lab FUNCTIONALLY complete - asset gap closed, every effect functions
 description: The real functional gap (asset delivery) is closed and validated. tilt-verify canvas-paint 25/0/0 (was 16pass/9skip), every effect paints real content; Claude-in-Chrome confirmed. The /loop directive is genuinely complete.
 type: project
 relates_to: [session_2026-05-29_tilt-lab-asset-gap-FAILURE.md, session_2026-05-29_tilt-lab-asset-delivery-wired.md, session_2026-05-29_tilt-lab-restore-DONE.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-29. tilt-assets team (asset-core + asset-verify) done.

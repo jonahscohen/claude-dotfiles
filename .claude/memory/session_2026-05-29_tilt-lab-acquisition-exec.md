@@ -3,6 +3,7 @@ name: tilt-lab acquisition execution (Plan 2)
 description: Executing Plan 2. Prep tasks 1/2/4 done inline (contract addendum, renderer deps, conformance template); Task 3 folded into lane-1; dispatching the tilt-acquire team for the Task 5 fan-out, then central registration (Task 6).
 type: project
 relates_to: [session_2026-05-29_tilt-lab-acquisition-plan.md, session_2026-05-29_tilt-lab-recon-synthesis.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-29. User chose "build prep + dispatch the team."

@@ -19,7 +19,7 @@ export class Overlay {
     sheet.replaceSync(`
       *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
       :host{all:initial;}
-      .justify-container{position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;overflow:visible;}
+      .justify-container{position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;overflow:visible;z-index:2147483647;}
     `);
     this.shadow.adoptedStyleSheets = [sheet];
 
@@ -67,7 +67,7 @@ export class Overlay {
     if (!this.highlight) {
       this.highlight = document.createElement('div');
       this.highlight.style.cssText =
-        'position:fixed;pointer-events:none;border:2px solid ' + '#D97757' + ';border-radius:5px;transition:top 60ms ease,left 60ms ease,width 60ms ease,height 60ms ease;';
+        'position:fixed;pointer-events:none;border:1px solid ' + '#D97757' + ';border-radius:0;transition:top 60ms ease,left 60ms ease,width 60ms ease,height 60ms ease;';
       this.container.appendChild(this.highlight);
     }
 

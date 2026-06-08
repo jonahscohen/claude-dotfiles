@@ -6,7 +6,11 @@ set -euo pipefail
 # justify-core.js fresh from disk on every request. Projects get updates
 # automatically on page reload.
 
-JUSTIFY_URL="https://localhost:9224/justify-core.js"
+# Default to the http core on :9223 - works on local-dev http sites with NO
+# self-signed-cert / sudo step. For an https-ONLY site, set JUSTIFY_URL to the
+# https core (https://localhost:9224/justify-core.js) and trust the cert once
+# via setup-cert.sh (avoids mixed-content blocking).
+JUSTIFY_URL="${JUSTIFY_URL:-http://localhost:9223/justify-core.js}"
 PROJECT_ROOT="${1:-.}"
 
 cd "$PROJECT_ROOT"

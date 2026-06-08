@@ -1,0 +1,175 @@
+/*
+ * elements-tree.css - Element tree (ElementTree) styles for the ported Retune
+ * Elements tab in Justify's Manipulate mode. Ported VERBATIM from Retune's
+ * overlay.css (packages/overlay/src/overlay/overlay.css) lines 665-817,
+ * the `.retune-tree*` block, per spec 12-ELEMENTS-TAB.md.
+ *
+ * Shipped as a constructable CSSStyleSheet on the Justify shadow root's
+ * adoptedStyleSheets, alongside panel-shell.css (wired by index.ts
+ * installPanelChrome - this file does NOT touch that wiring). Class names keep
+ * the `retune-` prefix so the CSS ports 1:1 with ElementTree.tsx's verbatim
+ * class names and zero drift.
+ *
+ * Every color reference resolves through the --retune-* token ramp already
+ * defined in panel-shell.css (dark mode maps --retune-surface:#1a1a1a to match
+ * the panel/claudebar chrome). No new tokens, no hardcoded colors. Tree labels
+ * inherit the panel base JustifySans (1:1 with Retune - NOT JustifyMono).
+ *
+ * Dark mode is `:host(.dark)` - the `.dark` class is toggled on the shadow host.
+ */
+
+/* ── Element tree ── */
+
+.retune-tree {
+  padding: 4px 0;
+  overflow-x: auto;
+}
+
+.retune-tree-inner {
+  min-width: 100%;
+  width: fit-content;
+  position: relative;
+}
+
+.retune-tree-node {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding-right: 12px;
+  cursor: pointer;
+  transition: background 0.1s;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.retune-tree-node:hover {
+  background: var(--retune-surface-hover);
+}
+
+.retune-tree-node.selected {
+  background: var(--retune-blue-bg);
+}
+.retune-tree-node.descendant-selected {
+  background: color-mix(in srgb, var(--retune-blue-500) 6%, transparent);
+}
+
+.retune-tree-arrow {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--retune-text-tertiary);
+  transform: rotate(-90deg);
+  transition: transform 0.12s ease;
+}
+
+.retune-tree-arrow.expanded {
+  transform: rotate(0deg);
+}
+
+.retune-tree-arrow.empty {
+  visibility: hidden;
+}
+
+.retune-tree-icon {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--retune-text-tertiary);
+  opacity: 0.5;
+}
+.retune-tree-node.selected .retune-tree-icon,
+.retune-tree-node.descendant-selected .retune-tree-icon,
+.retune-tree-node:hover .retune-tree-icon {
+  opacity: 1;
+}
+.retune-tree-icon--component {
+  color: var(--retune-blue-text);
+}
+:host(.dark) .retune-tree-node.selected .retune-tree-icon--component {
+  color: var(--retune-text);
+}
+
+.retune-tree-name {
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 16px;
+  letter-spacing: 0.005em;
+  color: var(--retune-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.retune-tree-name--component {
+  color: var(--retune-blue-text);
+  font-weight: 500;
+}
+:host(.dark) .retune-tree-node.selected .retune-tree-name--component {
+  color: var(--retune-text);
+}
+
+.retune-tree-moved {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--retune-blue-500);
+  background: var(--retune-blue-bg);
+  padding: 1px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+/* ── Tree drag states ── */
+
+.retune-tree-node.dragging {
+  opacity: 0.3;
+}
+
+.retune-tree-node.reparent-target {
+  background: color-mix(in srgb, var(--retune-blue-500) 15%, transparent);
+  outline: 1.5px dashed var(--retune-blue-500);
+  outline-offset: -1.5px;
+  border-radius: 4px;
+}
+
+.retune-tree-drop-indicator {
+  position: absolute;
+  right: 0;
+  height: 2px;
+  background: var(--retune-blue-500);
+  pointer-events: none;
+  z-index: 10;
+  display: none;
+}
+
+.retune-tree-drop-indicator::before {
+  content: "";
+  position: absolute;
+  left: -3px;
+  top: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--retune-blue-500);
+}
+
+.retune-tree-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 100;
+  opacity: 0.85;
+  background: var(--retune-surface);
+  border: 1.5px solid var(--retune-blue-500);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--retune-text);
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}

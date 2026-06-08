@@ -3,6 +3,7 @@ name: tilt-lab tooltips restyled to Justify look + instant fade-in
 description: Tooltip now matches Justify's dark pill (border + shadow, 11px medium), shows instantly on hover with a 120ms rAF-driven CSS transition fade-in
 type: project
 relates_to: [session_2026-05-30_tilt-lab-tooltips.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah

@@ -1,0 +1,302 @@
+/*
+ * panel-shell.css - Theme tokens + panel shell + tab bar for the ported
+ * Retune Design panel. Ported VERBATIM from Retune's overlay.css
+ * (packages/overlay/src/overlay/overlay.css) per spec 01-shell-and-theme.md.
+ *
+ * Shipped as a constructable CSSStyleSheet on the Justify shadow root's
+ * adoptedStyleSheets (mirrors PreviewEngine's adoptedStyleSheets mechanism).
+ * Class names keep the `retune-` prefix so the CSS ports 1:1 with zero drift;
+ * later phases add control/section CSS alongside this file without conflict.
+ *
+ * Dark mode is `:host(.dark)` - the `.dark` class is toggled on the shadow host.
+ */
+
+:host {
+  all: initial;
+  font-family: JustifySans, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-feature-settings: 'liga' 1, 'calt' 1, 'zero' 0, 'tnum' 0;
+  font-size: 13px;
+  letter-spacing: -0.005em;
+  color: var(--retune-text);
+  line-height: 1.4;
+  interpolate-size: allow-keywords;
+  user-select: none;
+  -webkit-user-select: none;
+
+  /* ══════════════════════════════════════
+     PRIMITIVES - raw palette, never change
+     ══════════════════════════════════════ */
+
+  /* ── Black (#1c1917) opacity ramp ── */
+  --retune-black: #1c1917;
+  --retune-black-5:  color-mix(in srgb, var(--retune-black) 5%, transparent);
+  --retune-black-10: color-mix(in srgb, var(--retune-black) 10%, transparent);
+  --retune-black-15: color-mix(in srgb, var(--retune-black) 15%, transparent);
+  --retune-black-20: color-mix(in srgb, var(--retune-black) 20%, transparent);
+  --retune-black-25: color-mix(in srgb, var(--retune-black) 25%, transparent);
+  --retune-black-30: color-mix(in srgb, var(--retune-black) 30%, transparent);
+  --retune-black-35: color-mix(in srgb, var(--retune-black) 35%, transparent);
+  --retune-black-40: color-mix(in srgb, var(--retune-black) 40%, transparent);
+  --retune-black-45: color-mix(in srgb, var(--retune-black) 45%, transparent);
+  --retune-black-50: color-mix(in srgb, var(--retune-black) 50%, transparent);
+  --retune-black-55: color-mix(in srgb, var(--retune-black) 55%, transparent);
+  --retune-black-60: color-mix(in srgb, var(--retune-black) 60%, transparent);
+  --retune-black-65: color-mix(in srgb, var(--retune-black) 65%, transparent);
+  --retune-black-70: color-mix(in srgb, var(--retune-black) 70%, transparent);
+  --retune-black-75: color-mix(in srgb, var(--retune-black) 75%, transparent);
+  --retune-black-80: color-mix(in srgb, var(--retune-black) 80%, transparent);
+  --retune-black-85: color-mix(in srgb, var(--retune-black) 85%, transparent);
+  --retune-black-90: color-mix(in srgb, var(--retune-black) 90%, transparent);
+  --retune-black-95: color-mix(in srgb, var(--retune-black) 95%, transparent);
+
+  /* ── White (#ffffff) opacity ramp ── */
+  --retune-white: #ffffff;
+  --retune-white-5:  color-mix(in srgb, var(--retune-white) 5%, transparent);
+  --retune-white-10: color-mix(in srgb, var(--retune-white) 10%, transparent);
+  --retune-white-15: color-mix(in srgb, var(--retune-white) 15%, transparent);
+  --retune-white-20: color-mix(in srgb, var(--retune-white) 20%, transparent);
+  --retune-white-25: color-mix(in srgb, var(--retune-white) 25%, transparent);
+  --retune-white-30: color-mix(in srgb, var(--retune-white) 30%, transparent);
+  --retune-white-35: color-mix(in srgb, var(--retune-white) 35%, transparent);
+  --retune-white-40: color-mix(in srgb, var(--retune-white) 40%, transparent);
+  --retune-white-45: color-mix(in srgb, var(--retune-white) 45%, transparent);
+  --retune-white-50: color-mix(in srgb, var(--retune-white) 50%, transparent);
+  --retune-white-55: color-mix(in srgb, var(--retune-white) 55%, transparent);
+  --retune-white-60: color-mix(in srgb, var(--retune-white) 60%, transparent);
+  --retune-white-65: color-mix(in srgb, var(--retune-white) 65%, transparent);
+  --retune-white-70: color-mix(in srgb, var(--retune-white) 70%, transparent);
+  --retune-white-75: color-mix(in srgb, var(--retune-white) 75%, transparent);
+  --retune-white-80: color-mix(in srgb, var(--retune-white) 80%, transparent);
+  --retune-white-85: color-mix(in srgb, var(--retune-white) 85%, transparent);
+  --retune-white-90: color-mix(in srgb, var(--retune-white) 90%, transparent);
+  --retune-white-95: color-mix(in srgb, var(--retune-white) 95%, transparent);
+
+  /* ── "Blue" ramp recolored to prompt-mode clay (#D97757); names kept to avoid churn ── */
+  --retune-blue-100: #FCF3EE;
+  --retune-blue-200: #F8E4DB;
+  --retune-blue-300: #F0CBBB;
+  --retune-blue-400: #E6A88C;
+  --retune-blue-500: #D97757;
+  --retune-blue-600: #C75F3E;
+  --retune-blue-700: #A94B30;
+  --retune-blue-800: #8B3B27;
+  --retune-blue-900: #602818;
+  --retune-blue-1000: #3B1810;
+
+  /* ── Red (Tailwind red ramp) ── */
+  --retune-red-100: #FFF5F5;
+  --retune-red-200: #FFE2E0;
+  --retune-red-300: #FFC7C2;
+  --retune-red-400: #FFAFA3;
+  --retune-red-500: #F24822;
+  --retune-red-600: #DC3412;
+  --retune-red-700: #BD2915;
+  --retune-red-800: #9F1F18;
+  --retune-red-900: #771208;
+  --retune-red-1000: #660E0B;
+
+  /* ══════════════════════════════════════
+     SEMANTIC - swap these for dark mode
+     ══════════════════════════════════════ */
+
+  /* ── Always (mode-independent) ── */
+  --retune-always-white: #ffffff;
+  --retune-always-black: #1c1917;
+
+  /* ── Text ── */
+  --retune-text: var(--retune-black-90);
+  --retune-text-secondary: var(--retune-black-70);
+  --retune-text-tertiary: var(--retune-black-50);
+  --retune-text-disabled: var(--retune-black-25);
+
+  /* ── Surfaces ── */
+  --retune-surface: var(--retune-white);
+  --retune-surface-hover: var(--retune-black-5);
+  --retune-surface-active: var(--retune-black-5);
+  --retune-input-bg: var(--retune-black-5);
+  --retune-input-bg-hover: var(--retune-black-10);
+
+  /* ── Borders & shadows ── */
+  --retune-border: var(--retune-black-10);
+  --retune-border-hover: var(--retune-black-15);
+  --retune-border-subtle: var(--retune-black-5);
+  --retune-shadow: var(--retune-black-10);
+
+  /* ── Blue ── */
+  --retune-blue: var(--retune-blue-500);
+  --retune-blue-text: var(--retune-blue-700);
+  --retune-blue-bg: var(--retune-blue-200);
+  --retune-blue-bg-hover: var(--retune-blue-100);
+
+  /* ── Red ── */
+  --retune-red: var(--retune-red-500);
+}
+
+/* ══════════════════════════════════════
+   DARK MODE - swap semantic tokens only
+   ══════════════════════════════════════ */
+:host(.dark) {
+  /* ── Text ── */
+  --retune-text: var(--retune-white-90);
+  --retune-text-secondary: var(--retune-white-70);
+  --retune-text-tertiary: var(--retune-white-50);
+  --retune-text-disabled: var(--retune-white-25);
+
+  /* ── Surfaces ── */
+  --retune-surface: #1a1a1a; /* match the claudebar/queuebar background */
+  --retune-surface-hover: var(--retune-white-5);
+  --retune-surface-active: var(--retune-white-5);
+  --retune-input-bg: var(--retune-white-5);
+  --retune-input-bg-hover: var(--retune-white-10);
+
+  /* ── Borders & shadows ── */
+  --retune-border: var(--retune-white-10);
+  --retune-border-hover: var(--retune-white-15);
+  --retune-border-subtle: var(--retune-white-5);
+  --retune-shadow: var(--retune-white-5);
+
+  /* ── Blue ── */
+  --retune-blue-text: var(--retune-blue-500);
+  --retune-blue-bg: color-mix(in srgb, var(--retune-blue-700) 50%, transparent);
+  --retune-blue-bg-hover: color-mix(in srgb, var(--retune-blue-700) 75%, transparent);
+
+  /* ── Red ── */
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+input, textarea, [contenteditable] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* ── Panel ── */
+.retune-panel {
+  position: fixed;
+  z-index: 2147483647;
+  pointer-events: auto;
+  background: var(--retune-surface);
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.retune-panel-body {
+  flex: 1;
+  /* min-height:0 is REQUIRED for a flex-column child to scroll: without it a
+     flex item's default min-height:auto refuses to shrink below content size,
+     so the body overflows the (overflow:hidden) panel and never scrolls. Only
+     surfaces once the panel holds full-height content (the composed sections).
+     Added during the section-assembly task; -> shell-analyst (panel-shell owner). */
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: clip;
+  scrollbar-width: none;
+}
+
+.retune-panel-body::-webkit-scrollbar { display: none; }
+
+.retune-panel-anim {
+  display: contents;
+}
+
+.retune-panel-anim.entering .retune-panel {
+  animation: retune-panel-in 0.15s cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+.retune-panel-anim.exiting .retune-panel {
+  animation: retune-panel-out 0.15s cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes retune-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes retune-panel-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+.retune-panel.right { right: 16px; bottom: 68px; }
+.retune-panel.left { left: 16px; bottom: 68px; }
+.retune-panel { height: calc(100vh - 84px); }
+
+/* Dark-mode shell border + inset hairline (overlay.css 573-583) */
+:host(.dark) .retune-panel {
+  border: 1px solid var(--retune-black);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 10%),
+    0 2px 12px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+/* ── Tab bar ── */
+
+.retune-tab-bar {
+  display: flex;
+  position: relative;
+  padding: 8px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--retune-border);
+}
+
+.retune-tab-pill {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  height: calc(100% - 16px);
+  border-radius: 8px;
+  background: var(--retune-input-bg);
+  transition: transform 0.2s cubic-bezier(0.23, 1, 0.32, 1), width 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+  pointer-events: none;
+}
+
+.retune-tab {
+  width: auto;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--retune-text-tertiary);
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+  transition: color 0.15s;
+  text-align: center;
+}
+
+.retune-tab:hover {
+  color: var(--retune-text-secondary);
+}
+
+.retune-tab.active {
+  color: var(--retune-text);
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .retune-panel-anim.entering .retune-panel,
+  .retune-panel-anim.exiting .retune-panel {
+    animation: none;
+  }
+}

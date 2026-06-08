@@ -1,0 +1,124 @@
+/**
+ * Tooltip - dark tooltip with optional keyboard shortcut badge.
+ * Plain CSS, no Radix. Portaled via useTooltipPortal so it escapes overflow.
+ *
+ * Ported verbatim from Retune overlay/src/ui/tooltip.tsx.
+ */
+
+import { useState, useRef, useCallback, useLayoutEffect, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { useTooltipPortal } from "./tooltip-portal-context";
+
+export interface TooltipProps {
+  content: ReactNode;
+  shortcut?: string;
+  side?: "top" | "bottom" | "left" | "right";
+  sideOffset?: number;
+  delay?: number;
+  children: ReactNode;
+}
+
+export function Tooltip({
+  content,
+  shortcut,
+  side = "bottom",
+  sideOffset = 6,
+  delay = 400,
+  children,
+}: TooltipProps) {
+  const [visible, setVisible] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const portalTarget = useTooltipPortal();
+
+  const show = useCallback(() => {
+    timerRef.current = setTimeout(() => {
+      setVisible(true);
+    }, delay);
+  }, [delay]);
+
+  const hide = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    setVisible(false);
+  }, []);
+
+  // Position after becoming visible
+  useLayoutEffect(() => {
+    if (!visible) {
+      setCoords(null);
+      return;
+    }
+    const trigger = triggerRef.current;
+    const tooltip = tooltipRef.current;
+    if (!trigger || !tooltip) return;
+
+    // display:contents means the wrapper has no box - measure the first child instead
+    const triggerEl = trigger.children[0] as HTMLElement | null;
+    if (!triggerEl) return;
+
+    const tr = triggerEl.getBoundingClientRect();
+    const tt = tooltip.getBoundingClientRect();
+
+    let top = 0;
+    let left = 0;
+
+    if (side === "bottom") {
+      top = tr.bottom + sideOffset;
+      left = tr.left + (tr.width - tt.width) / 2;
+    } else if (side === "top") {
+      top = tr.top - tt.height - sideOffset;
+      left = tr.left + (tr.width - tt.width) / 2;
+    } else if (side === "right") {
+      top = tr.top + (tr.height - tt.height) / 2;
+      left = tr.right + sideOffset;
+    } else {
+      top = tr.top + (tr.height - tt.height) / 2;
+      left = tr.left - tt.width - sideOffset;
+    }
+
+    // Clamp to viewport
+    const clampedLeft = Math.max(8, Math.min(left, window.innerWidth - tt.width - 8));
+    const clampedTop = Math.max(8, Math.min(top, window.innerHeight - tt.height - 8));
+
+    // Compute caret position relative to tooltip when clamped
+    const triggerCenterX = tr.left + tr.width / 2;
+    const triggerCenterY = tr.top + tr.height / 2;
+    const caretX = triggerCenterX - clampedLeft;
+    const caretY = triggerCenterY - clampedTop;
+    tooltip.style.setProperty("--caret-x", `${caretX}px`);
+    tooltip.style.setProperty("--caret-y", `${caretY}px`);
+
+    setCoords({ top: clampedTop, left: clampedLeft });
+  }, [visible, side, sideOffset]);
+
+  const tooltipEl = visible ? (
+    <div
+      ref={tooltipRef}
+      className={`retune-tooltip retune-tooltip-${side}`}
+      style={coords ? { top: coords.top, left: coords.left, opacity: 1 } : { opacity: 0 }}
+    >
+      <span className="retune-tooltip-text">{content}</span>
+      {shortcut && (
+        <span className="retune-tooltip-shortcut">{shortcut}</span>
+      )}
+    </div>
+  ) : null;
+
+  return (
+    <div
+      ref={triggerRef}
+      className="retune-tooltip-trigger"
+      onPointerEnter={show}
+      onPointerLeave={hide}
+      onPointerDown={hide}
+    >
+      {children}
+      {portalTarget ? tooltipEl && createPortal(tooltipEl, portalTarget) : tooltipEl}
+    </div>
+  );
+}

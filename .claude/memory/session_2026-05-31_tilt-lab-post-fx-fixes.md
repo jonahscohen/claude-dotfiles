@@ -2,6 +2,7 @@
 name: tilt-lab post-fx fixes (dithered-image, fake-3d-image, water-ripple)
 description: Fixed 3 broken effects against motion-core originals - WebGL post beneath-sampling, flip fix, pointer ripples
 type: project
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. Graphics-engineer pass (fx-mc-post) over three tilt-lab effects that failed QA.

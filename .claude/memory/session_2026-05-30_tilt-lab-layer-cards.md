@@ -3,6 +3,7 @@ name: tilt-lab layer cards rework (eye visibility, collapsible, bare grip)
 description: Channel cards in the composition rail reworked - enable Switch -> eye/eye-off IconButton moved into the actions row left of trash; cards collapse to a single row (grip + stacked title/type + chevron); drag handle stripped to a bare grip span (no button wrapper, no index number); title with shader type stacked underneath. Done by teammate layer-cards, verified in Chrome.
 type: project
 relates_to: [session_2026-05-30_tilt-lab-header-and-dnd.md, session_2026-05-29_tilt-lab-qa-gate.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-30. First task of the one-teammate-per-task workflow. Teammate "layer-cards" (team tilt-tasks).

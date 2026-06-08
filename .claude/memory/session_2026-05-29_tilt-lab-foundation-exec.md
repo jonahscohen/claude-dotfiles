@@ -3,6 +3,7 @@ name: tilt-lab foundation execution progress
 description: Running progress log of building the tilt-lab foundation inline (Plan 1's 9 TDD tasks) while the tilt-recon team fetches source concurrently. Updated as each task lands.
 type: project
 relates_to: [session_2026-05-29_tilt-lab-foundation-plan.md, session_2026-05-29_tilt-lab-recon-team.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-29. Executing docs/superpowers/plans/2026-05-29-tilt-lab-foundation.md inline (user chose inline foundation + concurrent recon team). tilt-recon team runs in parallel.

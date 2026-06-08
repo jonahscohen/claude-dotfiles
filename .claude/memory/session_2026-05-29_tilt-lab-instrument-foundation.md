@@ -3,6 +3,7 @@ name: tilt-lab instrument redesign - foundation (fonts + tokens)
 description: design-team Phase 2 build foundation for the instrument-not-dashboard redesign. Self-hosted justify (Anthropic) fonts into app/public/fonts; rewriting styles.css token system to warm near-black ladder + Yes& red #DC2618 + JustifySans/JustifyMono. Builders fan out on disjoint verticals after.
 type: project
 relates_to: [session_2026-05-29_tilt-lab-design-direction.md, session_2026-05-29_tilt-lab-taste-DONE.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-29. tilt-design team, build phase. Direction locked + 2 forks resolved by user.

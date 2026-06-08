@@ -3,6 +3,7 @@ name: tilt-lab restore - autonomous /loop state
 description: Autonomous /loop running the tilt-restore team to bring all 25 effects to 1:1 fidelity, build the 4 dropped effects, build our own expect-inspired verifier, validate with it + Claude-in-Chrome. Coordination state across loop iterations.
 type: project
 relates_to: [session_2026-05-29_tilt-lab-scope-reconciliation.md, feedback_tilt_lab_fidelity_mandate.md, decision_behavioral_verifier_build_own.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-29. /loop autonomous: "do not come back until that work is complete. work autonomously."

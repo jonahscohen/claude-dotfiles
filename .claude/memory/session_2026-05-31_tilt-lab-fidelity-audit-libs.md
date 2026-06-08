@@ -2,6 +2,7 @@
 name: tilt-lab shader-fidelity audit (4 library/interactive effects)
 description: globe/particles/cursor-trail/aurora audited 1:1 vs original sources; all already faithful, no fixes needed
 type: project
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah

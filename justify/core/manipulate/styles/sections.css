@@ -1,0 +1,365 @@
+/*
+ * sections.css - the section framework CSS for the ported Retune Design panel.
+ *
+ * Ported VERBATIM from Retune's overlay.css (section structure 819-907, header
+ * actions 844-878, rows/fields/labels 1176-1227, row actions 1229-1255,
+ * selector-field special case 467-475) per spec 02-section-framework.md.
+ *
+ * Shipped on the shadow root's adoptedStyleSheets alongside panel-shell.css.
+ * NO collapse chevron exists - sections are conditionally rendered, never
+ * collapsed in place (plan decision (f)).
+ *
+ * Header action distinction (encode exactly):
+ *   .retune-section-action  (+/- add/remove)  -> ALWAYS visible
+ *   .retune-variable-action (token apply)     -> transparent at rest, revealed
+ *                                                only on .retune-section:hover
+ */
+
+/* ── Section structure (matches portfolio editor) ── */
+.retune-section {
+  border-bottom: 1px solid var(--retune-border);
+  user-select: none;
+}
+
+.retune-section:last-child { border-bottom: none; }
+/* Remove border from last section when followed by non-section elements (e.g., scroll anchor) */
+.retune-section:has(+ :not(.retune-section)) { border-bottom: none; }
+
+.retune-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 0 16px;
+  height: 44px;
+}
+
+.retune-section-title {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 20px;
+  color: var(--retune-text);
+}
+
+.retune-section-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--retune-text);
+  cursor: pointer;
+  padding: 0;
+}
+.retune-section-action:hover {
+  background: var(--retune-surface-hover);
+  color: var(--retune-text);
+}
+
+/* Variable action in section header: styled like section-action buttons, visible on section hover */
+.retune-section-header .retune-variable-action {
+  position: static;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: transparent;
+  color: transparent;
+  transition: color 0.15s ease;
+}
+.retune-section:hover .retune-section-header .retune-variable-action {
+  color: var(--retune-text-secondary);
+}
+.retune-section-header .retune-variable-action:hover {
+  color: var(--retune-text) !important;
+  background: var(--retune-surface-hover);
+}
+
+.retune-section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 16px;
+}
+
+.retune-section-row {
+  padding: 0 48px 0 16px;
+}
+.retune-section-row:has(.retune-split-btn),
+.retune-section-row:has(.retune-row-action) {
+  padding-right: 8px;
+}
+
+/* Row group: wraps multiple rows with equal vertical + horizontal gaps */
+.retune-row-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 48px 0 16px;
+}
+.retune-row-group:has(.retune-split-btn),
+.retune-row-group:has(.retune-row-action) {
+  padding-right: 8px;
+}
+
+.retune-row-group > .retune-row + .retune-row { margin-top: 4px; }
+
+/* Row layout: flex with gap for side-by-side fields */
+.retune-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+/* Direct children in a row get flex: 1 */
+.retune-row > .retune-prop,
+.retune-row > .retune-combo,
+.retune-row > .retune-select,
+.retune-row > .retune-text-input,
+.retune-row > .retune-font-input,
+.retune-row > .retune-slider { flex: 1; min-width: 0; }
+
+/* Field: flex-1 column with label above input */
+.retune-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.retune-field-label {
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  color: var(--retune-text-tertiary);
+  line-height: 16px;
+}
+
+/* Group label: single label above a set of related inputs */
+.retune-group-label {
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  color: var(--retune-text-tertiary);
+  line-height: 16px;
+  padding: 0 16px;
+}
+
+/* Group label inside a RowGroup (no extra horizontal padding) */
+.retune-group-label-inline {
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  color: var(--retune-text-tertiary);
+  line-height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Row action button (expand/collapse, dialog trigger, toggle) */
+.retune-row-action,
+.retune-split-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--retune-text);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.retune-row-action:hover,
+.retune-split-btn:hover {
+  background: var(--retune-surface-active);
+  color: var(--retune-text);
+}
+.retune-row-action.active,
+.retune-split-btn.active {
+  color: var(--retune-text);
+  background: var(--retune-input-bg-hover);
+}
+
+/* ── Selector field (Webflow-style class tags) - scope row spans full width ── */
+.retune-row-group:has(.retune-selector-field) {
+  padding-left: 0;
+  padding-right: 0;
+}
+.retune-row-group:has(.retune-selector-field) > .retune-group-label-inline {
+  padding-left: 16px;
+}
+
+/* ── Scope rail (Target levels + bridges), verbatim from Retune overlay.css 476-615 ── */
+.retune-selector-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  padding: 0 16px;
+  isolation: isolate; /* stacking context so bridge z-index:-1 stays within */
+}
+/* Bridge connector between active/included pills */
+.retune-selector-bridge {
+  width: 8px;
+  height: 16px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: -1;
+  margin: 0 -8px;
+}
+.retune-selector-bridge.filled {
+  background: var(--retune-blue-bg);
+}
+.retune-selector-bridge::before,
+.retune-selector-bridge::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 5px;
+  background: var(--retune-surface);
+}
+.retune-selector-bridge::before {
+  top: 0;
+  border-radius: 0 0 4px 4px;
+}
+.retune-selector-bridge::after {
+  bottom: 0;
+  border-radius: 4px 4px 0 0;
+}
+
+.retune-selector-field::-webkit-scrollbar { display: none; }
+
+.retune-selector-tag {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  border: none;
+  background: var(--retune-surface-hover);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--retune-text);
+  line-height: 16px;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.retune-selector-tag:hover {
+  background: var(--retune-border);
+}
+
+.retune-selector-tag.included,
+.retune-selector-tag.active {
+  background: var(--retune-blue-bg);
+  color: var(--retune-blue-text);
+}
+.retune-selector-tag.included:hover,
+.retune-selector-tag.active:hover {
+  background: var(--retune-blue-bg-hover);
+}
+
+.retune-selector-tag-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: JustifyMono, ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  line-height: 16px;
+  background: var(--retune-surface);
+  color: var(--retune-text);
+  padding: 0 6px;
+  border-radius: 4px;
+}
+
+.retune-selector-tag.included .retune-selector-tag-count,
+.retune-selector-tag.active .retune-selector-tag-count {
+  color: var(--retune-blue-text);
+}
+
+:host(.dark) .retune-selector-tag.included,
+:host(.dark) .retune-selector-tag.active {
+  color: var(--retune-white);
+}
+
+:host(.dark) .retune-selector-tag.included .retune-selector-tag-count,
+:host(.dark) .retune-selector-tag.active .retune-selector-tag-count {
+  background: var(--retune-white);
+  color: var(--retune-blue-700);
+}
+
+.retune-selector-tag-name {
+  font-family: JustifySans, system-ui, sans-serif;
+}
+
+.retune-selector-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--retune-border);
+  flex-shrink: 0;
+  align-self: center;
+}
+
+/* ── Alignment buttons (Position section) ── */
+/* Ported VERBATIM from Retune overlay.css 909-952 (Phase 4a). Each button is
+ * wrapped in a Tooltip (.retune-tooltip-trigger, display:contents), so the
+ * grandchild selector adds an inset divider to every non-first button. */
+.retune-align-row {
+  display: flex;
+  gap: 8px;
+}
+
+.retune-btn-group {
+  display: flex;
+  flex: 1;
+  background: var(--retune-surface-hover);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.retune-btn-group > :not(:first-child) > .retune-align-btn {
+  box-shadow: inset 1px 0 0 var(--retune-surface);
+}
+
+.retune-align-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--retune-text);
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.15s ease;
+}
+
+.retune-align-btn:hover {
+  background: var(--retune-border);
+  color: var(--retune-text);
+}
+
+.retune-align-btn:active {
+  color: var(--retune-text);
+}
+
+.retune-align-btn.active {
+  background: var(--retune-border);
+}

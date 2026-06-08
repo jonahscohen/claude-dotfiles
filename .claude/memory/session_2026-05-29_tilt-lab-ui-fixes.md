@@ -3,6 +3,7 @@ name: tilt-lab UI audit fixes landed (tilt-ui team)
 description: All 4 P0-P3 fix tasks done + integrated green. Responsive breakpoints, focus-visible, param-label wrap, 40x40 hit targets, reduced-motion, hex->tokens, modal a11y, preview aria, vendor chunking, PRODUCT.md+DESIGN.md. QA gate (critique+polish) + Chrome verify next.
 type: project
 relates_to: [session_2026-05-29_tilt-lab-ui-audit.md, session_2026-05-29_tilt-lab-media-and-post-pipeline.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-29. tilt-ui team, tasks 1-4 done (strict per-file ownership, no conflicts).

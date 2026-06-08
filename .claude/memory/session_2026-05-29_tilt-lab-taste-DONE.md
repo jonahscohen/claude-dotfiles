@@ -3,6 +3,7 @@ name: tilt-lab taste elevation COMPLETE - real components + declutter (verified)
 description: Replaced raw HTML controls with designed primitives (Slider/Switch/Select/ColorField/FileDrop), Lucide icon buttons, collapsible param groups (killed the 25-slider wall), elevated shell. tilt-taste team. tsc + 151 tests + build green, Chrome-verified.
 type: project
 relates_to: [session_2026-05-29_tilt-lab-taste-elevation.md, session_2026-05-29_tilt-lab-ui-fixes.md, feedback_tilt_lab_fidelity_mandate.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-29. tilt-taste team (4 agents, co-located CSS, no shared-file conflict).

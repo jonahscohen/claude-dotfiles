@@ -149,91 +149,9 @@ export class JustifyCore {
         });
         this._changeQueue.push({ prompt: item.prompt, elements });
       }
-      // Show queuebar immediately
-      if (this._queuePill && this._changeQueue.length > 0) {
-        this._queuePill.style.display = 'flex';
-        this._queuePill.style.opacity = '1';
-        this._queuePill.style.transform = '';
-        // Create queue UI elements if they don't exist yet
-        const existingBtn = this._queuePill.querySelector('[data-queue-btn]');
-        if (!existingBtn) {
-          const btn = document.createElement('div');
-          btn.dataset.queueBtn = '';
-          btn.style.cssText = 'width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.08);border:none;display:flex;align-items:center;justify-content:center;color:#D97757;transition:background 150ms ease,transform 0.1s;flex-shrink:0;padding:0;position:relative';
-          const count = document.createElement('span');
-          count.style.cssText = 'font-size:13px;font-weight:700;font-family:JustifySans,system-ui,sans-serif;font-variant-numeric:tabular-nums;pointer-events:none;line-height:1;color:#D97757';
-          count.textContent = String(this._changeQueue.length);
-          btn.appendChild(count);
-          this._queuePill.appendChild(btn);
-
-          const label = document.createElement('span');
-          label.dataset.queueLabel = '';
-          label.style.cssText = 'font-size:14px;font-weight:500;color:rgba(255,255,255,0.85);white-space:nowrap;overflow:hidden;transition:width 0.35s cubic-bezier(0.4,0,0.2,1),opacity 0.25s ease;font-family:JustifySans,system-ui,sans-serif;cursor:pointer';
-          label.textContent = this._changeQueue.length === 1 ? 'Queued Task' : 'Queued Tasks';
-          this._queuePill.appendChild(label);
-
-          this._queuePill.style.gap = '10px';
-          this._queuePill.style.padding = '6px 18px 6px 6px';
-          this._queuePill.style.cursor = 'pointer';
-
-          // Wire pill-level click that works without prompt mode
-          const qPill = this._queuePill;
-          const qLabel = label;
-          let collapsed = false;
-          qPill.onclick = () => {
-            if (!collapsed) {
-              collapsed = true;
-              const w = qLabel.offsetWidth;
-              qLabel.style.width = w + 'px';
-              qLabel.offsetHeight;
-              qLabel.style.width = '0';
-              qLabel.style.opacity = '0';
-              qPill.style.gap = '0';
-              qPill.style.padding = '6px';
-              // Active state on circle
-              btn.style.background = '#D97757';
-              btn.style.color = '#fff';
-              count.style.color = '#fff';
-            } else {
-              // Toggle active styling
-              const isActive = btn.style.background === 'rgb(217, 119, 87)';
-              if (isActive) {
-                btn.style.background = 'rgba(255,255,255,0.08)';
-                btn.style.color = '#D97757';
-                count.style.color = '#D97757';
-              } else {
-                btn.style.background = '#D97757';
-                btn.style.color = '#fff';
-                count.style.color = '#fff';
-              }
-            }
-            // Create a lightweight prompt mode just for the queue panel (no full overlay)
-            if (!this.promptMode) {
-              this.promptMode = new PromptMode(this.overlay, this.transport, this.registry);
-              (this.promptMode as any)._core = this;
-              (this.promptMode as any).setWatchActive(this._watchActive);
-            }
-            // Sync queue data and refs
-            if ((this.promptMode as any)._changeQueue.length === 0 && this._changeQueue.length > 0) {
-              (this.promptMode as any)._changeQueue = this._changeQueue;
-            }
-            (this.promptMode as any)._queueCollapsed = collapsed;
-            (this.promptMode as any)._actionPill = qPill;
-            (this.promptMode as any)._queueBtn = btn;
-            (this.promptMode as any)._queueLabel = qLabel;
-            (this.promptMode as any)._queueCount = count;
-            (this.promptMode as any)._toggleQueuePanel();
-          };
-        } else {
-          // Update existing count
-          const count = existingBtn.querySelector('span');
-          if (count) count.textContent = String(this._changeQueue.length);
-          const label = this._queuePill.querySelector('[data-queue-label]') as HTMLElement;
-          if (label) { label.style.display = ''; label.style.width = ''; label.style.opacity = '1'; }
-          this._queuePill.style.gap = '10px';
-          this._queuePill.style.padding = '6px 18px 6px 6px';
-        }
-      }
+      // Show queuebar immediately (extracted to _showQueuePill so Manipulate
+      // mode can show/refresh the same bottom-left pill on each edit).
+      this._showQueuePill();
     }).catch(() => {});
     }, 300);
 
@@ -532,6 +450,9 @@ export class JustifyCore {
         this.changeBuffer,
         this.transport,
       );
+      // Mirror PromptMode's _core ref so Manipulate edits feed the shared queue +
+      // bottom-left pill + Claudebar send pipeline (Part B).
+      (this.manipulateMode as any)._core = this;
       this.manipulateMode.activate();
     } else if (mode === 'prompt') {
       this.promptMode = new PromptMode(this.overlay, this.transport, this.registry);
@@ -867,6 +788,27 @@ export class JustifyCore {
     this.transport.request('clear', {}).catch(() => {});
   }
 
+  /** Revert Manipulate's live preview when its queued task(s) are discarded without
+   *  sending, so the element returns to its original appearance (no page refresh
+   *  needed). `sel` reverts one selector; omitted reverts all. Robust to manipulate
+   *  mode being inactive - the previewEngine/changeBuffer persist on the core. */
+  revertManipulatePreview(sel?: string): void {
+    const mm = this.manipulateMode as any;
+    if (sel) {
+      if (mm && typeof mm.revertSelector === 'function') { mm.revertSelector(sel); return; }
+      if (this.changeBuffer && this.previewEngine) {
+        for (const c of this.changeBuffer.getAll().filter((ch) => ch.selector === sel)) {
+          this.previewEngine.removeChange(c.selector, c.property);
+          this.changeBuffer.remove(c.id);
+        }
+      }
+    } else {
+      if (mm && typeof mm.revertAll === 'function') { mm.revertAll(); return; }
+      this.previewEngine?.clearAll();
+      this.changeBuffer?.clear();
+    }
+  }
+
   registerAdapter(adapter: JustifyAdapter): void {
     this.registry.register(adapter);
   }
@@ -1031,6 +973,14 @@ export class JustifyCore {
               this._onWatchDisconnected();
             }
           }
+          // Re-sync the prompt-mode UI to the debounced watch state every poll.
+          // The queue panel resets its own _watchActive flag whenever it is
+          // re-created, but the core flag is already settled - a transition-only
+          // sync (via _onWatchConnected) never fires again, leaving the panel
+          // stuck on "Claude is not connected" while Claude is in fact watching.
+          // Syncing to this._watchActive (not raw data.active) preserves the
+          // 3-miss disconnect grace, so this does not re-introduce flapping.
+          if (this.promptMode) (this.promptMode as any).setWatchActive(this._watchActive);
         })
         .catch(() => {
           this._watchMissCount++;
@@ -1068,12 +1018,18 @@ export class JustifyCore {
     if (this._claudeState === 'connected') {
       this._claudeState = 'none';
       this._removeClaudeBar(false);
-    } else if (this._claudeState === 'sending' || this._claudeState === 'working' || this._claudeState === 'retrying') {
+    } else if (this._claudeState === 'sending') {
+      // Sent, but the watcher went idle before claiming it - Claude isn't
+      // listening. Surface the disconnect so the user knows to say "watch justify".
       if (this._claudeTimeout !== null) { clearTimeout(this._claudeTimeout); this._claudeTimeout = null; }
       this._claudeState = 'none';
       this._removeClaudeBar(true);
       this._showDisconnectedBar();
     }
+    // 'working'/'retrying': Claude has claimed the task and is applying it, so it
+    // legitimately stops polling /prompts for a while. Do NOT flash "Connection
+    // lost" here - that was the spurious disconnect users saw mid-apply. The 60s
+    // retry timeout in _showClaudeBar is the real backstop for a dead Claude.
   }
 
   private _showDisconnectedBar(): void {
@@ -1164,6 +1120,115 @@ export class JustifyCore {
       dur = cfg.speed * frames.length;
     }
     return svg.animate(frames, { duration: dur, iterations: Infinity, easing: `steps(${frames.length}, jump-none)` });
+  }
+
+  /**
+   * Show/refresh the persistent bottom-left queue pill from `this._changeQueue`.
+   * Extracted verbatim from the on-load restore so Manipulate mode can reflect
+   * its per-element edits in the same pill (and reuse the same click -> queue
+   * panel -> Send All send path). Idempotent: creates the pill UI once, then
+   * just updates the count.
+   */
+  /** Rebuild the expanded queuebar panel (if open) so a Manipulate reset/change is
+   *  reflected live - mirrors the per-task-remove panel rebuild. */
+  _refreshOpenQueuePanel(): void {
+    const pm = this.promptMode as any;
+    if (!pm || !pm._queuePanel) return;
+    pm._queuePanel.remove();
+    pm._queuePanel = null; pm._queueListEl = null; pm._queueHdrText = null;
+    if (this._changeQueue.length > 0 && typeof pm._toggleQueuePanel === 'function') pm._toggleQueuePanel();
+  }
+
+  _showQueuePill(): void {
+    // Hide the pill when nothing is queued (e.g. all edits reset).
+    if (this._queuePill && this._changeQueue.length === 0) {
+      this._queuePill.style.display = 'none';
+      return;
+    }
+    if (this._queuePill && this._changeQueue.length > 0) {
+      this._queuePill.style.display = 'flex';
+      this._queuePill.style.opacity = '1';
+      this._queuePill.style.transform = '';
+      // Create queue UI elements if they don't exist yet
+      const existingBtn = this._queuePill.querySelector('[data-queue-btn]');
+      if (!existingBtn) {
+        const btn = document.createElement('div');
+        btn.dataset.queueBtn = '';
+        btn.style.cssText = 'width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.08);border:none;display:flex;align-items:center;justify-content:center;color:#D97757;transition:background 150ms ease,transform 0.1s;flex-shrink:0;padding:0;position:relative';
+        const count = document.createElement('span');
+        count.style.cssText = 'font-size:13px;font-weight:700;font-family:JustifySans,system-ui,sans-serif;font-variant-numeric:tabular-nums;pointer-events:none;line-height:1;color:#D97757';
+        count.textContent = String(this._changeQueue.length);
+        btn.appendChild(count);
+        this._queuePill.appendChild(btn);
+
+        const label = document.createElement('span');
+        label.dataset.queueLabel = '';
+        label.style.cssText = 'font-size:14px;font-weight:500;color:rgba(255,255,255,0.85);white-space:nowrap;overflow:hidden;transition:width 0.35s cubic-bezier(0.4,0,0.2,1),opacity 0.25s ease;font-family:JustifySans,system-ui,sans-serif;cursor:pointer';
+        label.textContent = this._changeQueue.length === 1 ? 'Queued Task' : 'Queued Tasks';
+        this._queuePill.appendChild(label);
+
+        this._queuePill.style.gap = '10px';
+        this._queuePill.style.padding = '6px 18px 6px 6px';
+        this._queuePill.style.cursor = 'pointer';
+
+        // Wire pill-level click that works without prompt mode
+        const qPill = this._queuePill;
+        const qLabel = label;
+        let collapsed = false;
+        qPill.onclick = () => {
+          if (!collapsed) {
+            collapsed = true;
+            const w = qLabel.offsetWidth;
+            qLabel.style.width = w + 'px';
+            qLabel.offsetHeight;
+            qLabel.style.width = '0';
+            qLabel.style.opacity = '0';
+            qPill.style.gap = '0';
+            qPill.style.padding = '6px';
+            // Active state on circle
+            btn.style.background = '#D97757';
+            btn.style.color = '#fff';
+            count.style.color = '#fff';
+          } else {
+            // Toggle active styling
+            const isActive = btn.style.background === 'rgb(217, 119, 87)';
+            if (isActive) {
+              btn.style.background = 'rgba(255,255,255,0.08)';
+              btn.style.color = '#D97757';
+              count.style.color = '#D97757';
+            } else {
+              btn.style.background = '#D97757';
+              btn.style.color = '#fff';
+              count.style.color = '#fff';
+            }
+          }
+          // Create a lightweight prompt mode just for the queue panel (no full overlay)
+          if (!this.promptMode) {
+            this.promptMode = new PromptMode(this.overlay, this.transport, this.registry);
+            (this.promptMode as any)._core = this;
+            (this.promptMode as any).setWatchActive(this._watchActive);
+          }
+          // Sync queue data and refs
+          if ((this.promptMode as any)._changeQueue.length === 0 && this._changeQueue.length > 0) {
+            (this.promptMode as any)._changeQueue = this._changeQueue;
+          }
+          (this.promptMode as any)._queueCollapsed = collapsed;
+          (this.promptMode as any)._actionPill = qPill;
+          (this.promptMode as any)._queueBtn = btn;
+          (this.promptMode as any)._queueLabel = qLabel;
+          (this.promptMode as any)._queueCount = count;
+          (this.promptMode as any)._toggleQueuePanel();
+        };
+      } else {
+        // Update existing count
+        const count = existingBtn.querySelector('span');
+        if (count) count.textContent = String(this._changeQueue.length);
+        const label = this._queuePill.querySelector('[data-queue-label]') as HTMLElement;
+        if (label) { label.style.display = ''; label.style.width = ''; label.style.opacity = '1'; }
+        this._queuePill.style.gap = '10px';
+        this._queuePill.style.padding = '6px 18px 6px 6px';
+      }
+    }
   }
 
   _showClaudeBar(text: string, sprite: string, hasDots: boolean): void {

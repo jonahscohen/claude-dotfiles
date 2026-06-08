@@ -3,6 +3,7 @@ name: tilt-lab foundation implementation plan
 description: Wrote the Plan-1 (foundation) implementation plan for tilt-lab - 9 bite-sized TDD tasks delivering the runtime contract, manifest validation, layering rules, generic web-component wrapper, compositor, reference gradient effect, and esbuild bundle. Resequenced so the contract precedes team acquisition.
 type: project
 relates_to: [session_2026-05-29_tilt-lab-brainstorm.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-29. Via superpowers:writing-plans. Plan saved + committed.

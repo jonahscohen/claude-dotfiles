@@ -3,6 +3,7 @@ name: tilt-lab taste elevation - real components + declutter (tilt-taste team)
 description: Flagship taste pass - replace raw HTML controls with designed component primitives (Slider/Switch/Select/ColorField/FileDrop), real Lucide icon buttons, collapsible param groups to kill the param-wall clutter, shell/browse taste. Deployed tilt-taste team.
 type: project
 relates_to: [session_2026-05-29_tilt-lab-ui-fixes.md, session_2026-05-29_tilt-lab-ui-audit.md, feedback_tilt_lab_fidelity_mandate.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-29. /sidecoach "taste" (no literal taste flow; it is the taste-VALIDATOR run inside a craft+distill elevation - taste-validator.ts). Jonah: "missed opportunities to use real components in place of clutter all over the screen... flagship near completion."

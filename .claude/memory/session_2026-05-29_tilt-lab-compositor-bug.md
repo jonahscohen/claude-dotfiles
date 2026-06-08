@@ -3,6 +3,7 @@ name: tilt-lab Compositor rendering bug (found by visual verification)
 description: The Plan-1 Compositor never sizes its canvas or calls effect.resize(), and shares one canvas across all layers - so the playground preview renders black. Found via cmux screenshot after clicking an effect. Fix = per-layer sized canvases, stacked + blend-moded, with resize + pointer forwarding.
 type: project
 relates_to: [session_2026-05-29_tilt-lab-ui-exec.md, session_2026-05-29_tilt-lab-foundation-exec.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-29. Found during Plan 3 Task 9 visual verification.

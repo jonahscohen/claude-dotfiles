@@ -13,10 +13,11 @@
     "test:watch": "npx vitest"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0",
     "@medv/finder": "^3.2.0",
+    "@modelcontextprotocol/sdk": "^1.0.0",
     "chokidar": "^4.0.0",
     "parsel-js": "^1.1.0",
+    "preact": "^10.29.2",
     "source-map": "^0.7.4",
     "ws": "^8.18.0",
     "zod": "^3.23.0"
@@ -25,6 +26,7 @@
     "@types/node": "^22.0.0",
     "@types/ws": "^8.5.0",
     "esbuild": "^0.23.0",
+    "jsdom": "^29.1.1",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"
   }

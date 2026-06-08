@@ -1,0 +1,24 @@
+{
+  "_meta": {
+    "purpose": "Cluster-detector registry for consolidate-nudge.sh. A SessionStart sibling to reflect-nudge.sh: reflect-nudge watches reflection CADENCE (how many new beats since the last reflection); this watches cluster SIZE (how many beats pile up under one topic). When a single topic token appears in >= config.threshold session_/reflection_ beats, the hook emits an advisory additionalContext nudging the human to run /consolidate <topic>. Advisory only, human-gated, never blocks - it just surfaces the biggest redundant cluster.",
+    "count_rule": "For each beat file: strip .md, strip a leading session_/reflection_ prefix, strip the YYYY-MM-DD date, split the remainder on [_-]+, lowercase, drop tokens shorter than min_token_len, pure-digit tokens, and stopwords. Dedupe tokens within a single file so one file can never inflate a count. A cluster's count is the number of FILES containing that token. Fire when the largest cluster count >= threshold.",
+    "exclusion_rule": "MEMORY.md and MEMORY-archive.md are never counted. A beat counts toward a cluster ONLY if its frontmatter `type` is in config.consolidatable_types (default just `project`). This is AUTHORITATIVE and filename-agnostic on purpose: standing beats (type decision/feedback/reference/user) are frequently saved with a session_ FILENAME but a standing TYPE - e.g. session_2026-05-29_tilt-lab-design-direction.md is type: decision. Excluding by filename prefix alone (like compact-memory.py's STANDING tuple) would wrongly sweep those long-lived decision/feedback beats into a merge = data loss. So we read frontmatter type, not the filename. A file with no parseable type is excluded (safe under-count). Example: of the 49 tilt-token files, only the 42 type:project ones count; the 4 decision + 3 feedback (6 of which have session_ filenames) are excluded.",
+    "cooldown_rule": "When the hook fires it writes the epoch to config.cooldown_state_file; it stays silent while that file is younger than config.cooldown_seconds, so the same standing cluster is not re-nagged every single session. Override seconds with env CONSOLIDATE_COOLDOWN and the state-file path with env CONSOLIDATE_COOLDOWN_FILE (used by the test harness). CONSOLIDATE_COOLDOWN=0 disables the cooldown (always eligible).",
+    "override_rule": "Env overrides for tests: CONSOLIDATE_MEMORY_DIR (point at a temp beats dir; takes precedence over SESSION_CWD), CONSOLIDATE_THRESHOLD (integer), CONSOLIDATE_COOLDOWN (seconds), CONSOLIDATE_COOLDOWN_FILE (path). Tune the stopwords/threshold/cooldown here - this file is the single source of truth."
+  },
+  "config": {
+    "threshold": 12,
+    "min_token_len": 3,
+    "max_clusters_reported": 3,
+    "cooldown_seconds": 86400,
+    "cooldown_state_file": "~/.claude/.consolidate-cooldown",
+    "consolidatable_types": ["project"]
+  },
+  "stopwords": [
+    "the", "and", "for", "with", "this", "that", "from", "session", "reflection",
+    "complete", "completion", "completed", "final", "phase", "block", "blocks",
+    "fix", "fixes", "fixed", "start", "started", "kickoff", "plan", "update",
+    "updates", "done", "test", "tests", "testing", "wip", "draft", "notes",
+    "summary", "handoff", "all", "new", "work", "tier"
+  ]
+}

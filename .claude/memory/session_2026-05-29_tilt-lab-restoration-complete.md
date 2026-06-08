@@ -3,6 +3,7 @@ name: tilt-lab 25-effect fidelity restoration integrated + verified (headless)
 description: All 6 build/restore tasks landed and integrated. Catalog re-anchored to the original 25-effect list, 4 wrongly-dropped effects rebuilt, fidelity restored across all, swirl removed, gradient demoted to fixture. tsc + 133 tests + bundle smoke green. Visual sweep + verifier-tool validation still pending.
 type: project
 relates_to: [session_2026-05-29_tilt-lab-restore-loop.md, session_2026-05-29_tilt-lab-scope-reconciliation.md, feedback_tilt_lab_fidelity_mandate.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-29. Autonomous /loop. 6/7 team tasks done (tool-dev #1 still building the verifier).

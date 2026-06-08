@@ -3,6 +3,7 @@ name: tilt-lab scope reconciliation vs ORIGINAL task (authoritative target set)
 description: Re-anchored on Jonah's original shader list. Identifies exactly what was DROPPED (must add), what was ADDED unrequested (must reconcile), and the precise 25-effect catalog target. Drives the autonomous restore team.
 type: project
 relates_to: [feedback_tilt_lab_fidelity_mandate.md, session_2026-05-29_tilt-lab-acquisition-exec.md, session_2026-05-29_brainstorm? ]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-29. After "/loop" directive: effects missing key components, some included that weren't requested, dropped some that were. Re-verified against the ORIGINAL first-message list. "Leave nothing out. Do not fail me again."

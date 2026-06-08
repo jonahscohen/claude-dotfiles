@@ -1,0 +1,3125 @@
+/**
+ * Element picker: hover to highlight, click to select.
+ *
+ * Uses a fixed-position overlay with pointer-events:none so
+ * elementFromPoint() returns the real element underneath.
+ * All event listeners use capture phase to intercept before page handlers.
+ *
+ * Selection persists until a new element is selected or picker is deactivated.
+ * Hover box becomes solid. Parent indicator uses dotted.
+ *
+ * Ported near-verbatim from Retune (packages/overlay/src/selector/picker.ts) as a
+ * self-contained, framework-free vanilla-TS module. The only original local import
+ * (`canFill` + `SizingContext` from ui/sizing-utils) is inlined below verbatim so
+ * this file has no internal dependencies beyond core/selector/identifier (used only
+ * by the public `Picker` wrapper at the bottom). Page mutations are driven through
+ * the `PickerCallbacks` preview-style callbacks - NOT hard-wired to any engine.
+ * See docs/retune-port/10-selection-and-design-entry.md for the spec.
+ *
+ * Public API for ManipulateMode (see bottom of file):
+ *   const p = new Picker();
+ *   p.onSelect(({element, selector}) => ...).onHover(({element, rect}) => ...);
+ *   p.init({ root? });   // creates its own isolated shadow host if no root given
+ *   p.setSelected(el); p.destroy();
+ */
+
+// ── Inlined from Retune ui/sizing-utils.ts (only the two symbols picker.ts uses) ──
+interface SizingContext {
+  isFlexChild: boolean;
+  isGridChild: boolean;
+  parentFlexDir: string; // "row" | "column" | "row-reverse" | "column-reverse"
+  currentStyles: Record<string, string>;
+  elementRect?: { width: number; height: number };
+}
+
+/** Whether an axis can be filled (=> "100%") given the element's layout context. */
+function canFill(axis: "width" | "height", ctx: SizingContext): boolean {
+  // Width fill is almost always valid
+  if (axis === "width") return true;
+  const { isFlexChild, isGridChild, parentFlexDir } = ctx;
+  // Flex column parent → flex: 1 works for height fill
+  if (isFlexChild && parentFlexDir.startsWith("column")) return true;
+  // Flex row parent → cross axis stretch works if parent has height
+  if (isFlexChild && !parentFlexDir.startsWith("column")) return true;
+  // Grid → height: 100% works (cells have explicit dimensions)
+  if (isGridChild) return true;
+  // Block → only if parent has explicit height; heuristically disallow
+  return false;
+}
+
+import { getSelector } from "./identifier";
+import { createLayerIconSvg } from "./layer-icon";
+
+export interface PickerCallbacks {
+  onHover: (element: Element, rect: DOMRect) => void;
+  onSelect: (element: Element) => void;
+  onCancel: () => void;
+  /** If provided, called before processing a click. Return true to block the click entirely. */
+  shouldBlockClick?: () => boolean;
+  onDoubleClick?: (element: Element) => void;
+  onResize?: (element: Element, property: "width" | "height", value: string) => void;
+  /** Called during resize drag for live preview (updates stylesheet without recording changes) */
+  onResizePreview?: (element: Element, property: "width" | "height", value: string) => void;
+  /** Called when an absolute/fixed element is repositioned via drag */
+  onReposition?: (element: Element, property: "top" | "left" | "right" | "bottom", value: string) => void;
+  /** Called during reposition drag for live preview */
+  onRepositionPreview?: (element: Element, property: "top" | "left" | "right" | "bottom", value: string) => void;
+  /** Called when a flow element is reordered by drag among its siblings */
+  onCanvasReorder?: (element: Element, fromIndex: number, toIndex: number) => void;
+  /** Called when a flow element is reparented by dragging to a different container */
+  onCanvasReparent?: (element: Element, newParent: Element, insertIndex: number) => void;
+}
+
+/** Compute drop index using filtered rects (dragged element excluded).
+ *  Returns index in the FULL siblings array. */
+export function computeCanvasDropIndex(
+  cursorX: number, cursorY: number,
+  otherRects: DOMRect[], otherIndices: number[],
+  horizontal: boolean, dragIndex: number
+): number {
+  const cursor = horizontal ? cursorX : cursorY;
+  let insertBefore = otherRects.length;
+
+  for (let i = 0; i < otherRects.length; i++) {
+    const mid = horizontal
+      ? otherRects[i].left + otherRects[i].width / 2
+      : otherRects[i].top + otherRects[i].height / 2;
+    if (cursor < mid) { insertBefore = i; break; }
+  }
+
+  if (insertBefore >= otherIndices.length) {
+    return otherIndices.length > 0 ? otherIndices[otherIndices.length - 1] + 1 : dragIndex;
+  }
+  return otherIndices[insertBefore];
+}
+
+/** Check if drop index is effectively the same position. */
+export function isEffectiveNoOp(dragIndex: number, dropIndex: number): boolean {
+  return dragIndex === dropIndex;
+}
+
+/** Format selection label as dimensions only. */
+export function formatSelectionLabel(width: number, height: number): string {
+  return `${Math.round(width)} × ${Math.round(height)}`;
+}
+
+/** Lucide-style element-type icon path (verbatim from prompt mode's getElementIcon). */
+function getElementIcon(tag: string, role: string, disp: string): string {
+  if (tag === "img" || tag === "picture" || tag === "video" || tag === "svg") return "M21 3H3v18h18V3zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21";
+  else if (tag === "a") return "M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71";
+  else if (tag === "button" || role === "button") return "M4 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z";
+  else if (tag === "input" || tag === "textarea" || tag === "select") return "M4 7h16M4 7v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7M8 12h4";
+  else if (tag === "h1" || tag === "h2" || tag === "h3" || tag === "h4" || tag === "h5" || tag === "h6") return "M4 12h8M4 18V6M12 18V6M20 18v-6a2 2 0 1 0-4 0v6";
+  else if (tag === "p" || tag === "span" || tag === "label" || tag === "em" || tag === "strong" || tag === "blockquote") return "M4 7h16M4 12h16M4 17h10";
+  else if (tag === "ul" || tag === "ol") return "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01";
+  else if (tag === "li") return "M9 12h12M9 6h12M9 18h12M5 12h.01M5 6h.01M5 18h.01";
+  else if (tag === "nav") return "M3 12h18M3 6h18M3 18h18";
+  else if (tag === "header") return "M3 3h18v6H3zM3 12h18v9H3z";
+  else if (tag === "footer") return "M3 3h18v9H3zM3 15h18v6H3z";
+  else if (tag === "section" || tag === "article" || tag === "main" || tag === "aside") return "M3 3h18v18H3zM3 9h18M9 21V9";
+  else if (tag === "form") return "M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8l-5-5zM15 3v5h5M10 12l2 2 4-4";
+  else if (tag === "table" || tag === "tr" || tag === "td" || tag === "th") return "M3 3h18v18H3zM3 9h18M3 15h18M9 3v18M15 3v18";
+  else if (disp.includes("flex")) return "M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z";
+  else if (disp.includes("grid")) return "M3 3h18v18H3zM9 3v18M15 3v18M3 9h18M3 15h18";
+  else return "M21 3H3v18h18V3z";
+}
+
+/** Populate a label element as prompt-mode's tooltip pill: type icon + tag/.class/#id/(role). */
+function renderElementPill(labelEl: HTMLElement, el: Element): void {
+  labelEl.innerHTML = "";
+  const tag = el.tagName.toLowerCase();
+  const role = el.getAttribute ? el.getAttribute("role") || "" : "";
+  const disp = getComputedStyle(el).display || "";
+
+  // Element-type icon, matching the Manipulate Elements tab (shared with prompt mode).
+  labelEl.appendChild(createLayerIconSvg(el, 14));
+
+  const cn = el.className && typeof el.className === "string" ? el.className.split(/\s+/)[0] : "";
+  let lbl = tag;
+  if (cn && cn.length < 25) lbl = tag + " ." + cn;
+  else if ((el as HTMLElement).id) lbl = tag + " #" + (el as HTMLElement).id;
+  else if (role) lbl = tag + " (" + role + ")";
+  const sp = document.createElement("span");
+  sp.textContent = lbl;
+  labelEl.appendChild(sp);
+}
+
+export function createPicker(
+  shadowRoot: ShadowRoot,
+  callbacks: PickerCallbacks
+) {
+  // Hover highlight
+  const highlight = document.createElement("div");
+  highlight.setAttribute("data-justify-highlight", "");
+  shadowRoot.appendChild(highlight);
+
+  const label = document.createElement("div");
+  label.setAttribute("data-justify-label", "");
+  shadowRoot.appendChild(label);
+
+  // Selection highlight (persistent)
+  const selection = document.createElement("div");
+  selection.setAttribute("data-justify-selection", "");
+  shadowRoot.appendChild(selection);
+
+  const selectionLabel = document.createElement("div");
+  selectionLabel.setAttribute("data-justify-selection-label", "");
+  shadowRoot.appendChild(selectionLabel);
+
+  // Removable selection pill ([icon] tag.class | x), centered above the selected
+  // element - mirrors prompt mode. The x clears the selection + the Design panel
+  // (via onCancel). Content is filled per-selection by renderElementPill.
+  const selectionPill = document.createElement("div");
+  selectionPill.setAttribute("data-justify-selection-pill", "");
+  selectionPill.style.cssText =
+    "position:fixed;display:none;pointer-events:auto;z-index:2147483646;" +
+    "background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);" +
+    "font-size:11px;font-family:JustifySans,system-ui,sans-serif;font-weight:500;" +
+    "padding:4px 8px 4px 6px;border-radius:20px;box-shadow:0 2px 6px rgba(0,0,0,0.3);" +
+    "white-space:nowrap;align-items:center;gap:5px;";
+  const selectionPillContent = document.createElement("span");
+  selectionPillContent.style.cssText = "display:flex;align-items:center;gap:6px";
+  const selectionPillDivider = document.createElement("div");
+  selectionPillDivider.style.cssText =
+    "width:1px;align-self:stretch;margin:-4px 0 -4px 5px;background:rgba(255,255,255,0.1);flex:none";
+  const selectionPillX = document.createElement("button");
+  selectionPillX.style.cssText =
+    "border:none;background:none;color:#ef4444;cursor:pointer;padding:5px;margin:-5px -3px;" +
+    "display:flex;align-items:center;justify-content:center;font-size:0;line-height:0;border-radius:50%;pointer-events:auto";
+  const _spXSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  _spXSvg.setAttribute("width", "10");
+  _spXSvg.setAttribute("height", "10");
+  _spXSvg.setAttribute("viewBox", "0 0 24 24");
+  _spXSvg.setAttribute("fill", "none");
+  _spXSvg.setAttribute("stroke", "currentColor");
+  _spXSvg.setAttribute("stroke-width", "3");
+  _spXSvg.setAttribute("stroke-linecap", "round");
+  const _spX1 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  _spX1.setAttribute("d", "M18 6 6 18");
+  _spXSvg.appendChild(_spX1);
+  const _spX2 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  _spX2.setAttribute("d", "m6 6 12 12");
+  _spXSvg.appendChild(_spX2);
+  selectionPillX.appendChild(_spXSvg);
+  selectionPillX.addEventListener("click", (ev) => {
+    ev.stopPropagation();
+    ev.preventDefault();
+    callbacks.onCancel();
+  });
+  selectionPill.appendChild(selectionPillContent);
+  selectionPill.appendChild(selectionPillDivider);
+  selectionPill.appendChild(selectionPillX);
+  shadowRoot.appendChild(selectionPill);
+
+  // Aspect ratio lock indicator (diagonal dashed line inside selection box)
+  const aspectLine = document.createElement("div");
+  aspectLine.style.cssText = `
+    position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;display:none;overflow:hidden;
+  `;
+  aspectLine.innerHTML = `<svg width="100%" height="100%" style="position:absolute;top:0;left:0"><line x1="0" y1="0" x2="100%" y2="100%" stroke="#D97757" stroke-width="1" stroke-dasharray="1 3" stroke-linecap="round" opacity="0.6"/></svg>`;
+  selection.appendChild(aspectLine);
+
+  // Parent indicator (dotted outline, no fill — shown during fill snap)
+  const parentIndicator = document.createElement("div");
+  parentIndicator.setAttribute("data-justify-parent-indicator", "");
+  parentIndicator.style.cssText = `
+    position:fixed;display:none;pointer-events:none;z-index:2147483644;
+    border:1px dotted #D97757;background:none;border-radius:0;
+  `;
+  shadowRoot.appendChild(parentIndicator);
+
+  // Sibling outlines — dotted outlines on non-selected siblings when hovering their parent
+  const siblingOutlinePool: HTMLDivElement[] = [];
+  for (let i = 0; i < 20; i++) {
+    const outline = document.createElement("div");
+    outline.style.cssText = `
+      position:fixed;display:none;pointer-events:none;z-index:2147483644;
+      border:1px dotted #D97757;background:none;
+    `;
+    shadowRoot.appendChild(outline);
+    siblingOutlinePool.push(outline);
+  }
+
+  function showSiblingOutlines(parent: Element, selected: Element) {
+    const children = Array.from(parent.children).filter(c => {
+      if (c === selected) return false;
+      if (c.hasAttribute("data-justify-host")) return false;
+      const cs = getComputedStyle(c);
+      if (cs.display === "none" || cs.visibility === "hidden") return false;
+      return true;
+    });
+
+    let poolIdx = 0;
+    for (const child of children) {
+      if (poolIdx >= siblingOutlinePool.length) break;
+      const r = child.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
+      const outline = siblingOutlinePool[poolIdx++];
+      outline.style.top = `${r.top}px`;
+      outline.style.left = `${r.left}px`;
+      outline.style.width = `${r.width}px`;
+      outline.style.height = `${r.height}px`;
+      outline.style.display = "block";
+    }
+    // Hide unused
+    for (let i = poolIdx; i < siblingOutlinePool.length; i++) {
+      siblingOutlinePool[i].style.display = "none";
+    }
+  }
+
+  function showChildOutlines(parent: Element) {
+    const children = Array.from(parent.children).filter(c => {
+      if (c.hasAttribute("data-justify-host")) return false;
+      const cs = getComputedStyle(c);
+      if (cs.display === "none" || cs.visibility === "hidden") return false;
+      return true;
+    });
+
+    let poolIdx = 0;
+    for (const child of children) {
+      if (poolIdx >= siblingOutlinePool.length) break;
+      const r = child.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
+      const outline = siblingOutlinePool[poolIdx++];
+      outline.style.top = `${r.top}px`;
+      outline.style.left = `${r.left}px`;
+      outline.style.width = `${r.width}px`;
+      outline.style.height = `${r.height}px`;
+      outline.style.display = "block";
+    }
+    for (let i = poolIdx; i < siblingOutlinePool.length; i++) {
+      siblingOutlinePool[i].style.display = "none";
+    }
+  }
+
+  function hideSiblingOutlines() {
+    for (const outline of siblingOutlinePool) {
+      outline.style.display = "none";
+    }
+  }
+
+  // Scope highlight outlines — solid outlines on all elements matching the active/hovered scope
+  const scopeHighlightPool: HTMLDivElement[] = [];
+  for (let i = 0; i < 50; i++) {
+    const outline = document.createElement("div");
+    outline.style.cssText = `
+      position:fixed;display:none;pointer-events:none;z-index:2147483643;
+      border:1px solid #D97757;background:none;
+    `;
+    shadowRoot.appendChild(outline);
+    scopeHighlightPool.push(outline);
+  }
+
+  // Track active scope for repositioning on scroll
+  let activeScopeElements: Element[] = [];
+
+  function showScopeHighlights(selector: string, excludeElement: Element | null) {
+    let elements: Element[];
+    try {
+      elements = Array.from(document.querySelectorAll(selector));
+    } catch {
+      hideScopeHighlights();
+      return;
+    }
+
+    activeScopeElements = elements.filter(el => {
+      if (el === excludeElement) return false;
+      if (el.closest("[data-justify-host]")) return false;
+      const cs = getComputedStyle(el);
+      if (cs.display === "none" || cs.visibility === "hidden") return false;
+      return true;
+    });
+
+    refreshScopeHighlights();
+  }
+
+  function refreshScopeHighlights() {
+    let poolIdx = 0;
+    for (const el of activeScopeElements) {
+      if (poolIdx >= scopeHighlightPool.length) break;
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
+      const outline = scopeHighlightPool[poolIdx++];
+      outline.style.top = `${r.top}px`;
+      outline.style.left = `${r.left}px`;
+      outline.style.width = `${r.width}px`;
+      outline.style.height = `${r.height}px`;
+      outline.style.display = "block";
+    }
+    for (let i = poolIdx; i < scopeHighlightPool.length; i++) {
+      scopeHighlightPool[i].style.display = "none";
+    }
+  }
+
+  function hideScopeHighlights() {
+    activeScopeElements = [];
+    for (const outline of scopeHighlightPool) {
+      outline.style.display = "none";
+    }
+  }
+
+  // Pin lines — dashed lines from element to parent edges for pinned sides
+  const pinLines: Record<string, HTMLDivElement> = {};
+  for (const side of ["top", "right", "bottom", "left"] as const) {
+    const line = document.createElement("div");
+    line.style.cssText = "position:fixed;display:none;pointer-events:none;z-index:2147483644;";
+    shadowRoot.appendChild(line);
+    pinLines[side] = line;
+  }
+
+  /** Detect which position properties are authored (inline style or CSS rules) */
+  function detectAuthoredPositionProps(el: Element): { top: boolean; right: boolean; bottom: boolean; left: boolean } {
+    const htmlEl = el as HTMLElement;
+    const result = { top: false, right: false, bottom: false, left: false };
+    const pos = getComputedStyle(el).position;
+    if (pos !== "absolute" && pos !== "fixed") return result;
+
+    for (const prop of ["top", "right", "bottom", "left"] as const) {
+      if (htmlEl.style[prop] !== "") { result[prop] = true; continue; }
+      try {
+        for (const sheet of document.styleSheets) {
+          try {
+            for (const rule of sheet.cssRules) {
+              if (rule instanceof CSSStyleRule && el.matches(rule.selectorText)) {
+                const val = rule.style.getPropertyValue(prop);
+                if (val && val !== "auto") { result[prop] = true; break; }
+              }
+            }
+          } catch {}
+          if (result[prop]) break;
+        }
+      } catch {}
+    }
+    return result;
+  }
+
+  function showPinLines(elRect: DOMRect, parentRect: DOMRect, authored: { top: boolean; right: boolean; bottom: boolean; left: boolean }) {
+    const elCenterX = elRect.left + elRect.width / 2;
+    const elCenterY = elRect.top + elRect.height / 2;
+
+    // Top pin line: from element top edge to parent top edge
+    if (authored.top && elRect.top > parentRect.top) {
+      pinLines.top.style.cssText = `
+        position:fixed;display:block;pointer-events:none;z-index:2147483644;
+        top:${parentRect.top}px;left:${elCenterX}px;
+        width:0;height:${elRect.top - parentRect.top}px;
+        border-left:1px dashed #D97757;
+      `;
+    } else {
+      pinLines.top.style.display = "none";
+    }
+
+    // Bottom pin line: from element bottom edge to parent bottom edge
+    if (authored.bottom && parentRect.bottom > elRect.bottom) {
+      pinLines.bottom.style.cssText = `
+        position:fixed;display:block;pointer-events:none;z-index:2147483644;
+        top:${elRect.bottom}px;left:${elCenterX}px;
+        width:0;height:${parentRect.bottom - elRect.bottom}px;
+        border-left:1px dashed #D97757;
+      `;
+    } else {
+      pinLines.bottom.style.display = "none";
+    }
+
+    // Left pin line: from element left edge to parent left edge
+    if (authored.left && elRect.left > parentRect.left) {
+      pinLines.left.style.cssText = `
+        position:fixed;display:block;pointer-events:none;z-index:2147483644;
+        top:${elCenterY}px;left:${parentRect.left}px;
+        width:${elRect.left - parentRect.left}px;height:0;
+        border-top:1px dashed #D97757;
+      `;
+    } else {
+      pinLines.left.style.display = "none";
+    }
+
+    // Right pin line: from element right edge to parent right edge
+    if (authored.right && parentRect.right > elRect.right) {
+      pinLines.right.style.cssText = `
+        position:fixed;display:block;pointer-events:none;z-index:2147483644;
+        top:${elCenterY}px;left:${elRect.right}px;
+        width:${parentRect.right - elRect.right}px;height:0;
+        border-top:1px dashed #D97757;
+      `;
+    } else {
+      pinLines.right.style.display = "none";
+    }
+  }
+
+  function hidePinLines() {
+    for (const line of Object.values(pinLines)) line.style.display = "none";
+  }
+
+  // Cache the latest pin state (from panel or initial detection)
+  let cachedPinState: { top: boolean; right: boolean; bottom: boolean; left: boolean } | null = null;
+
+  /** Refresh pin lines using current element + parent rects */
+  function refreshPinLines() {
+    if (!selectedElement) return;
+    const parent = selectedElement.parentElement;
+    if (!parent || parent === document.body || parent === document.documentElement) return;
+    const rect = selectedElement.getBoundingClientRect();
+    const pr = parent.getBoundingClientRect();
+    const authored = cachedPinState || detectAuthoredPositionProps(selectedElement);
+    if (authored.top || authored.right || authored.bottom || authored.left) {
+      showPinLines(rect, pr, authored);
+    } else {
+      hidePinLines();
+    }
+  }
+
+  let active = false;
+  let suspended = false; // temporarily suppress hover (e.g. during text editing)
+  let hoveredElement: Element | null = null;
+  let selectedElement: Element | null = null;
+  let selectionLabelHidden = false;
+  let trackingRaf: number | null = null;
+  let resizeObserver: ResizeObserver | null = null;
+  let hoverTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastSelRect = { top: 0, left: 0, width: 0, height: 0 };
+
+  // Click-to-cycle: repeated clicks at the same spot cycle through the element stack
+  let lastClickPos = { x: 0, y: 0 };
+  let elementStack: Element[] = [];
+  let stackIndex = -1;
+  const CLICK_RADIUS = 5; // px tolerance for "same spot"
+
+  // Apply base styles once, then only update position
+  function initBoxStyles(box: HTMLElement, labelEl: HTMLElement) {
+    box.style.cssText = `
+      position: fixed;
+      pointer-events: none;
+      z-index: 2147483644;
+      box-sizing: border-box;
+      display: none;
+      outline: none;
+    `;
+    labelEl.style.cssText = `
+      position: fixed;
+      color: white;
+      font-size: 11px;
+      font-family: InterVariable, Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-feature-settings: 'liga' 1, 'calt' 1, 'zero' 0, 'tnum' 0;
+      padding: 2px 6px;
+      border-radius: 3px;
+      pointer-events: none;
+      z-index: 2147483646;
+      white-space: nowrap;
+      display: none;
+    `;
+  }
+
+  initBoxStyles(highlight, label);
+  initBoxStyles(selection, selectionLabel);
+
+  // Hover label = prompt-mode dark pill (type icon + tag/.class). Shown via flex.
+  label.style.cssText = `
+    position:fixed;pointer-events:none;display:none;z-index:2147483646;
+    background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);
+    font-size:11px;font-family:JustifySans,system-ui,sans-serif;font-weight:500;
+    padding:5px 14px 5px 6px;border-radius:20px;box-shadow:0 2px 8px rgba(0,0,0,0.3);
+    white-space:nowrap;align-items:center;gap:6px;
+  `;
+  // Selection label = terracotta dimensions badge (W × H).
+  selectionLabel.style.cssText = `
+    position:fixed;pointer-events:none;display:none;z-index:2147483646;white-space:nowrap;
+    background:#D97757;color:#fff;font-size:11px;
+    font-family:InterVariable, Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    padding:2px 6px;border-radius:3px;
+  `;
+
+  // Hover box grows/shrinks smoothly between elements (matches prompt mode).
+  highlight.style.transition = "top 60ms ease, left 60ms ease, width 60ms ease, height 60ms ease";
+  let lastPointerX = 0, lastPointerY = 0;
+
+  // ── Resize handles (corners + edges) ──
+  const HANDLE_SIZE = 8;
+  const HALF_HANDLE = HANDLE_SIZE / 2;
+  const EDGE_HIT_SIZE = 6; // invisible grab zone width for edges
+
+  type HandlePos = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
+  const CORNER_POSITIONS: HandlePos[] = ["nw", "ne", "se", "sw"];
+  const EDGE_POSITIONS: HandlePos[] = ["n", "e", "s", "w"];
+  const ALL_POSITIONS: HandlePos[] = [...CORNER_POSITIONS, ...EDGE_POSITIONS];
+
+  const HANDLE_CURSORS: Record<HandlePos, string> = {
+    nw: "nwse-resize", n: "ns-resize", ne: "nesw-resize", e: "ew-resize",
+    se: "nwse-resize", s: "ns-resize", sw: "nesw-resize", w: "ew-resize",
+  };
+  const HANDLE_AXES: Record<HandlePos, { dx: -1 | 0 | 1; dy: -1 | 0 | 1 }> = {
+    nw: { dx: -1, dy: -1 }, n: { dx: 0, dy: -1 }, ne: { dx: 1, dy: -1 }, e: { dx: 1, dy: 0 },
+    se: { dx: 1, dy: 1 }, s: { dx: 0, dy: 1 }, sw: { dx: -1, dy: 1 }, w: { dx: -1, dy: 0 },
+  };
+
+  const handleEls: Record<string, HTMLElement> = {};
+
+  // Corner handles: visible white squares
+  for (const pos of CORNER_POSITIONS) {
+    const h = document.createElement("div");
+    h.style.cssText = `
+      position:fixed;pointer-events:auto;display:none;box-sizing:border-box;
+      width:${HANDLE_SIZE}px;height:${HANDLE_SIZE}px;
+      background:#fff;border:1px solid #D97757;border-radius:1px;
+      z-index:2147483645;cursor:${HANDLE_CURSORS[pos]};
+    `;
+    shadowRoot.appendChild(h);
+    handleEls[pos] = h;
+  }
+
+  // Edge handles: invisible hit zones along sides
+  for (const pos of EDGE_POSITIONS) {
+    const h = document.createElement("div");
+    h.style.cssText = `
+      position:fixed;pointer-events:auto;display:none;
+      z-index:2147483645;cursor:${HANDLE_CURSORS[pos]};
+    `;
+    shadowRoot.appendChild(h);
+    handleEls[pos] = h;
+  }
+
+  function positionHandles(rect: DOMRect) {
+    // Corners
+    const corners: Record<string, { x: number; y: number }> = {
+      nw: { x: rect.left, y: rect.top }, ne: { x: rect.right, y: rect.top },
+      se: { x: rect.right, y: rect.bottom }, sw: { x: rect.left, y: rect.bottom },
+    };
+    for (const pos of CORNER_POSITIONS) {
+      const h = handleEls[pos];
+      const p = corners[pos];
+      h.style.left = `${p.x - HALF_HANDLE}px`;
+      h.style.top = `${p.y - HALF_HANDLE}px`;
+      h.style.display = "block";
+    }
+    // Edges: invisible hit zones between corners
+    const inset = HALF_HANDLE;
+    handleEls.n.style.cssText += `display:block;left:${rect.left + inset}px;top:${rect.top - EDGE_HIT_SIZE / 2}px;width:${rect.width - inset * 2}px;height:${EDGE_HIT_SIZE}px;cursor:${HANDLE_CURSORS.n};`;
+    handleEls.s.style.cssText += `display:block;left:${rect.left + inset}px;top:${rect.bottom - EDGE_HIT_SIZE / 2}px;width:${rect.width - inset * 2}px;height:${EDGE_HIT_SIZE}px;cursor:${HANDLE_CURSORS.s};`;
+    handleEls.e.style.cssText += `display:block;left:${rect.right - EDGE_HIT_SIZE / 2}px;top:${rect.top + inset}px;width:${EDGE_HIT_SIZE}px;height:${rect.height - inset * 2}px;cursor:${HANDLE_CURSORS.e};`;
+    handleEls.w.style.cssText += `display:block;left:${rect.left - EDGE_HIT_SIZE / 2}px;top:${rect.top + inset}px;width:${EDGE_HIT_SIZE}px;height:${rect.height - inset * 2}px;cursor:${HANDLE_CURSORS.w};`;
+  }
+
+  function hideHandles() {
+    for (const pos of ALL_POSITIONS) handleEls[pos].style.display = "none";
+  }
+
+  // ── Snap guides ──
+  const SNAP_THRESHOLD = 5;
+  const snapGuidePool: Array<{ line: HTMLDivElement; label: HTMLDivElement }> = [];
+  for (let i = 0; i < 16; i++) {
+    const line = document.createElement("div");
+    line.className = "justify-snap-guide";
+    shadowRoot.appendChild(line);
+    const label = document.createElement("div");
+    label.className = "justify-snap-label";
+    shadowRoot.appendChild(label);
+    snapGuidePool.push({ line, label });
+  }
+
+  let snapCache: {
+    siblingWidths: number[];
+    siblingHeights: number[];
+    siblingRects: DOMRect[];
+    parentRect: DOMRect | null;
+    parentWidth: number;
+    parentHeight: number;
+    parentPadding: { top: number; right: number; bottom: number; left: number };
+    canFillWidth: boolean;
+    canFillHeight: boolean;
+  } | null = null;
+
+  function buildSnapCache(el: Element) {
+    const parent = el.parentElement;
+    const siblings = parent
+      ? Array.from(parent.children).filter(c => c !== el && c.tagName !== "SCRIPT" && c.tagName !== "STYLE")
+      : [];
+    const siblingRects = siblings.map(s => s.getBoundingClientRect());
+    const siblingWidths = [...new Set(siblingRects.map(r => Math.round(r.width)))].sort((a, b) => a - b);
+    const siblingHeights = [...new Set(siblingRects.map(r => Math.round(r.height)))].sort((a, b) => a - b);
+    const parentRect = parent ? parent.getBoundingClientRect() : null;
+    const parentCs = parent ? getComputedStyle(parent) : null;
+    const parentWidth = parentRect && parentCs
+      ? parentRect.width - parseFloat(parentCs.paddingLeft) - parseFloat(parentCs.paddingRight) - parseFloat(parentCs.borderLeftWidth) - parseFloat(parentCs.borderRightWidth)
+      : 0;
+    const parentHeight = parentRect && parentCs
+      ? parentRect.height - parseFloat(parentCs.paddingTop) - parseFloat(parentCs.paddingBottom) - parseFloat(parentCs.borderTopWidth) - parseFloat(parentCs.borderBottomWidth)
+      : 0;
+    const parentPadding = parentCs ? {
+      top: parseFloat(parentCs.paddingTop) || 0,
+      right: parseFloat(parentCs.paddingRight) || 0,
+      bottom: parseFloat(parentCs.paddingBottom) || 0,
+      left: parseFloat(parentCs.paddingLeft) || 0,
+    } : { top: 0, right: 0, bottom: 0, left: 0 };
+
+    // Detect fill context
+    const parentDisplay = parentCs?.display || "";
+    const isFlexChild = parentDisplay.includes("flex");
+    const isGridChild = parentDisplay.includes("grid");
+    const parentFlexDir = parentCs?.flexDirection || "row";
+    const sizingCtx: SizingContext = { isFlexChild, isGridChild, parentFlexDir, currentStyles: {} };
+    const canFillWidth = canFill("width", sizingCtx);
+    const canFillHeight = canFill("height", sizingCtx);
+
+    snapCache = { siblingWidths, siblingHeights, siblingRects, parentRect, parentWidth: Math.round(parentWidth), parentHeight: Math.round(parentHeight), parentPadding, canFillWidth, canFillHeight };
+  }
+
+  function findSnap(value: number, candidates: number[]): number | null {
+    // Binary search for nearest candidate within threshold
+    let lo = 0, hi = candidates.length - 1;
+    let best: number | null = null;
+    let bestDist = SNAP_THRESHOLD + 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      const dist = Math.abs(candidates[mid] - value);
+      if (dist < bestDist) { bestDist = dist; best = candidates[mid]; }
+      if (candidates[mid] < value) lo = mid + 1;
+      else hi = mid - 1;
+    }
+    return bestDist <= SNAP_THRESHOLD ? best : null;
+  }
+
+  type SnapGuide = { axis: "x" | "y"; value: number; ref: number; refRect?: DOMRect; fill?: boolean };
+
+  function snapResize(w: number, h: number, axes: { dx: number; dy: number }): { width: number; height: number; guides: SnapGuide[]; fillWidth: boolean; fillHeight: boolean } {
+    if (!snapCache) return { width: w, height: h, guides: [], fillWidth: false, fillHeight: false };
+    const guides: SnapGuide[] = [];
+    let fillWidth = false;
+    let fillHeight = false;
+
+    if (axes.dx !== 0) {
+      // Check parent content width first (fill takes priority, only if context supports it)
+      const parentSnapW = snapCache.canFillWidth && Math.abs(w - snapCache.parentWidth) <= SNAP_THRESHOLD ? snapCache.parentWidth : null;
+      if (parentSnapW !== null) {
+        w = parentSnapW;
+        fillWidth = true;
+        guides.push({ axis: "x", value: parentSnapW, ref: parentSnapW, fill: true });
+      } else {
+        // Check sibling widths
+        const snapW = findSnap(w, snapCache.siblingWidths);
+        if (snapW !== null) {
+          w = snapW;
+          const matchRect = snapCache.siblingRects.find(r => Math.round(r.width) === snapW);
+          guides.push({ axis: "x", value: snapW, ref: snapW, refRect: matchRect });
+        }
+      }
+    }
+
+    if (axes.dy !== 0) {
+      const parentSnapH = snapCache.canFillHeight && Math.abs(h - snapCache.parentHeight) <= SNAP_THRESHOLD ? snapCache.parentHeight : null;
+      if (parentSnapH !== null) {
+        h = parentSnapH;
+        fillHeight = true;
+        guides.push({ axis: "y", value: parentSnapH, ref: parentSnapH, fill: true });
+      } else {
+        const snapH = findSnap(h, snapCache.siblingHeights);
+        if (snapH !== null) {
+          h = snapH;
+          const matchRect = snapCache.siblingRects.find(r => Math.round(r.height) === snapH);
+          guides.push({ axis: "y", value: snapH, ref: snapH, refRect: matchRect });
+        }
+      }
+    }
+
+    return { width: w, height: h, guides, fillWidth, fillHeight };
+  }
+
+  const XMARK_SIZE = 4; // half-size of the X mark (8px total)
+
+  function drawXMark(el: HTMLDivElement, x: number, y: number) {
+    el.style.cssText = `
+      position:fixed;pointer-events:none;z-index:2147483645;
+      top:${y - XMARK_SIZE}px;left:${x - XMARK_SIZE}px;
+      width:${XMARK_SIZE * 2}px;height:${XMARK_SIZE * 2}px;
+      background:none;
+    `;
+    // Draw X using two rotated lines via pseudo-element alternative: use border trick
+    // Simpler: use an inline SVG background
+    el.style.backgroundImage = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='${XMARK_SIZE * 2}' height='${XMARK_SIZE * 2}'%3E%3Cline x1='2' y1='2' x2='${XMARK_SIZE * 2 - 2}' y2='${XMARK_SIZE * 2 - 2}' stroke='%23D97757' stroke-width='1'/%3E%3Cline x1='${XMARK_SIZE * 2 - 2}' y1='2' x2='2' y2='${XMARK_SIZE * 2 - 2}' stroke='%23D97757' stroke-width='1'/%3E%3C/svg%3E")`;
+    el.style.backgroundSize = "contain";
+  }
+
+  function showSnapGuides(guides: SnapGuide[], elRect: DOMRect, handle: HandlePos) {
+    // Hide snap visuals (not parent indicator — that's managed by showSelection)
+    for (const g of snapGuidePool) {
+      g.line.classList.remove("visible");
+      g.label.classList.remove("visible");
+      g.label.style.display = "";
+    }
+
+    const axes = HANDLE_AXES[handle];
+    let poolIdx = 0;
+
+    for (const guide of guides) {
+      if (guide.fill && snapCache?.parentRect) {
+        const pr = snapCache.parentRect;
+        const pad = snapCache.parentPadding;
+        const hasPadding = guide.axis === "x" ? (pad.left > 0 || pad.right > 0) : (pad.top > 0 || pad.bottom > 0);
+
+        // Always show dotted parent indicator
+        parentIndicator.style.cssText = `
+          position:fixed;display:block;pointer-events:none;z-index:2147483644;
+          border:1px dotted #D97757;background:none;
+          top:${pr.top}px;left:${pr.left}px;width:${pr.width}px;height:${pr.height}px;
+        `;
+
+        if (hasPadding) {
+          // Show padding stripe rects
+          const PADDING_BG = "repeating-linear-gradient(-45deg, transparent, transparent 3px, rgba(217, 119, 87, 0.5) 3px, rgba(217, 119, 87, 0.5) 4px)";
+
+          if (guide.axis === "x") {
+            if (pad.left > 0 && poolIdx < snapGuidePool.length) {
+              const g1 = snapGuidePool[poolIdx++];
+              g1.line.style.cssText = `position:fixed;pointer-events:none;z-index:2147483645;top:${pr.top}px;left:${pr.left}px;width:${pad.left}px;height:${pr.height}px;background:${PADDING_BG};`;
+              g1.line.classList.add("visible");
+            }
+            if (pad.right > 0 && poolIdx < snapGuidePool.length) {
+              const g2 = snapGuidePool[poolIdx++];
+              g2.line.style.cssText = `position:fixed;pointer-events:none;z-index:2147483645;top:${pr.top}px;left:${pr.right - pad.right}px;width:${pad.right}px;height:${pr.height}px;background:${PADDING_BG};`;
+              g2.line.classList.add("visible");
+            }
+          } else {
+            if (pad.top > 0 && poolIdx < snapGuidePool.length) {
+              const g1 = snapGuidePool[poolIdx++];
+              g1.line.style.cssText = `position:fixed;pointer-events:none;z-index:2147483645;top:${pr.top}px;left:${pr.left}px;width:${pr.width}px;height:${pad.top}px;background:${PADDING_BG};`;
+              g1.line.classList.add("visible");
+            }
+            if (pad.bottom > 0 && poolIdx < snapGuidePool.length) {
+              const g2 = snapGuidePool[poolIdx++];
+              g2.line.style.cssText = `position:fixed;pointer-events:none;z-index:2147483645;top:${pr.bottom - pad.bottom}px;left:${pr.left}px;width:${pr.width}px;height:${pad.bottom}px;background:${PADDING_BG};`;
+              g2.line.classList.add("visible");
+            }
+          }
+        } else {
+          // No padding — show X marks on parent corners on the drag side
+          if (guide.axis === "x") {
+            const side = axes.dx > 0 ? "right" : "left";
+            const x = side === "right" ? pr.right : pr.left;
+            if (poolIdx < snapGuidePool.length) {
+              const g1 = snapGuidePool[poolIdx++];
+              drawXMark(g1.line, x, pr.top);
+              g1.line.classList.add("visible");
+            }
+            if (poolIdx < snapGuidePool.length) {
+              const g2 = snapGuidePool[poolIdx++];
+              drawXMark(g2.line, x, pr.bottom);
+              g2.line.classList.add("visible");
+            }
+          } else {
+            const side = axes.dy > 0 ? "bottom" : "top";
+            const y = side === "bottom" ? pr.bottom : pr.top;
+            if (poolIdx < snapGuidePool.length) {
+              const g1 = snapGuidePool[poolIdx++];
+              drawXMark(g1.line, pr.left, y);
+              g1.line.classList.add("visible");
+            }
+            if (poolIdx < snapGuidePool.length) {
+              const g2 = snapGuidePool[poolIdx++];
+              drawXMark(g2.line, pr.right, y);
+              g2.line.classList.add("visible");
+            }
+          }
+        }
+      } else {
+        // Sibling snap — X marks on corners
+        const refRect = guide.refRect;
+        if (!refRect || poolIdx + 1 >= snapGuidePool.length) continue;
+
+        if (guide.axis === "x") {
+          const side = axes.dx > 0 ? "right" : "left";
+          const x = side === "right" ? refRect.right : refRect.left;
+          const g1 = snapGuidePool[poolIdx++];
+          drawXMark(g1.line, x, refRect.top);
+          g1.line.classList.add("visible");
+          const g2 = snapGuidePool[poolIdx++];
+          drawXMark(g2.line, x, refRect.bottom);
+          g2.line.classList.add("visible");
+        } else {
+          const side = axes.dy > 0 ? "bottom" : "top";
+          const y = side === "bottom" ? refRect.bottom : refRect.top;
+          const g1 = snapGuidePool[poolIdx++];
+          drawXMark(g1.line, refRect.left, y);
+          g1.line.classList.add("visible");
+          const g2 = snapGuidePool[poolIdx++];
+          drawXMark(g2.line, refRect.right, y);
+          g2.line.classList.add("visible");
+        }
+      }
+    }
+  }
+
+  function hideSnapGuides() {
+    for (const g of snapGuidePool) {
+      g.line.classList.remove("visible");
+      g.label.classList.remove("visible");
+    }
+  }
+
+  // ── Position snap (for reposition drag) ──
+
+  let posSnapCache: {
+    parentEdges: { top: number; right: number; bottom: number; left: number; centerX: number; centerY: number };
+    siblingEdges: Array<{ top: number; right: number; bottom: number; left: number; centerX: number; centerY: number }>;
+  } | null = null;
+
+  function buildPosSnapCache(el: Element) {
+    const parent = el.parentElement;
+    if (!parent) { posSnapCache = null; return; }
+
+    const pr = parent.getBoundingClientRect();
+    const pcs = getComputedStyle(parent);
+    const bt = parseFloat(pcs.borderTopWidth) || 0;
+    const br = parseFloat(pcs.borderRightWidth) || 0;
+    const bb = parseFloat(pcs.borderBottomWidth) || 0;
+    const bl = parseFloat(pcs.borderLeftWidth) || 0;
+    const pt = parseFloat(pcs.paddingTop) || 0;
+    const pRight = parseFloat(pcs.paddingRight) || 0;
+    const pb = parseFloat(pcs.paddingBottom) || 0;
+    const pl = parseFloat(pcs.paddingLeft) || 0;
+
+    // Parent content box edges
+    const contentTop = pr.top + bt + pt;
+    const contentRight = pr.right - br - pRight;
+    const contentBottom = pr.bottom - bb - pb;
+    const contentLeft = pr.left + bl + pl;
+
+    const parentEdges = {
+      top: contentTop,
+      right: contentRight,
+      bottom: contentBottom,
+      left: contentLeft,
+      centerX: (contentLeft + contentRight) / 2,
+      centerY: (contentTop + contentBottom) / 2,
+    };
+
+    // Sibling edges
+    const siblings = Array.from(parent.children).filter(c =>
+      c !== el && c.tagName !== "SCRIPT" && c.tagName !== "STYLE"
+    );
+    const siblingEdges = siblings.map(s => {
+      const r = s.getBoundingClientRect();
+      return {
+        top: r.top, right: r.right, bottom: r.bottom, left: r.left,
+        centerX: r.left + r.width / 2, centerY: r.top + r.height / 2,
+      };
+    });
+
+    posSnapCache = { parentEdges, siblingEdges };
+  }
+
+  type PosSnapGuide = {
+    axis: "x" | "y";
+    pos: number;
+    elIsCenter: boolean;   // true if the element's center edge matched
+    refIsCenter: boolean;  // true if the reference's center edge matched
+    refTop: number; refRight: number; refBottom: number; refLeft: number;
+  };
+
+  type PosSnapResult = {
+    dx: number;
+    dy: number;
+    guides: PosSnapGuide[];
+  };
+
+  function checkPosSnap(elRect: DOMRect): PosSnapResult {
+    if (!posSnapCache) return { dx: 0, dy: 0, guides: [] };
+
+    const elEdges = {
+      top: elRect.top, right: elRect.right, bottom: elRect.bottom, left: elRect.left,
+      centerX: elRect.left + elRect.width / 2, centerY: elRect.top + elRect.height / 2,
+    };
+
+    type SnapTarget = { val: number; isCenter: boolean; top: number; right: number; bottom: number; left: number };
+    const xTargets: SnapTarget[] = [];
+    const yTargets: SnapTarget[] = [];
+
+    const pe = posSnapCache.parentEdges;
+    const pRef = { top: pe.top, right: pe.right, bottom: pe.bottom, left: pe.left };
+    xTargets.push(
+      { val: pe.left, isCenter: false, ...pRef },
+      { val: pe.right, isCenter: false, ...pRef },
+      { val: pe.centerX, isCenter: true, ...pRef },
+    );
+    yTargets.push(
+      { val: pe.top, isCenter: false, ...pRef },
+      { val: pe.bottom, isCenter: false, ...pRef },
+      { val: pe.centerY, isCenter: true, ...pRef },
+    );
+
+    for (const s of posSnapCache.siblingEdges) {
+      const sRef = { top: s.top, right: s.right, bottom: s.bottom, left: s.left };
+      xTargets.push(
+        { val: s.left, isCenter: false, ...sRef },
+        { val: s.right, isCenter: false, ...sRef },
+        { val: s.centerX, isCenter: true, ...sRef },
+      );
+      yTargets.push(
+        { val: s.top, isCenter: false, ...sRef },
+        { val: s.bottom, isCenter: false, ...sRef },
+        { val: s.centerY, isCenter: true, ...sRef },
+      );
+    }
+
+    // Element edges for x: [left, right, centerX] — track which matched
+    const xEdges: Array<{ val: number; isCenter: boolean }> = [
+      { val: elEdges.left, isCenter: false },
+      { val: elEdges.right, isCenter: false },
+      { val: elEdges.centerX, isCenter: true },
+    ];
+
+    let bestDx = 0;
+    let bestXDist = SNAP_THRESHOLD + 1;
+    let snapXPos = 0;
+    let snapXRef: SnapTarget | null = null;
+    let snapXElIsCenter = false;
+
+    for (const target of xTargets) {
+      for (const edge of xEdges) {
+        const dist = Math.abs(edge.val - target.val);
+        if (dist < bestXDist) {
+          bestXDist = dist;
+          bestDx = target.val - edge.val;
+          snapXPos = target.val;
+          snapXRef = target;
+          snapXElIsCenter = edge.isCenter;
+        }
+      }
+    }
+
+    const yEdges: Array<{ val: number; isCenter: boolean }> = [
+      { val: elEdges.top, isCenter: false },
+      { val: elEdges.bottom, isCenter: false },
+      { val: elEdges.centerY, isCenter: true },
+    ];
+
+    let bestDy = 0;
+    let bestYDist = SNAP_THRESHOLD + 1;
+    let snapYPos = 0;
+    let snapYRef: SnapTarget | null = null;
+    let snapYElIsCenter = false;
+
+    for (const target of yTargets) {
+      for (const edge of yEdges) {
+        const dist = Math.abs(edge.val - target.val);
+        if (dist < bestYDist) {
+          bestYDist = dist;
+          bestDy = target.val - edge.val;
+          snapYPos = target.val;
+          snapYRef = target;
+          snapYElIsCenter = edge.isCenter;
+        }
+      }
+    }
+
+    const guides: PosSnapGuide[] = [];
+    const snapDx = bestXDist <= SNAP_THRESHOLD ? bestDx : 0;
+    const snapDy = bestYDist <= SNAP_THRESHOLD ? bestDy : 0;
+
+    if ((snapDx !== 0 || bestXDist <= SNAP_THRESHOLD) && snapXRef) {
+      guides.push({ axis: "x", pos: snapXPos, elIsCenter: snapXElIsCenter, refIsCenter: snapXRef.isCenter, refTop: snapXRef.top, refRight: snapXRef.right, refBottom: snapXRef.bottom, refLeft: snapXRef.left });
+    }
+    if ((snapDy !== 0 || bestYDist <= SNAP_THRESHOLD) && snapYRef) {
+      guides.push({ axis: "y", pos: snapYPos, elIsCenter: snapYElIsCenter, refIsCenter: snapYRef.isCenter, refTop: snapYRef.top, refRight: snapYRef.right, refBottom: snapYRef.bottom, refLeft: snapYRef.left });
+    }
+
+    return { dx: snapDx, dy: snapDy, guides };
+  }
+
+  function showPosSnapGuides(guides: PosSnapGuide[], elRect: DOMRect) {
+    hideSnapGuides();
+    let poolIdx = 0;
+
+    function addXMark(x: number, y: number) {
+      if (poolIdx >= snapGuidePool.length) return;
+      const g = snapGuidePool[poolIdx++];
+      drawXMark(g.line, x, y);
+      g.line.classList.add("visible");
+    }
+
+    for (const guide of guides) {
+      if (poolIdx >= snapGuidePool.length) break;
+
+      const { line } = snapGuidePool[poolIdx++];
+      // border-left/border-top visual center is at pos + 0.5
+      if (guide.axis === "x") {
+        line.style.cssText = `
+          position:fixed;pointer-events:none;z-index:2147483645;background:none;
+          top:0;left:${guide.pos}px;width:0;height:100vh;
+          border-left:1px solid var(--justify-red);
+        `;
+        line.classList.add("visible");
+        const cx = guide.pos + 0.5;
+
+        // Reference element X marks: center if center matched, else corners
+        if (guide.refIsCenter) {
+          addXMark(cx, (guide.refTop + guide.refBottom) / 2);
+        } else {
+          addXMark(cx, guide.refTop);
+          addXMark(cx, guide.refBottom);
+        }
+        // Dragged element X marks: center if center matched, else corners
+        if (guide.elIsCenter) {
+          addXMark(cx, elRect.top + elRect.height / 2);
+        } else {
+          addXMark(cx, elRect.top);
+          addXMark(cx, elRect.bottom);
+        }
+      } else {
+        line.style.cssText = `
+          position:fixed;pointer-events:none;z-index:2147483645;background:none;
+          top:${guide.pos}px;left:0;width:100vw;height:0;
+          border-top:1px solid var(--justify-red);
+        `;
+        line.classList.add("visible");
+        const cy = guide.pos + 0.5;
+
+        // Reference element X marks: center if center matched, else corners
+        if (guide.refIsCenter) {
+          addXMark((guide.refLeft + guide.refRight) / 2, cy);
+        } else {
+          addXMark(guide.refLeft, cy);
+          addXMark(guide.refRight, cy);
+        }
+        // Dragged element X marks: center if center matched, else corners
+        if (guide.elIsCenter) {
+          addXMark(elRect.left + elRect.width / 2, cy);
+        } else {
+          addXMark(elRect.left, cy);
+          addXMark(elRect.right, cy);
+        }
+      }
+    }
+  }
+
+  // ── Resize drag state ──
+  let resizeFillWidth = false;
+  let resizeFillHeight = false;
+  let resizeDrag: {
+    handle: HandlePos;
+    startX: number;
+    startY: number;
+    startWidth: number;
+    startHeight: number;
+  } | null = null;
+
+  function handleResizePointerDown(e: PointerEvent, handle: HandlePos) {
+    if (!selectedElement) return;
+    e.stopPropagation();
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+
+    // Clear any existing hover/spacing visuals
+    hideHighlight();
+
+    const rect = selectedElement.getBoundingClientRect();
+    resizeDrag = {
+      handle,
+      startX: e.clientX,
+      startY: e.clientY,
+      startWidth: rect.width,
+      startHeight: rect.height,
+    };
+
+    // Cache snap targets
+    buildSnapCache(selectedElement);
+
+    document.addEventListener("pointermove", handleResizePointerMove, true);
+    document.addEventListener("pointerup", handleResizePointerUp, true);
+  }
+
+  function computeResize(e: PointerEvent): { width: number; height: number; locked: boolean } {
+    if (!resizeDrag) return { width: 0, height: 0, locked: false };
+    const axes = HANDLE_AXES[resizeDrag.handle];
+    const dx = e.clientX - resizeDrag.startX;
+    const dy = e.clientY - resizeDrag.startY;
+    const MIN_SIZE = 10;
+
+    let w = axes.dx !== 0 ? Math.max(MIN_SIZE, resizeDrag.startWidth + dx * axes.dx) : resizeDrag.startWidth;
+    let h = axes.dy !== 0 ? Math.max(MIN_SIZE, resizeDrag.startHeight + dy * axes.dy) : resizeDrag.startHeight;
+
+    // Aspect ratio lock (only for corners)
+    // Panel lock active: always locked (Shift to unlock)
+    // Images/video: locked by default, Shift to unlock
+    // Other elements: unlocked by default, Shift to lock
+    const isCorner = axes.dx !== 0 && axes.dy !== 0;
+    const isMediaElement = selectedElement && /^(IMG|VIDEO|PICTURE|CANVAS)$/i.test(selectedElement.tagName);
+    const panelLocked = selectedElement?.hasAttribute("data-justify-aspect-locked");
+    const defaultLocked = isMediaElement || panelLocked;
+    const shouldLock = resizeDrag.startWidth > 0 && resizeDrag.startHeight > 0
+      && (defaultLocked ? !e.shiftKey : (isCorner && e.shiftKey));
+    if (shouldLock) {
+      const ratio = resizeDrag.startWidth / resizeDrag.startHeight;
+      if (axes.dx !== 0 && axes.dy !== 0) {
+        // Corner: constrain to ratio
+        if (w / ratio < h) h = w / ratio;
+        else w = h * ratio;
+      } else if (axes.dx !== 0) {
+        // Horizontal edge: width changed, adjust height
+        h = w / ratio;
+      } else {
+        // Vertical edge: height changed, adjust width
+        w = h * ratio;
+      }
+    }
+    return { width: Math.round(w), height: Math.round(h), locked: shouldLock };
+  }
+
+  function handleResizePointerMove(e: PointerEvent) {
+    if (!resizeDrag || !selectedElement) return;
+    e.preventDefault();
+
+    const raw = computeResize(e);
+    const axes = HANDLE_AXES[resizeDrag.handle];
+
+    // Show/hide aspect ratio lock indicator
+    aspectLine.style.display = raw.locked ? "block" : "none";
+    const { width, height, guides, fillWidth, fillHeight } = snapResize(raw.width, raw.height, axes);
+    resizeFillWidth = fillWidth;
+    resizeFillHeight = fillHeight;
+    const el = selectedElement as HTMLElement;
+
+    // Update LivePreviewEngine stylesheet for all matching instances
+    // When aspect locked, both dimensions change even on edge drag
+    const updateWidth = axes.dx !== 0 || raw.locked;
+    const updateHeight = axes.dy !== 0 || raw.locked;
+    if (updateWidth) callbacks.onResizePreview?.(selectedElement, "width", fillWidth ? "100%" : `${width}px`);
+    if (updateHeight) callbacks.onResizePreview?.(selectedElement, "height", fillHeight ? "100%" : `${height}px`);
+    // Also set inline !important on selected element to guarantee it wins
+    if (updateWidth) el.style.setProperty("width", fillWidth ? "100%" : `${width}px`, "important");
+    if (updateHeight) el.style.setProperty("height", fillHeight ? "100%" : `${height}px`, "important");
+
+    // Update selection box and handles
+    const newRect = selectedElement.getBoundingClientRect();
+    positionBox(selection, selectionLabel, newRect, "solid", "0");
+    positionHandles(newRect);
+    selectionLabel.textContent = formatLabel(selectedElement);
+
+    // Show/hide snap guides
+    if (guides.length > 0) {
+      showSnapGuides(guides, newRect, resizeDrag!.handle);
+    } else {
+      hideSnapGuides();
+    }
+    refreshPinLines();
+    refreshScopeHighlights();
+  }
+
+  function handleResizePointerUp(e: PointerEvent) {
+    if (!resizeDrag || !selectedElement) {
+      resizeDrag = null;
+      return;
+    }
+
+    const raw = computeResize(e);
+    const axes = HANDLE_AXES[resizeDrag.handle];
+    const { width, height, fillWidth, fillHeight } = snapResize(raw.width, raw.height, axes);
+    const el = selectedElement as HTMLElement;
+
+    hideSnapGuides();
+    snapCache = null;
+    aspectLine.style.display = "none";
+
+    // Report final values through callback (keeps inline styles — LivePreviewEngine overrides)
+    // When aspect locked, both dimensions may change even on edge drag
+    const widthChanged = (axes.dx !== 0 || raw.locked) && (fillWidth || Math.abs(width - resizeDrag.startWidth) > 0.5);
+    const heightChanged = (axes.dy !== 0 || raw.locked) && (fillHeight || Math.abs(height - resizeDrag.startHeight) > 0.5);
+    if (widthChanged) {
+      el.style.removeProperty("width");
+      callbacks.onResize?.(selectedElement, "width", fillWidth ? "100%" : `${width}px`);
+    }
+    if (heightChanged) {
+      el.style.removeProperty("height");
+      callbacks.onResize?.(selectedElement, "height", fillHeight ? "100%" : `${height}px`);
+    }
+
+    resizeDrag = null;
+    resizeFillWidth = false;
+    resizeFillHeight = false;
+    document.removeEventListener("pointermove", handleResizePointerMove, true);
+    document.removeEventListener("pointerup", handleResizePointerUp, true);
+
+    // Refresh selection box
+    const newRect = selectedElement.getBoundingClientRect();
+    positionBox(selection, selectionLabel, newRect, "solid", "0");
+    positionHandles(newRect);
+    selectionLabel.textContent = formatLabel(selectedElement);
+    refreshPinLines();
+  }
+
+  // Attach resize handlers to all handles
+  for (const pos of ALL_POSITIONS) {
+    handleEls[pos].addEventListener("pointerdown", (e) => handleResizePointerDown(e, pos));
+  }
+
+  // ── Drag-to-reposition (absolute/fixed elements) ──
+
+  // Cached positioning axes for the selected element (persists across drags)
+  let repositionAxes: { useRight: boolean; useBottom: boolean } | null = null;
+
+  let repositionDrag: {
+    startX: number;
+    startY: number;
+    startTop: number;
+    startLeft: number;
+    startRight: number;
+    startBottom: number;
+    startRect: DOMRect;
+  } | null = null;
+
+  function isRepositionable(el: Element): boolean {
+    const pos = getComputedStyle(el).position;
+    return pos === "absolute" || pos === "fixed";
+  }
+
+  function updateSelectionCursor() {
+    if (selectedElement && isRepositionable(selectedElement)) {
+      selection.style.pointerEvents = "auto";
+      selection.style.cursor = "move";
+    } else if (selectedElement && detectReorderContext(selectedElement)) {
+      selection.style.pointerEvents = "auto";
+      selection.style.cursor = "grab";
+    } else {
+      selection.style.pointerEvents = "none";
+      selection.style.cursor = "";
+    }
+  }
+
+  function handleRepositionPointerDown(e: PointerEvent) {
+    if (!selectedElement || !isRepositionable(selectedElement)) return;
+    e.stopPropagation();
+    e.preventDefault();
+    selection.setPointerCapture(e.pointerId);
+
+    // Clear visuals and hide selection chrome during drag
+    hideHighlight();
+    selection.style.display = "none";
+    selectionLabel.style.display = "none";
+    hideHandles();
+
+    const el = selectedElement as HTMLElement;
+    const cs = getComputedStyle(el);
+
+    // Detect positioning axes on first drag, cache for subsequent drags.
+    // Strategy: check inline style first, then check matched CSS rules,
+    // then fall back to comparing computed values (closer to edge = that axis).
+    if (!repositionAxes) {
+      const inlineTop = el.style.top;
+      const inlineBottom = el.style.bottom;
+      const inlineLeft = el.style.left;
+      const inlineRight = el.style.right;
+
+      let useBottom = false;
+      let useRight = false;
+
+      if (inlineBottom !== "" || inlineTop !== "") {
+        // Inline styles present — use them
+        useBottom = inlineBottom !== "" && inlineTop === "";
+      } else {
+        // Check matched CSS rules for authored properties
+        try {
+          const rules = [...document.styleSheets].flatMap(s => {
+            try { return [...s.cssRules]; } catch { return []; }
+          }).filter((r): r is CSSStyleRule => r instanceof CSSStyleRule);
+          const hasRuleBottom = rules.some(r => el.matches(r.selectorText) && r.style.bottom && r.style.bottom !== "auto");
+          const hasRuleTop = rules.some(r => el.matches(r.selectorText) && r.style.top && r.style.top !== "auto");
+          if (hasRuleBottom && !hasRuleTop) useBottom = true;
+          else if (!hasRuleBottom && hasRuleTop) useBottom = false;
+          else useBottom = parseFloat(cs.bottom) < parseFloat(cs.top);
+        } catch {
+          useBottom = parseFloat(cs.bottom) < parseFloat(cs.top);
+        }
+      }
+
+      if (inlineRight !== "" || inlineLeft !== "") {
+        useRight = inlineRight !== "" && inlineLeft === "";
+      } else {
+        try {
+          const rules = [...document.styleSheets].flatMap(s => {
+            try { return [...s.cssRules]; } catch { return []; }
+          }).filter((r): r is CSSStyleRule => r instanceof CSSStyleRule);
+          const hasRuleRight = rules.some(r => el.matches(r.selectorText) && r.style.right && r.style.right !== "auto");
+          const hasRuleLeft = rules.some(r => el.matches(r.selectorText) && r.style.left && r.style.left !== "auto");
+          if (hasRuleRight && !hasRuleLeft) useRight = true;
+          else if (!hasRuleRight && hasRuleLeft) useRight = false;
+          else useRight = parseFloat(cs.right) < parseFloat(cs.left);
+        } catch {
+          useRight = parseFloat(cs.right) < parseFloat(cs.left);
+        }
+      }
+
+      repositionAxes = { useBottom, useRight };
+    }
+
+    repositionDrag = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startTop: parseFloat(cs.top) || 0,
+      startLeft: parseFloat(cs.left) || 0,
+      startRight: parseFloat(cs.right) || 0,
+      startBottom: parseFloat(cs.bottom) || 0,
+      startRect: selectedElement.getBoundingClientRect(),
+    };
+
+    // Cache snap targets for position snapping
+    buildPosSnapCache(selectedElement);
+
+    document.addEventListener("pointermove", handleRepositionPointerMove, true);
+    document.addEventListener("pointerup", handleRepositionPointerUp, true);
+  }
+
+  function handleRepositionPointerMove(e: PointerEvent) {
+    if (!repositionDrag || !selectedElement) return;
+    e.preventDefault();
+
+    const rawDx = e.clientX - repositionDrag.startX;
+    const rawDy = e.clientY - repositionDrag.startY;
+    const el = selectedElement as HTMLElement;
+
+    // Compute proposed rect from start position + raw delta (no previous snap)
+    const startRect = repositionDrag.startRect;
+    const proposedRect = new DOMRect(
+      startRect.left + rawDx, startRect.top + rawDy, startRect.width, startRect.height
+    );
+
+    // Check alignment snap
+    const snap = checkPosSnap(proposedRect);
+    const snapDx = snap.dx;
+    const snapDy = snap.dy;
+
+    // Show/hide position snap guides
+    if (snap.guides.length > 0) {
+      const snappedRect = new DOMRect(
+        proposedRect.left + snap.dx, proposedRect.top + snap.dy, proposedRect.width, proposedRect.height
+      );
+      showPosSnapGuides(snap.guides, snappedRect);
+    } else {
+      hideSnapGuides();
+    }
+
+    // Compute final position values with snap correction applied
+    if (repositionAxes?.useBottom) {
+      const newBottom = Math.round(repositionDrag.startBottom - rawDy - snapDy);
+      el.style.setProperty("bottom", `${newBottom}px`, "important");
+      callbacks.onRepositionPreview?.(selectedElement, "bottom", `${newBottom}px`);
+    } else {
+      const newTop = Math.round(repositionDrag.startTop + rawDy + snapDy);
+      el.style.setProperty("top", `${newTop}px`, "important");
+      callbacks.onRepositionPreview?.(selectedElement, "top", `${newTop}px`);
+    }
+
+    if (repositionAxes?.useRight) {
+      const newRight = Math.round(repositionDrag.startRight - rawDx - snapDx);
+      el.style.setProperty("right", `${newRight}px`, "important");
+      callbacks.onRepositionPreview?.(selectedElement, "right", `${newRight}px`);
+    } else {
+      const newLeft = Math.round(repositionDrag.startLeft + rawDx + snapDx);
+      el.style.setProperty("left", `${newLeft}px`, "important");
+      callbacks.onRepositionPreview?.(selectedElement, "left", `${newLeft}px`);
+    }
+
+    // Update parent indicator + pin lines
+    const parent = selectedElement.parentElement;
+    if (parent && parent !== document.body && parent !== document.documentElement) {
+      const pr = parent.getBoundingClientRect();
+      parentIndicator.style.top = `${pr.top}px`;
+      parentIndicator.style.left = `${pr.left}px`;
+      parentIndicator.style.width = `${pr.width}px`;
+      parentIndicator.style.height = `${pr.height}px`;
+    }
+    refreshPinLines();
+  }
+
+  function handleRepositionPointerUp(e: PointerEvent) {
+    if (!repositionDrag || !selectedElement) {
+      repositionDrag = null;
+      return;
+    }
+
+    const rawDx = e.clientX - repositionDrag.startX;
+    const rawDy = e.clientY - repositionDrag.startY;
+    const el = selectedElement as HTMLElement;
+
+    // Compute final snap correction
+    const startRect = repositionDrag.startRect;
+    const finalProposed = new DOMRect(startRect.left + rawDx, startRect.top + rawDy, startRect.width, startRect.height);
+    const finalSnap = checkPosSnap(finalProposed);
+
+    // Remove inline overrides
+    if (repositionAxes?.useBottom) el.style.removeProperty("bottom");
+    else el.style.removeProperty("top");
+    if (repositionAxes?.useRight) el.style.removeProperty("right");
+    else el.style.removeProperty("left");
+
+    // Report final values with snap correction
+    const totalDy = rawDy + finalSnap.dy;
+    const totalDx = rawDx + finalSnap.dx;
+    if (Math.abs(totalDy) > 0.5) {
+      if (repositionAxes?.useBottom) {
+        callbacks.onReposition?.(selectedElement, "bottom", `${Math.round(repositionDrag.startBottom - totalDy)}px`);
+      } else {
+        callbacks.onReposition?.(selectedElement, "top", `${Math.round(repositionDrag.startTop + totalDy)}px`);
+      }
+    }
+    if (Math.abs(totalDx) > 0.5) {
+      if (repositionAxes?.useRight) {
+        callbacks.onReposition?.(selectedElement, "right", `${Math.round(repositionDrag.startRight - totalDx)}px`);
+      } else {
+        callbacks.onReposition?.(selectedElement, "left", `${Math.round(repositionDrag.startLeft + totalDx)}px`);
+      }
+    }
+
+    repositionDrag = null;
+    posSnapCache = null;
+    hideSnapGuides();
+    document.removeEventListener("pointermove", handleRepositionPointerMove, true);
+    document.removeEventListener("pointerup", handleRepositionPointerUp, true);
+
+    // Refresh selection box
+    const newRect = selectedElement.getBoundingClientRect();
+    positionBox(selection, selectionLabel, newRect, "solid", "0");
+    positionHandles(newRect);
+    selectionLabel.textContent = formatLabel(selectedElement);
+    refreshPinLines();
+  }
+
+  // ── Canvas drag-to-reorder (flow elements in flex/grid/block containers) ──
+
+  const REORDER_THRESHOLD = 5;
+  let reorderClickTimer: ReturnType<typeof setTimeout> | null = null;
+  let reorderDragActive = false; // persists through cleanup for showSelection/trackSelection
+
+  let reorderDrag: {
+    element: Element;
+    parent: Element;
+    siblings: Element[];
+    allRects: DOMRect[];
+    otherRects: DOMRect[];
+    otherIndices: number[];
+    dragIndex: number;
+    dropIndex: number;
+    horizontal: boolean;
+    startX: number;
+    startY: number;
+    startRect: DOMRect;
+    active: boolean;
+    ghost: HTMLDivElement | null;
+    // Reparent state (when cursor exits parent bounds)
+    mode: "reorder" | "reparent";
+    reparentTarget: Element | null;
+    reparentIndex: number;
+    reparentHighlight: HTMLDivElement | null;
+  } | null = null;
+
+  /** Detect if element is in a reorderable container (flex, grid, or block with 2+ children).
+   *  Returns siblings sorted by VISUAL position and the element's VISUAL index. */
+  function detectReorderContext(el: Element): {
+    parent: Element; siblings: Element[]; horizontal: boolean; index: number;
+  } | null {
+    const parent = el.parentElement;
+    if (!parent) return null;
+
+    const pos = getComputedStyle(el).position;
+    if (pos === "absolute" || pos === "fixed") return null;
+
+    const display = getComputedStyle(parent).display;
+    const isFlex = display === "flex" || display === "inline-flex";
+    const isGrid = display === "grid" || display === "inline-grid";
+    const isBlock = display === "block" || display === "inline-block" || display === "flow-root";
+
+    if (!isFlex && !isGrid && !isBlock) return null;
+
+    const domSiblings = Array.from(parent.children).filter(c => {
+      const cs = getComputedStyle(c);
+      if (cs.display === "none" || cs.visibility === "hidden") return false;
+      if (cs.position === "absolute" || cs.position === "fixed") return false;
+      return true;
+    });
+    if (domSiblings.length < 2) return null;
+    if (!domSiblings.includes(el)) return null;
+
+    // Detect direction
+    let horizontal: boolean;
+    if (isFlex) {
+      const dir = getComputedStyle(parent).flexDirection;
+      horizontal = dir === "row" || dir === "row-reverse";
+    } else if (isGrid) {
+      const autoFlow = getComputedStyle(parent).gridAutoFlow;
+      if (autoFlow.startsWith("column")) {
+        horizontal = false;
+      } else if (domSiblings.length >= 2) {
+        const r0 = domSiblings[0].getBoundingClientRect();
+        const r1 = domSiblings[1].getBoundingClientRect();
+        horizontal = Math.abs(r1.left - r0.left) > Math.abs(r1.top - r0.top);
+      } else {
+        horizontal = true;
+      }
+    } else {
+      horizontal = false;
+    }
+
+    // Sort siblings by visual position (respects CSS order, translate, etc.)
+    const siblings = [...domSiblings].sort((a, b) => {
+      const ra = a.getBoundingClientRect();
+      const rb = b.getBoundingClientRect();
+      return horizontal ? ra.left - rb.left : ra.top - rb.top;
+    });
+
+    const index = siblings.indexOf(el);
+    if (index === -1) return null;
+
+    return { parent, siblings, horizontal, index };
+  }
+
+
+
+  /** Check if cursor is inside the parent's bounding rect (with buffer to prevent flickering at edges) */
+  function isCursorInParent(x: number, y: number, parent: Element): boolean {
+    const r = parent.getBoundingClientRect();
+    const BUFFER = 10; // px outside parent before switching to reparent mode
+    return x >= r.left - BUFFER && x <= r.right + BUFFER && y >= r.top - BUFFER && y <= r.bottom + BUFFER;
+  }
+
+  /** Find a valid reparent container at cursor position (walks up from elementFromPoint) */
+  function findReparentTarget(x: number, y: number, draggedEl: Element, originalParent: Element): {
+    target: Element; insertIndex: number; horizontal: boolean;
+  } | null {
+    // Temporarily show the hidden element so elementFromPoint skips it
+    const ghost = reorderDrag?.ghost;
+    if (ghost) ghost.style.display = "none";
+    (draggedEl as HTMLElement).style.visibility = "";
+    const hit = document.elementFromPoint(x, y);
+    (draggedEl as HTMLElement).style.visibility = "hidden";
+    if (ghost) ghost.style.display = "";
+
+    if (!hit || isOverlayElement(hit)) return null;
+
+    // Walk up from the hit element to find a valid container
+    let current: Element | null = hit;
+    while (current) {
+      if (current === draggedEl) { current = current.parentElement; continue; }
+      if (current === originalParent) return null; // back in original parent — stay in reorder mode
+      if (current === document.body || current === document.documentElement) break;
+
+      // Check if this element is a valid container that can hold children
+      const display = getComputedStyle(current).display;
+      const isContainer = display === "flex" || display === "inline-flex"
+        || display === "grid" || display === "inline-grid"
+        || display === "block" || display === "inline-block" || display === "flow-root";
+
+      // Reject void/self-closing elements
+      const tag = current.tagName;
+      const voidElements = new Set([
+        "INPUT", "IMG", "BR", "HR", "AREA", "BASE", "COL", "EMBED",
+        "LINK", "META", "PARAM", "SOURCE", "TRACK", "WBR",
+        "TEXTAREA", "SELECT",
+      ]);
+      if (voidElements.has(tag)) { current = current.parentElement; continue; }
+
+      // Reject text layers: elements with only text content and no child elements
+      // (unless they're flex/grid — those are explicitly layout containers even if empty)
+      const isFlexOrGrid = display === "flex" || display === "inline-flex"
+        || display === "grid" || display === "inline-grid";
+      const isTextLayer = current.childElementCount === 0
+        && (current.textContent?.trim().length ?? 0) > 0
+        && !isFlexOrGrid;
+      if (isTextLayer) { current = current.parentElement; continue; }
+
+      if (isContainer && !isAncestor(draggedEl, current)) {
+        // Compute insert index from cursor position relative to children
+        const children = Array.from(current.children).filter(c => {
+          const cs = getComputedStyle(c);
+          return cs.display !== "none" && cs.visibility !== "hidden";
+        });
+
+        const dir = getComputedStyle(current).flexDirection;
+        const horizontal = (display === "flex" || display === "inline-flex")
+          ? (dir === "row" || dir === "row-reverse")
+          : false;
+
+        let insertIndex = children.length; // default: after all children
+        for (let i = 0; i < children.length; i++) {
+          const r = children[i].getBoundingClientRect();
+          const mid = horizontal ? r.left + r.width / 2 : r.top + r.height / 2;
+          const cursor = horizontal ? x : y;
+          if (cursor < mid) { insertIndex = i; break; }
+        }
+
+        return { target: current, insertIndex, horizontal };
+      }
+
+      current = current.parentElement;
+    }
+    return null;
+  }
+
+  /** Check if ancestor is an ancestor of descendant */
+  function isAncestor(ancestor: Element, descendant: Element): boolean {
+    let current: Element | null = descendant.parentElement;
+    while (current) {
+      if (current === ancestor) return true;
+      current = current.parentElement;
+    }
+    return false;
+  }
+
+  /** Create/update reparent highlight overlay (parent outline + drop indicator line) */
+  function showReparentHighlight(
+    target: Element, insertIndex: number, horizontal: boolean,
+    dragState: NonNullable<typeof reorderDrag>
+  ) {
+    // Parent outline
+    let hl = dragState.reparentHighlight;
+    if (!hl) {
+      hl = document.createElement("div");
+      hl.setAttribute("data-justify-drag-ghost", "");
+      hl.style.cssText = `
+        position:fixed;pointer-events:none;z-index:2147483646;
+        border:1px solid #D97757;
+        background:rgba(217, 119, 87,0.04);
+      `;
+      document.body.appendChild(hl);
+      dragState.reparentHighlight = hl;
+    }
+    const r = target.getBoundingClientRect();
+    hl.style.left = `${r.left}px`;
+    hl.style.top = `${r.top}px`;
+    hl.style.width = `${r.width}px`;
+    hl.style.height = `${r.height}px`;
+    hl.style.display = "block";
+
+    // Drop indicator line inside the container
+    let line = hl.querySelector("[data-justify-reparent-line]") as HTMLDivElement | null;
+    if (!line) {
+      line = document.createElement("div");
+      line.setAttribute("data-justify-reparent-line", "");
+      line.style.cssText = `position:absolute;background:#D97757;pointer-events:none;border-radius:1px;`;
+      hl.appendChild(line);
+    }
+    // Inset relative to container size (3%), clamped between 3-12px
+    const INSET = Math.max(3, Math.min(12, Math.round((horizontal ? r.height : r.width) * 0.03)));
+
+    // Get visible children of the target container for positioning the line
+    const children = Array.from(target.children).filter(c => {
+      const cs = getComputedStyle(c);
+      return cs.display !== "none" && cs.visibility !== "hidden";
+    });
+
+    if (horizontal) {
+      // Vertical drop line for horizontal layout
+      let x: number;
+      if (children.length === 0) {
+        x = r.left + 4;
+      } else if (insertIndex <= 0) {
+        x = children[0].getBoundingClientRect().left;
+      } else if (insertIndex >= children.length) {
+        x = children[children.length - 1].getBoundingClientRect().right;
+      } else {
+        const prev = children[insertIndex - 1].getBoundingClientRect();
+        const curr = children[insertIndex].getBoundingClientRect();
+        x = (prev.right + curr.left) / 2;
+      }
+      line.style.left = `${x - r.left - 1}px`;
+      line.style.top = `${INSET}px`;
+      line.style.width = "2px";
+      line.style.height = `${r.height - INSET * 2}px`;
+    } else {
+      // Horizontal drop line for vertical layout
+      let y: number;
+      if (children.length === 0) {
+        y = r.top + 4;
+      } else if (insertIndex <= 0) {
+        y = children[0].getBoundingClientRect().top;
+      } else if (insertIndex >= children.length) {
+        y = children[children.length - 1].getBoundingClientRect().bottom;
+      } else {
+        const prev = children[insertIndex - 1].getBoundingClientRect();
+        const curr = children[insertIndex].getBoundingClientRect();
+        y = (prev.bottom + curr.top) / 2;
+      }
+      line.style.left = `${INSET}px`;
+      line.style.top = `${y - r.top - 1}px`;
+      line.style.width = `${r.width - INSET * 2}px`;
+      line.style.height = "2px";
+    }
+  }
+
+  function hideReparentHighlight(dragState: NonNullable<typeof reorderDrag>) {
+    if (dragState.reparentHighlight) {
+      dragState.reparentHighlight.style.display = "none";
+    }
+  }
+
+  function createReorderGhost(el: Element): HTMLDivElement {
+    const rect = el.getBoundingClientRect();
+    const ghost = document.createElement("div");
+    ghost.style.cssText = `
+      position:fixed;pointer-events:none;z-index:2147483647;
+      width:${rect.width}px;height:${rect.height}px;
+      left:${rect.left}px;top:${rect.top}px;
+      opacity:0.7;border:2px solid #D97757;border-radius:4px;
+      background:rgba(217, 119, 87,0.06);transition:none;
+    `;
+    shadowRoot.appendChild(ghost);
+    return ghost;
+  }
+
+  // positionReorderIndicator removed — sibling shifting provides visual feedback
+  function _unused_positionReorderIndicator(
+    indicator: HTMLDivElement, dropIndex: number,
+    siblingRects: DOMRect[], horizontal: boolean, dragIndex: number
+  ) {
+    if (siblingRects.length === 0) return;
+
+    // Adjust for the visual position (dragged element still takes space)
+    const visualDrop = dropIndex > dragIndex ? dropIndex + 1 : dropIndex;
+
+    if (horizontal) {
+      // Vertical line between horizontal siblings
+      let x: number;
+      if (visualDrop <= 0) {
+        x = siblingRects[0].left - 1;
+      } else if (visualDrop >= siblingRects.length) {
+        x = siblingRects[siblingRects.length - 1].right;
+      } else {
+        x = (siblingRects[visualDrop - 1].right + siblingRects[visualDrop].left) / 2;
+      }
+      // Height spans the tallest sibling
+      const top = Math.min(...siblingRects.map(r => r.top));
+      const bottom = Math.max(...siblingRects.map(r => r.bottom));
+      indicator.style.left = `${x - 1}px`;
+      indicator.style.top = `${top}px`;
+      indicator.style.width = "2px";
+      indicator.style.height = `${bottom - top}px`;
+    } else {
+      // Horizontal line between vertical siblings
+      let y: number;
+      if (visualDrop <= 0) {
+        y = siblingRects[0].top - 1;
+      } else if (visualDrop >= siblingRects.length) {
+        y = siblingRects[siblingRects.length - 1].bottom;
+      } else {
+        y = (siblingRects[visualDrop - 1].bottom + siblingRects[visualDrop].top) / 2;
+      }
+      // Width spans the widest sibling
+      const left = Math.min(...siblingRects.map(r => r.left));
+      const right = Math.max(...siblingRects.map(r => r.right));
+      indicator.style.left = `${left}px`;
+      indicator.style.top = `${y - 1}px`;
+      indicator.style.width = `${right - left}px`;
+      indicator.style.height = "2px";
+    }
+    indicator.style.display = "block";
+  }
+
+  function handleReorderPointerMove(e: PointerEvent) {
+    if (!reorderDrag || !selectedElement) return;
+    e.preventDefault();
+
+    const dx = e.clientX - reorderDrag.startX;
+    const dy = e.clientY - reorderDrag.startY;
+
+    if (!reorderDrag.active) {
+      if (Math.abs(dx) + Math.abs(dy) < REORDER_THRESHOLD) return;
+
+      // Activate — select the element if not already selected
+      reorderDrag.active = true;
+      reorderDragActive = true;
+
+      if (selectedElement !== reorderDrag.element) {
+        selectedElement = reorderDrag.element;
+        callbacks.onSelect(reorderDrag.element);
+      }
+
+      // Hide selection chrome
+      selection.style.display = "none";
+      selectionLabel.style.display = "none";
+      hideHandles();
+
+      // Hide the element in place (preserves ALL CSS — translate, order, flex, margin)
+      const dragEl = reorderDrag.element as HTMLElement;
+      const origRect = reorderDrag.startRect;
+      dragEl.style.visibility = "hidden";
+
+      // Suppress text selection during drag
+      document.body.style.userSelect = "none";
+      document.body.style.webkitUserSelect = "none";
+
+      // Create ghost in the DOCUMENT (not shadow DOM) so page CSS applies to the clone
+      const ghost = document.createElement("div");
+      ghost.setAttribute("data-justify-drag-ghost", "");
+      ghost.style.cssText = `
+        position:fixed;pointer-events:none;z-index:2147483647;
+        width:${origRect.width}px;height:${origRect.height}px;
+        left:${origRect.left}px;top:${origRect.top}px;
+        transition:none;overflow:hidden;opacity:0.85;
+      `;
+      // Clone content with computed styles baked in (so it doesn't depend on parent CSS context)
+      const clone = dragEl.cloneNode(true) as HTMLElement;
+      const origStyles = getComputedStyle(dragEl);
+      const stylesToCopy = [
+        "font-family", "font-size", "font-weight", "font-style", "line-height", "letter-spacing",
+        "color", "background-color", "background-image", "background",
+        "padding", "border", "border-radius",
+        "text-align", "text-decoration", "text-transform",
+        "white-space", "word-break", "overflow-wrap",
+        "display", "flex-direction", "align-items", "justify-content", "gap",
+        "box-shadow", "opacity",
+      ];
+      for (const prop of stylesToCopy) {
+        clone.style.setProperty(prop, origStyles.getPropertyValue(prop));
+      }
+      clone.style.visibility = "visible";
+      clone.style.position = "static";
+      clone.style.translate = "none";
+      clone.style.transform = "none";
+      clone.style.margin = "0";
+      clone.style.width = "100%";
+      clone.style.height = "100%";
+      clone.style.boxSizing = "border-box";
+      ghost.appendChild(clone);
+      document.body.appendChild(ghost);
+      reorderDrag.ghost = ghost;
+
+      // Cache sibling rects (element still in flow with visibility:hidden — rects are accurate
+      // and include margin collapse effects since layout hasn't changed)
+      const allRects = reorderDrag.siblings.map(s => s.getBoundingClientRect());
+      reorderDrag.allRects = allRects;
+
+      const otherR: DOMRect[] = [];
+      const otherI: number[] = [];
+      for (let i = 0; i < allRects.length; i++) {
+        if (i === reorderDrag.dragIndex) continue;
+        otherR.push(allRects[i]);
+        otherI.push(i);
+      }
+      reorderDrag.otherRects = otherR;
+      reorderDrag.otherIndices = otherI;
+
+      // Add transition to siblings for smooth shifting
+      for (const idx of otherI) {
+        (reorderDrag.siblings[idx] as HTMLElement).style.transition = "transform 150ms ease-out";
+      }
+      return;
+    }
+
+    // React safety
+    if (!reorderDrag.element.isConnected) {
+      cleanupReorderDrag();
+      return;
+    }
+
+    // Move the ghost
+    if (reorderDrag.ghost) {
+      reorderDrag.ghost.style.left = `${reorderDrag.startRect.left + dx}px`;
+      reorderDrag.ghost.style.top = `${reorderDrag.startRect.top + dy}px`;
+    }
+
+    // Check if cursor is inside the parent.
+    // Use buffer when leaving (prevents flickering at edges).
+    // Use exact bounds when returning from reparent (require clear re-entry).
+    const parentRect = reorderDrag.parent.getBoundingClientRect();
+    const LEAVE_BUFFER = 10;
+    const insideParent = reorderDrag.mode === "reparent"
+      ? (e.clientX >= parentRect.left && e.clientX <= parentRect.right &&
+         e.clientY >= parentRect.top && e.clientY <= parentRect.bottom)
+      : (e.clientX >= parentRect.left - LEAVE_BUFFER && e.clientX <= parentRect.right + LEAVE_BUFFER &&
+         e.clientY >= parentRect.top - LEAVE_BUFFER && e.clientY <= parentRect.bottom + LEAVE_BUFFER);
+
+    if (insideParent) {
+      // ── REORDER MODE: cursor inside parent ──
+      if (reorderDrag.mode === "reparent") {
+        reorderDrag.mode = "reorder";
+        reorderDrag.reparentTarget = null;
+        hideReparentHighlight(reorderDrag);
+      }
+
+      const newIndex = computeCanvasDropIndex(
+        e.clientX, e.clientY,
+        reorderDrag.otherRects, reorderDrag.otherIndices,
+        reorderDrag.horizontal, reorderDrag.dragIndex
+      );
+
+      if (newIndex !== reorderDrag.dropIndex) {
+        reorderDrag.dropIndex = newIndex;
+        const { siblings, dragIndex, allRects, horizontal } = reorderDrag;
+
+        // Compute the dragged element's occupied space
+        let dragOccupied: number;
+        if (horizontal) {
+          if (dragIndex < allRects.length - 1) {
+            dragOccupied = allRects[dragIndex + 1].left - allRects[dragIndex].left;
+          } else {
+            const gap = dragIndex > 0 ? allRects[dragIndex].left - allRects[dragIndex - 1].right : 0;
+            dragOccupied = allRects[dragIndex].width + gap;
+          }
+        } else {
+          if (dragIndex < allRects.length - 1) {
+            dragOccupied = allRects[dragIndex + 1].top - allRects[dragIndex].top;
+          } else {
+            const gap = dragIndex > 0 ? allRects[dragIndex].top - allRects[dragIndex - 1].bottom : 0;
+            dragOccupied = allRects[dragIndex].height + gap;
+          }
+        }
+
+        // Shift siblings by dragged element's occupied space
+        for (let i = 0; i < siblings.length; i++) {
+          if (i === dragIndex) continue;
+          const el = siblings[i] as HTMLElement;
+
+          let shift = 0;
+          if (dragIndex < newIndex) {
+            if (i > dragIndex && i < newIndex) shift = -dragOccupied;
+          } else if (dragIndex > newIndex) {
+            if (i >= newIndex && i < dragIndex) shift = dragOccupied;
+          }
+
+          el.style.transform = shift !== 0
+            ? (horizontal ? `translateX(${shift}px)` : `translateY(${shift}px)`)
+            : "";
+        }
+      }
+    } else {
+      // ── REPARENT MODE: cursor outside parent ──
+      reorderDrag.mode = "reparent";
+
+      // Clear sibling shifts (return them to original positions)
+      for (let i = 0; i < reorderDrag.siblings.length; i++) {
+        if (i === reorderDrag.dragIndex) continue;
+        (reorderDrag.siblings[i] as HTMLElement).style.transform = "";
+      }
+
+      // Find a valid container under cursor
+      const reparentResult = findReparentTarget(e.clientX, e.clientY, reorderDrag.element, reorderDrag.parent);
+
+      if (reparentResult) {
+        reorderDrag.reparentTarget = reparentResult.target;
+        reorderDrag.reparentIndex = reparentResult.insertIndex;
+        showReparentHighlight(reparentResult.target, reparentResult.insertIndex, reparentResult.horizontal, reorderDrag);
+      } else {
+        reorderDrag.reparentTarget = null;
+        hideReparentHighlight(reorderDrag);
+      }
+    }
+  }
+
+  function handleReorderPointerUp(e: PointerEvent) {
+    document.removeEventListener("pointermove", handleReorderPointerMove, true);
+    document.removeEventListener("pointerup", handleReorderPointerUp, true);
+
+    if (!reorderDrag) return;
+
+    const { element, dragIndex, dropIndex, active, mode, reparentTarget, reparentIndex } = reorderDrag;
+
+    if (active && mode === "reparent" && reparentTarget) {
+      // REPARENT: move element to a different container
+      cleanupReorderDrag();
+      callbacks.onCanvasReparent?.(element, reparentTarget, reparentIndex);
+      reorderDragActive = false;
+      if (selectedElement) showSelection();
+    } else if (active && mode === "reorder" && !isEffectiveNoOp(dragIndex, dropIndex)) {
+      // REORDER: within same parent
+      cleanupReorderDrag();
+      callbacks.onCanvasReorder?.(element, dragIndex, dropIndex);
+      reorderDragActive = false;
+      if (selectedElement) showSelection();
+    } else if (active) {
+      // No meaningful change — just cleanup
+      cleanupReorderDrag();
+      reorderDragActive = false;
+      if (selectedElement) showSelection();
+    } else {
+      // Threshold not met — click-through to select child under cursor
+      cleanupReorderDrag();
+      reorderDragActive = false;
+
+      const clickX = e.clientX;
+      const clickY = e.clientY;
+      const clickElement = element;
+      if (reorderClickTimer) clearTimeout(reorderClickTimer);
+      reorderClickTimer = setTimeout(() => {
+        reorderClickTimer = null;
+        selection.style.display = "none";
+        selectionLabel.style.display = "none";
+        hideHandles();
+        const hit = document.elementFromPoint(clickX, clickY);
+        if (hit && hit !== clickElement && !hit.hasAttribute("data-justify-host")) {
+          selectedElement = hit;
+          selectionLabelHidden = false;
+          if (resizeObserver) {
+            resizeObserver.disconnect();
+            resizeObserver.observe(hit);
+          }
+          showSelection();
+          hideHighlight();
+          hoveredElement = null;
+          callbacks.onSelect(hit);
+        } else {
+          selection.style.display = "";
+          selectionLabel.style.display = "";
+          showSelection();
+        }
+      }, 200);
+    }
+  }
+
+  function cleanupReorderDrag() {
+    if (!reorderDrag) return;
+
+    // Remove ghost and reparent highlight from document body
+    if (reorderDrag.ghost) reorderDrag.ghost.remove();
+    if (reorderDrag.reparentHighlight) reorderDrag.reparentHighlight.remove();
+
+    // Restore user-select
+    document.body.style.removeProperty("user-select");
+    document.body.style.removeProperty("-webkit-user-select");
+
+    // Restore dragged element visibility
+    const dragEl = reorderDrag.element as HTMLElement;
+    dragEl.style.removeProperty("visibility");
+    if (dragEl.getAttribute("style")?.trim() === "") dragEl.removeAttribute("style");
+
+    // Remove sibling transforms: kill transition FIRST (prevents animation-back), then remove transform
+    for (let i = 0; i < reorderDrag.siblings.length; i++) {
+      if (i === reorderDrag.dragIndex) continue;
+      const el = reorderDrag.siblings[i] as HTMLElement;
+      el.style.transition = "none"; // kill transition immediately so transform removal is instant
+      el.style.removeProperty("transform");
+      el.style.removeProperty("transition");
+      if (el.getAttribute("style")?.trim() === "") el.removeAttribute("style");
+    }
+
+    reorderDrag = null;
+  }
+
+  // Fork: reposition for absolute/fixed, reorder for flow elements in flex/grid
+  selection.addEventListener("pointerdown", (e: PointerEvent) => {
+    if (!selectedElement) return;
+
+    // Absolute/fixed → reposition (existing behavior)
+    if (isRepositionable(selectedElement)) {
+      handleRepositionPointerDown(e);
+      return;
+    }
+
+    // Flow element → reorder
+    const context = detectReorderContext(selectedElement);
+    if (!context) return;
+
+    e.preventDefault(); // Prevent text selection during drag
+
+    const elRect = selectedElement.getBoundingClientRect();
+    reorderDrag = {
+      element: selectedElement,
+      parent: context.parent,
+      siblings: context.siblings,
+      allRects: [],
+      otherRects: [],
+      otherIndices: [],
+      dragIndex: context.index,
+      dropIndex: context.index,
+      horizontal: context.horizontal,
+      startX: e.clientX,
+      startY: e.clientY,
+      startRect: elRect,
+      active: false,
+      ghost: null,
+      mode: "reorder",
+      reparentTarget: null,
+      reparentIndex: 0,
+      reparentHighlight: null,
+    };
+
+    document.addEventListener("pointermove", handleReorderPointerMove, true);
+    document.addEventListener("pointerup", handleReorderPointerUp, true);
+  });
+
+  // Double-click on selection box: cancel pending click-through, trigger inline text editing
+  selection.addEventListener("dblclick", (e: MouseEvent) => {
+    if (!selectedElement) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Cancel pending click-through from first click
+    if (reorderClickTimer) {
+      clearTimeout(reorderClickTimer);
+      reorderClickTimer = null;
+    }
+
+    // Hide overlay elements to find the real page element
+    selection.style.display = "none";
+    selectionLabel.style.display = "none";
+    hideHandles();
+    const hit = document.elementFromPoint(e.clientX, e.clientY);
+    selection.style.display = "";
+    selectionLabel.style.display = "";
+    showSelection();
+
+    callbacks.onDoubleClick?.(hit || selectedElement);
+  });
+
+  // ── Spacing measurement lines ──
+  // Shows distance between selected and hovered elements
+  const spacingContainer = document.createElement("div");
+  spacingContainer.style.cssText = "position:fixed;top:0;left:0;width:0;height:0;pointer-events:none;z-index:2147483646;";
+  shadowRoot.appendChild(spacingContainer);
+
+  const SPACING_LINE = "position:fixed;pointer-events:none;display:none;";
+  const SPACING_LABEL = `
+    position:fixed;pointer-events:none;display:none;
+    font-size:10px;font-weight:500;
+    font-family:InterVariable,Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    color:#fff;white-space:nowrap;
+    background:var(--justify-red);padding:1px 4px;border-radius:2px;
+  `;
+
+  function createMeasure() {
+    const line = document.createElement("div");
+    line.style.cssText = SPACING_LINE;
+    const connector = document.createElement("div");
+    connector.style.cssText = SPACING_LINE;
+    const lbl = document.createElement("div");
+    lbl.style.cssText = SPACING_LABEL;
+    spacingContainer.appendChild(line);
+    spacingContainer.appendChild(connector);
+    spacingContainer.appendChild(lbl);
+    return { line, connector, label: lbl };
+  }
+
+  const hMeasure = createMeasure(); // horizontal distance
+  const vMeasure = createMeasure(); // vertical distance
+
+  // Parent-child spacing: 4 lines (top, right, bottom, left)
+  const parentMeasures = {
+    top: createMeasure(),
+    right: createMeasure(),
+    bottom: createMeasure(),
+    left: createMeasure(),
+  };
+
+  function hideSpacing() {
+    for (const m of [hMeasure, vMeasure]) {
+      m.line.style.display = "none";
+      m.connector.style.display = "none";
+      m.label.style.display = "none";
+    }
+    for (const m of Object.values(parentMeasures)) {
+      m.line.style.display = "none";
+      m.connector.style.display = "none";
+      m.label.style.display = "none";
+    }
+  }
+
+  function drawSegment(el: HTMLElement, x: number, y: number, size: number, horizontal: boolean, dashed = true) {
+    el.style.cssText = `
+      position:fixed;pointer-events:none;display:block;
+      top:${y}px;left:${x}px;
+      width:${horizontal ? size : 0}px;height:${horizontal ? 0 : size}px;
+      border-${horizontal ? "top" : "left"}:1px ${dashed ? "dashed" : "solid"} var(--justify-red);
+    `;
+  }
+
+  function positionLabel(el: HTMLElement, value: number, x: number, y: number, size: number, horizontal: boolean) {
+    el.style.cssText = SPACING_LABEL;
+    el.style.display = "block";
+    el.textContent = `${value}`;
+    if (horizontal) {
+      el.style.top = `${y - 4}px`;
+      el.style.left = `${x + size / 2}px`;
+      el.style.transform = "translate(-50%, -100%)";
+    } else {
+      el.style.top = `${y + size / 2}px`;
+      el.style.left = `${x + 4}px`;
+      el.style.transform = "translateY(-50%)";
+    }
+  }
+
+  function showSpacing(selRect: DOMRect, hoverRect: DOMRect) {
+    hideSpacing();
+
+    const hoverIsRight = hoverRect.left + hoverRect.width / 2 > selRect.left + selRect.width / 2;
+    const hoverIsBelow = hoverRect.top + hoverRect.height / 2 > selRect.top + selRect.height / 2;
+
+    // Nearest edges and gaps (negative gap = overlap, no line)
+    const selEdgeX = hoverIsRight ? selRect.right : selRect.left;
+    const selEdgeY = hoverIsBelow ? selRect.bottom : selRect.top;
+    const hoverEdgeX = hoverIsRight ? hoverRect.left : hoverRect.right;
+    const hoverEdgeY = hoverIsBelow ? hoverRect.top : hoverRect.bottom;
+
+    const hGap = hoverIsRight ? (hoverRect.left - selRect.right) : (selRect.left - hoverRect.right);
+    const vGap = hoverIsBelow ? (hoverRect.top - selRect.bottom) : (selRect.top - hoverRect.bottom);
+    const hDist = hGap > 0 ? Math.round(hGap) : 0;
+    const vDist = vGap > 0 ? Math.round(vGap) : 0;
+
+    if (hDist <= 0 && vDist <= 0) return;
+
+    // ── Horizontal line: from center of selected's left/right edge, going outward ──
+    if (hDist > 0) {
+      const hOriginX = selEdgeX;
+      const hOriginY = selRect.top + selRect.height / 2;
+      const hx1 = Math.min(hOriginX, hoverEdgeX);
+
+      // Straight segment going outward
+      drawSegment(hMeasure.line, hx1, hOriginY, hDist, true, false);
+      positionLabel(hMeasure.label, hDist, hx1, hOriginY, hDist, true);
+
+      // Can the straight line reach the hovered element?
+      if (hOriginY >= hoverRect.top && hOriginY <= hoverRect.bottom) {
+        // Yes — straight line connects directly
+        hMeasure.connector.style.display = "none";
+      } else {
+        // No — bend 90° toward hovered's closest edge
+        const bendTargetY = hoverIsBelow ? hoverRect.top : hoverRect.bottom;
+        const cy1 = Math.min(hOriginY, bendTargetY);
+        drawSegment(hMeasure.connector, hoverEdgeX, cy1, Math.abs(bendTargetY - hOriginY), false);
+      }
+    }
+
+    // ── Vertical line: from center of selected's top/bottom edge, going outward ──
+    if (vDist > 0) {
+      const vOriginX = selRect.left + selRect.width / 2;
+      const vOriginY = selEdgeY;
+      const vy1 = Math.min(vOriginY, hoverEdgeY);
+
+      // Straight segment going outward
+      drawSegment(vMeasure.line, vOriginX, vy1, vDist, false, false);
+      positionLabel(vMeasure.label, vDist, vOriginX, vy1, vDist, false);
+
+      // Can the straight line reach the hovered element?
+      if (vOriginX >= hoverRect.left && vOriginX <= hoverRect.right) {
+        // Yes — straight line connects directly
+        vMeasure.connector.style.display = "none";
+      } else {
+        // No — bend 90° toward hovered's closest edge
+        const bendTargetX = hoverIsRight ? hoverRect.left : hoverRect.right;
+        const cx1 = Math.min(vOriginX, bendTargetX);
+        drawSegment(vMeasure.connector, cx1, hoverEdgeY, Math.abs(bendTargetX - vOriginX), true);
+      }
+    }
+  }
+
+  /** Show distances from selected child to all four inner edges of a parent container. */
+  function showParentSpacing(childRect: DOMRect, parentEl: Element) {
+    hideSpacing();
+
+    const computed = getComputedStyle(parentEl);
+    const parentRect = parentEl.getBoundingClientRect();
+
+    // Measure to padding box (inside border, outside padding)
+    // This shows the visual distance from the parent's inner edge to the child,
+    // which includes any padding — matching what users see as "the gap"
+    const bt = parseFloat(computed.borderTopWidth) || 0;
+    const br = parseFloat(computed.borderRightWidth) || 0;
+    const bb = parseFloat(computed.borderBottomWidth) || 0;
+    const bl = parseFloat(computed.borderLeftWidth) || 0;
+
+    const innerTop = parentRect.top + bt;
+    const innerRight = parentRect.right - br;
+    const innerBottom = parentRect.bottom - bb;
+    const innerLeft = parentRect.left + bl;
+
+    const topDist = Math.round(childRect.top - innerTop);
+    const rightDist = Math.round(innerRight - childRect.right);
+    const bottomDist = Math.round(innerBottom - childRect.bottom);
+    const leftDist = Math.round(childRect.left - innerLeft);
+
+    const childCenterX = childRect.left + childRect.width / 2;
+    const childCenterY = childRect.top + childRect.height / 2;
+
+    // Top
+    if (topDist > 0) {
+      drawSegment(parentMeasures.top.line, childCenterX, innerTop, topDist, false, false);
+      positionLabel(parentMeasures.top.label, topDist, childCenterX, innerTop, topDist, false);
+      parentMeasures.top.connector.style.display = "none";
+    }
+
+    // Bottom
+    if (bottomDist > 0) {
+      drawSegment(parentMeasures.bottom.line, childCenterX, childRect.bottom, bottomDist, false, false);
+      positionLabel(parentMeasures.bottom.label, bottomDist, childCenterX, childRect.bottom, bottomDist, false);
+      parentMeasures.bottom.connector.style.display = "none";
+    }
+
+    // Left
+    if (leftDist > 0) {
+      drawSegment(parentMeasures.left.line, innerLeft, childCenterY, leftDist, true, false);
+      positionLabel(parentMeasures.left.label, leftDist, innerLeft, childCenterY, leftDist, true);
+      parentMeasures.left.connector.style.display = "none";
+    }
+
+    // Right
+    if (rightDist > 0) {
+      drawSegment(parentMeasures.right.line, childRect.right, childCenterY, rightDist, true, false);
+      positionLabel(parentMeasures.right.label, rightDist, childRect.right, childCenterY, rightDist, true);
+      parentMeasures.right.connector.style.display = "none";
+    }
+  }
+
+  function positionBox(box: HTMLElement, labelEl: HTMLElement, rect: DOMRect, borderStyle: string, bgAlpha: string) {
+    box.style.top = `${rect.top}px`;
+    box.style.left = `${rect.left}px`;
+    box.style.width = `${rect.width}px`;
+    box.style.height = `${rect.height}px`;
+    box.style.border = `1px ${borderStyle} #D97757`;
+    box.style.background = `rgba(217, 119, 87, ${bgAlpha})`;
+    box.style.display = "";
+
+    // Badge: below selection centered, flip to above if near bottom edge
+    const viewportH = window.innerHeight;
+    const labelY = rect.bottom + 4 + 20 < viewportH ? rect.bottom + 4 : rect.top - 24;
+    labelEl.style.top = `${labelY}px`;
+    labelEl.style.left = `${rect.left + rect.width / 2}px`;
+    labelEl.style.transform = "translateX(-50%)";
+  }
+
+  // Center the removable selection pill horizontally above the element (flip to a
+  // clamped top while in view; scrolls off with the element once it leaves).
+  function positionSelectionPill(rect: DOMRect) {
+    selectionPill.style.left = `${rect.left + rect.width / 2}px`;
+    selectionPill.style.transform = "translateX(-50%)";
+    const h = selectionPill.offsetHeight || 24;
+    let y = rect.top - h - 6;
+    if (rect.bottom > 0 && rect.top < window.innerHeight && y < 4) y = 4;
+    selectionPill.style.top = `${y}px`;
+  }
+
+  // Position the hover pill at the cursor (prompt-mode follow behavior), clamped to viewport.
+  function placeCursorLabel() {
+    let lx = lastPointerX + 12, ly = lastPointerY - 30;
+    const lw = label.offsetWidth || 120;
+    if (lx + lw > window.innerWidth) lx = window.innerWidth - lw - 8;
+    if (lx < 4) lx = 4;
+    if (ly < 4) ly = lastPointerY + 20;
+    label.style.left = `${lx}px`;
+    label.style.top = `${ly}px`;
+    label.style.transform = "none";
+  }
+
+  function updateHighlight(el: Element) {
+    const rect = el.getBoundingClientRect();
+    const wasHidden = highlight.style.display === "none";
+    if (wasHidden) highlight.style.transition = "none";
+    positionBox(highlight, label, rect, "solid", "0");
+    if (wasHidden) {
+      void highlight.offsetWidth; // reflow so the first appearance doesn't fly in from a stale rect
+      highlight.style.transition = "top 60ms ease, left 60ms ease, width 60ms ease, height 60ms ease";
+    }
+    renderElementPill(label, el);
+    label.style.display = "flex";
+    placeCursorLabel();
+  }
+
+  function showSelection() {
+    if (!selectedElement) return;
+    // Don't show selection during canvas reorder drag
+    if (reorderDragActive) return;
+
+    const rect = selectedElement.getBoundingClientRect();
+    positionBox(selection, selectionLabel, rect, "solid", "0");
+    lastSelRect = { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+
+    // When suspended (e.g. text editing), only update the border position — no handles, badge, or indicators
+    if (suspended) {
+      selectionLabel.style.display = "none";
+      selectionPill.style.display = "none";
+      selection.style.pointerEvents = "none";
+      return;
+    }
+
+    if (!selectionLabelHidden) {
+      selectionLabel.style.display = "";
+    }
+    selectionLabel.textContent = formatLabel(selectedElement);
+    renderElementPill(selectionPillContent, selectedElement);
+    selectionPill.style.display = "flex";
+    positionSelectionPill(rect);
+    positionHandles(rect);
+    updateSelectionCursor();
+
+    // Show dotted parent indicator
+    const parent = selectedElement.parentElement;
+    if (parent && parent !== document.body && parent !== document.documentElement) {
+      const pr = parent.getBoundingClientRect();
+      parentIndicator.style.cssText = `
+        position:fixed;display:block;pointer-events:none;z-index:2147483644;
+        border:1px dotted #D97757;background:none;
+        top:${pr.top}px;left:${pr.left}px;width:${pr.width}px;height:${pr.height}px;
+      `;
+
+      // Show dashed pin lines for absolute/fixed elements
+      const authored = detectAuthoredPositionProps(selectedElement);
+      cachedPinState = authored;
+      if (authored.top || authored.right || authored.bottom || authored.left) {
+        showPinLines(rect, pr, authored);
+      } else {
+        hidePinLines();
+      }
+    } else {
+      parentIndicator.style.display = "none";
+      cachedPinState = null;
+      hidePinLines();
+    }
+
+    // Keep scope highlights in sync with layout changes (resize, property edits)
+    refreshScopeHighlights();
+  }
+
+  // Lightweight position-only update for scroll/resize tracking
+  function trackSelection() {
+    if (!selectedElement || reorderDrag?.active) return;
+    const rect = selectedElement.getBoundingClientRect();
+    // Skip if nothing moved
+    if (
+      rect.top === lastSelRect.top &&
+      rect.left === lastSelRect.left &&
+      rect.width === lastSelRect.width &&
+      rect.height === lastSelRect.height
+    ) return;
+
+    selection.style.top = `${rect.top}px`;
+    selection.style.left = `${rect.left}px`;
+    selection.style.width = `${rect.width}px`;
+    selection.style.height = `${rect.height}px`;
+    lastSelRect = { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+
+    // When suspended (text editing), only update border position
+    if (suspended) return;
+
+    const viewportH = window.innerHeight;
+    const labelY = rect.bottom + 4 + 20 < viewportH ? rect.bottom + 4 : rect.top - 24;
+    selectionLabel.style.top = `${labelY}px`;
+    selectionLabel.style.left = `${rect.left + rect.width / 2}px`;
+    selectionLabel.style.transform = "translateX(-50%)";
+    selectionLabel.textContent = formatLabel(selectedElement);
+    positionSelectionPill(rect);
+    positionHandles(rect);
+
+    // Update parent indicator + pin lines
+    const parent = selectedElement.parentElement;
+    if (parent && parent !== document.body && parent !== document.documentElement && parentIndicator.style.display !== "none") {
+      const pr = parent.getBoundingClientRect();
+      parentIndicator.style.top = `${pr.top}px`;
+      parentIndicator.style.left = `${pr.left}px`;
+      parentIndicator.style.width = `${pr.width}px`;
+      parentIndicator.style.height = `${pr.height}px`;
+
+      const authored = detectAuthoredPositionProps(selectedElement);
+      if (authored.top || authored.right || authored.bottom || authored.left) {
+        showPinLines(rect, pr, authored);
+      }
+    }
+  }
+
+  function formatLabel(el: Element): string {
+    const rect = el.getBoundingClientRect();
+    return formatSelectionLabel(rect.width, rect.height);
+  }
+
+  function hideHighlight() {
+    highlight.style.display = "none";
+    label.style.display = "none";
+    hideSpacing();
+    hideSiblingOutlines();
+  }
+
+  function hideSelection() {
+    selection.style.display = "none";
+    selectionLabel.style.display = "none";
+    selectionPill.style.display = "none";
+    selection.style.pointerEvents = "none";
+    selection.style.cursor = "";
+    parentIndicator.style.display = "none";
+    hidePinLines();
+    cachedPinState = null;
+    repositionAxes = null;
+    hideHandles();
+  }
+
+  // Debounce multiple events into a single rAF update
+  function scheduleTrack() {
+    if (trackingRaf !== null) return;
+    trackingRaf = requestAnimationFrame(() => {
+      trackingRaf = null;
+      trackSelection();
+    });
+  }
+
+  function handleScroll() {
+    scheduleTrack();
+    refreshScopeHighlights();
+    if (hoveredElement) {
+      hoveredElement = null;
+      hideHighlight();
+    }
+  }
+
+  // Keep selection box in sync on scroll/resize
+  function startTracking() {
+    window.addEventListener("scroll", handleScroll, { capture: true, passive: true });
+    window.addEventListener("resize", scheduleTrack, { passive: true });
+    resizeObserver = new ResizeObserver(scheduleTrack);
+    if (selectedElement) resizeObserver.observe(selectedElement);
+    // Initial position update
+    trackSelection();
+  }
+
+  function stopTracking() {
+    if (trackingRaf !== null) {
+      cancelAnimationFrame(trackingRaf);
+      trackingRaf = null;
+    }
+    window.removeEventListener("scroll", handleScroll, true);
+    window.removeEventListener("resize", scheduleTrack);
+    resizeObserver?.disconnect();
+    resizeObserver = null;
+  }
+
+  // Filter out our own overlay elements
+  function isOverlayElement(el: Element): boolean {
+    return !!el.closest("[data-justify-host]") || !!el.closest("[data-justify-drag-ghost]");
+  }
+
+  // Void/empty elements that aren't useful to select — bubble to parent
+  const SKIP_TAGS = new Set(["BR", "WBR", "COL", "COLGROUP", "SOURCE", "TRACK", "AREA", "PARAM"]);
+
+  function resolveElement(el: Element): Element | null {
+    let current: Element | null = el;
+    while (current && SKIP_TAGS.has(current.tagName)) {
+      current = current.parentElement;
+    }
+    return current;
+  }
+
+  let lastAltState = false; // track Alt key to show/hide spacing on key change
+
+  function applyHover(el: Element, altKey = false) {
+    hoveredElement = el;
+    lastAltState = altKey;
+
+    if (el === selectedElement) {
+      hideHighlight();
+      hideSpacing();
+      hideSiblingOutlines();
+      selectionLabelHidden = false;
+      selectionLabel.style.display = "";
+    } else {
+      updateHighlight(el);
+      if (selectedElement) {
+        if (el.contains(selectedElement)) {
+          // Hovered element is a parent/ancestor
+          if (altKey) showParentSpacing(selectedElement.getBoundingClientRect(), el);
+          else hideSpacing();
+          showSiblingOutlines(el, selectedElement);
+        } else {
+          // Sibling or unrelated — show children outlines for the hovered element
+          if (altKey) showSpacing(selectedElement.getBoundingClientRect(), el.getBoundingClientRect());
+          else hideSpacing();
+          showChildOutlines(el);
+        }
+      } else {
+        // No selection — show children outlines for the hovered element
+        showChildOutlines(el);
+      }
+    }
+
+    callbacks.onHover(el, el.getBoundingClientRect());
+  }
+
+  function handleMouseMove(e: MouseEvent) {
+    if (!active || suspended || repositionDrag || resizeDrag || reorderDrag) return;
+    // Track cursor and let the hover pill follow it (prompt-mode behavior), even
+    // when staying within the same element (the element-change guard below skips it otherwise).
+    lastPointerX = e.clientX;
+    lastPointerY = e.clientY;
+    if (label.style.display !== "none") placeCursorLabel();
+    // Skip if cursor is over overlay UI (toolbar, panel) inside the shadow root.
+    // elementFromPoint on a ShadowRoot falls through to page elements when no
+    // shadow element is at the point, so we verify the hit actually belongs to
+    // our shadow tree via getRootNode().
+    const hoverShadowHit = shadowRoot.elementFromPoint(e.clientX, e.clientY);
+    if (hoverShadowHit && hoverShadowHit.getRootNode() === shadowRoot) {
+      // Ignore hits on selection/highlight boxes — they're not interactive UI
+      const isPickerOverlay = hoverShadowHit === selection || hoverShadowHit === selectionLabel
+        || hoverShadowHit === highlight || hoverShadowHit === label
+        || hoverShadowHit === parentIndicator;
+      if (!isPickerOverlay) {
+        // Cursor is over Justify UI (toolbar, panel) — clear hover highlight
+        if (hoveredElement) {
+          hoveredElement = null;
+          hideHighlight();
+        }
+        return;
+      }
+    }
+    // Temporarily hide selection box pointer events so elementFromPoint reaches page elements
+    const selPE = selection.style.pointerEvents;
+    selection.style.pointerEvents = "none";
+    const raw = document.elementFromPoint(e.clientX, e.clientY);
+    selection.style.pointerEvents = selPE;
+    if (!raw || isOverlayElement(raw)) return;
+    const el = resolveElement(raw);
+    if (!el || isOverlayElement(el)) return;
+    if (el === hoveredElement) return;
+
+    // If moving to an ancestor of the current hover target, debounce
+    // to avoid flashing parents when crossing gaps between siblings
+    if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
+
+    if (hoveredElement && el.contains(hoveredElement)) {
+      hoverTimer = setTimeout(() => {
+        hoverTimer = null;
+        // Re-check — cursor may have moved to a sibling by now
+        const current = document.elementFromPoint(e.clientX, e.clientY);
+        if (current === el) applyHover(el, e.altKey);
+      }, 50);
+    } else {
+      applyHover(el, e.altKey);
+    }
+  }
+
+  /** Build the element stack at a point, from deepest child to document body */
+  function buildElementStack(x: number, y: number): Element[] {
+    const all = document.elementsFromPoint(x, y);
+    const stack: Element[] = [];
+    for (const raw of all) {
+      if (isOverlayElement(raw)) continue;
+      const el = resolveElement(raw);
+      if (!el || isOverlayElement(el)) continue;
+      // Deduplicate (resolveElement may map multiple raw elements to the same parent)
+      if (stack.length > 0 && stack[stack.length - 1] === el) continue;
+      // Stop at document body — selecting <html> or <body> isn't useful
+      if (el === document.documentElement) break;
+      stack.push(el);
+    }
+    return stack;
+  }
+
+  function handleClick(e: MouseEvent) {
+    if (!active) return;
+
+    // Ignore clicks that originate from inside the overlay (panel buttons, inputs, dropdowns).
+    // Check 1: composedPath includes the shadow host (standard shadow DOM retargeting)
+    const path = e.composedPath();
+    const host = shadowRoot.host;
+    if (path.includes(host)) return;
+    // Check 2: the click point lands on an interactive overlay UI element inside the shadow root.
+    const shadowHit = shadowRoot.elementFromPoint(e.clientX, e.clientY);
+    if (shadowHit && shadowHit.getRootNode() === shadowRoot) {
+      const pe = getComputedStyle(shadowHit).pointerEvents;
+      if (pe !== "none") return;
+    }
+
+    // Block page element clicks if popover has unsaved changes (after overlay checks)
+    if (callbacks.shouldBlockClick?.()) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+
+    const { clientX: x, clientY: y } = e;
+
+    // Check if clicking the same spot — cycle through element stack
+    const sameSpot =
+      Math.abs(x - lastClickPos.x) <= CLICK_RADIUS &&
+      Math.abs(y - lastClickPos.y) <= CLICK_RADIUS &&
+      elementStack.length > 1;
+
+    if (sameSpot) {
+      // Rebuild stack in case DOM changed (HMR, navigation)
+      elementStack = buildElementStack(x, y);
+      if (elementStack.length <= 1) {
+        stackIndex = 0;
+      } else {
+        // Advance to the next element in the stack (deeper → shallower → wrap)
+        stackIndex = (stackIndex + 1) % elementStack.length;
+      }
+    } else {
+      // New click position — rebuild the stack
+      elementStack = buildElementStack(x, y);
+      stackIndex = 0;
+      lastClickPos = { x, y };
+    }
+
+    if (elementStack.length === 0) return;
+    const el = elementStack[stackIndex];
+
+    if (commentMode) {
+      // In comment mode: just call onSelect (no selection UI)
+      hideHighlight();
+      hoveredElement = null;
+      callbacks.onSelect(el);
+      return;
+    }
+
+    selectedElement = el;
+    selectionLabelHidden = false;
+    if (resizeObserver) {
+      resizeObserver.disconnect();
+      resizeObserver.observe(el);
+    }
+    showSelection();
+    hideHighlight();
+    hoveredElement = null;
+    callbacks.onSelect(el);
+  }
+
+  function handleDblClick(e: MouseEvent) {
+    if (!active || !selectedElement) return;
+    // Don't intercept double-clicks inside Justify's own UI (same check as handleClick)
+    const path = e.composedPath();
+    const host = shadowRoot.host;
+    if (path.includes(host)) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Cancel any pending click-through from reorder single-click
+    if (reorderClickTimer) {
+      clearTimeout(reorderClickTimer);
+      reorderClickTimer = null;
+    }
+
+    // Hide overlay elements so elementFromPoint returns the real page element
+    // (selection box with pointer-events:auto would intercept otherwise)
+    const selDisplay = selection.style.display;
+    selection.style.display = "none";
+    selectionLabel.style.display = "none";
+    hideHandles();
+    const deepest = document.elementFromPoint(e.clientX, e.clientY);
+    selection.style.display = selDisplay;
+    selectionLabel.style.display = "";
+    if (selectedElement) showSelection();
+
+    callbacks.onDoubleClick?.(deepest || selectedElement);
+  }
+
+  function handleKeyDown(e: KeyboardEvent) {
+    if (!active) return;
+    if (e.key === "Escape") {
+      if (shadowRoot.querySelector(".justify-floating-dialog")) return;
+      if (shadowRoot.querySelector(".justify-comment-popover")) return;
+      if (commentMode) return; // In comment mode, Escape exits comment mode (handled by Justify.tsx)
+      e.preventDefault();
+      e.stopPropagation();
+      callbacks.onCancel();
+    }
+    // Alt/Option pressed — show spacing if hovering
+    if (e.key === "Alt" && hoveredElement && selectedElement) {
+      applyHover(hoveredElement, true);
+    }
+  }
+
+  function handleKeyUp(e: KeyboardEvent) {
+    if (!active) return;
+    // Alt/Option released — hide spacing
+    if (e.key === "Alt" && hoveredElement && selectedElement) {
+      applyHover(hoveredElement, false);
+    }
+  }
+
+  // Global cursor override when Justify is active
+  const cursorStyle = document.createElement("style");
+  cursorStyle.setAttribute("data-justify-cursor", "");
+
+  function activate() {
+    active = true;
+    cursorStyle.textContent = "* { cursor: default !important; }";
+    document.head.appendChild(cursorStyle);
+    document.addEventListener("mousemove", handleMouseMove, true);
+    document.addEventListener("click", handleClick, true);
+    document.addEventListener("dblclick", handleDblClick, true);
+    document.addEventListener("keydown", handleKeyDown, true);
+    document.addEventListener("keyup", handleKeyUp, true);
+    startTracking();
+  }
+
+  function deactivate() {
+    active = false;
+    cursorStyle.textContent = "";
+    cursorStyle.remove();
+    hoveredElement = null;
+    selectedElement = null;
+    selectionLabelHidden = false;
+    elementStack = [];
+    stackIndex = -1;
+    if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
+    hideHighlight();
+    hideSelection();
+    hideScopeHighlights();
+    stopTracking();
+    document.removeEventListener("mousemove", handleMouseMove, true);
+    document.removeEventListener("click", handleClick, true);
+    document.removeEventListener("dblclick", handleDblClick, true);
+    document.removeEventListener("keydown", handleKeyDown, true);
+    document.removeEventListener("keyup", handleKeyUp, true);
+  }
+
+  function clearSelection() {
+    selectedElement = null;
+    selectionLabelHidden = false;
+    elementStack = [];
+    stackIndex = -1;
+    hideSelection(); // also hides handles
+    hideScopeHighlights();
+  }
+
+  function destroy() {
+    deactivate();
+    highlight.remove();
+    label.remove();
+    selection.remove();
+    selectionLabel.remove();
+    selectionPill.remove();
+    spacingContainer.remove();
+    parentIndicator.remove();
+    for (const line of Object.values(pinLines)) line.remove();
+    for (const g of snapGuidePool) { g.line.remove(); g.label.remove(); }
+    for (const pos of ALL_POSITIONS) handleEls[pos].remove();
+  }
+
+  /** Programmatically select an element (e.g. from the element tree) */
+  function selectElement(el: Element) {
+    selectedElement = el;
+    selectionLabelHidden = false;
+    if (resizeObserver) {
+      resizeObserver.disconnect();
+      resizeObserver.observe(el);
+    }
+    showSelection();
+    hideHighlight();
+    hoveredElement = null;
+    callbacks.onSelect(el);
+  }
+
+  /** Programmatically show hover highlight on an element */
+  function highlightElement(el: Element | null) {
+    if (el) {
+      updateHighlight(el);
+    } else {
+      hideHighlight();
+    }
+  }
+
+  function suspend() {
+    suspended = true;
+    hideHighlight();
+    selectionPill.style.display = "none";
+    // Keep selection border visible but hide handles, badge, parent indicator
+    selectionLabel.style.display = "none";
+    selection.style.pointerEvents = "none";
+    selection.style.cursor = "";
+    parentIndicator.style.display = "none";
+    hidePinLines();
+    hideHandles();
+    // Remove cursor override to allow text cursor during editing
+    cursorStyle.textContent = "";
+  }
+  function resume() {
+    suspended = false;
+    cursorStyle.textContent = "* { cursor: default !important; }";
+    if (selectedElement) showSelection();
+  }
+
+  /** Update pin lines externally (called by PropertyPanel when pins change) */
+  function updatePinLines(authored: { top: boolean; right: boolean; bottom: boolean; left: boolean }) {
+    cachedPinState = authored;
+    if (!selectedElement) return;
+    const rect = selectedElement.getBoundingClientRect();
+    const parent = selectedElement.parentElement;
+    if (!parent || parent === document.body || parent === document.documentElement) return;
+    const pr = parent.getBoundingClientRect();
+    if (authored.top || authored.right || authored.bottom || authored.left) {
+      showPinLines(rect, pr, authored);
+    } else {
+      hidePinLines();
+    }
+  }
+
+  // SVG cursor with drop shadow — use base64 to avoid # encoding issues in data URIs
+  const commentCursorSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none"><defs><filter id="s" x="2" y="8" width="23" height="23" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB"><feFlood flood-opacity="0" result="a"/><feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="b"/><feOffset dy="1"/><feGaussianBlur stdDeviation="1.5"/><feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.35 0"/><feBlend in2="a" result="c"/><feBlend in="SourceGraphic" in2="c" result="d"/></filter></defs><g filter="url(#s)"><path fill-rule="evenodd" clip-rule="evenodd" d="M5 18.5C5 13.8056 8.80558 10 13.5 10C18.1944 10 22 13.8056 22 18.5C22 23.1944 18.1944 27 13.5 27H7.5C6.11929 27 5 25.8807 5 24.5V18.5Z" fill="white"/></g><path fill-rule="evenodd" clip-rule="evenodd" d="M6 18.5C6 14.3579 9.35786 11 13.5 11C17.6421 11 21 14.3579 21 18.5C21 22.6421 17.6421 26 13.5 26H7.5C6.67157 26 6 25.3284 6 24.5V18.5ZM13.5 25H7.5C7.22386 25 7 24.7761 7 24.5V18.5C7 14.9101 9.91015 12 13.5 12C17.0899 12 20 14.9101 20 18.5C20 22.0899 17.0899 25 13.5 25Z" fill="black"/></svg>`;
+  const commentCursorB64 = typeof btoa === "function" ? btoa(commentCursorSvg) : "";
+  const commentCursorUrl = `url("data:image/svg+xml;base64,${commentCursorB64}") 5 27, pointer`;
+
+  let commentMode = false;
+  function setCommentMode(enabled: boolean) {
+    commentMode = enabled;
+    if (enabled) {
+      clearSelection();
+      cursorStyle.textContent = `* { cursor: ${commentCursorUrl} !important; }`;
+    } else if (active) {
+      cursorStyle.textContent = "* { cursor: default !important; }";
+    }
+  }
+
+  return { activate, deactivate, destroy, hideHighlight, clearSelection, selectElement, highlightElement, refreshSelection: showSelection, updatePinLines, suspend, resume, showScopeHighlights, hideScopeHighlights, setCommentMode };
+}
+
+// ===========================================================================
+// Public wrapper API (Justify-specific, not in Retune)
+// ---------------------------------------------------------------------------
+// A thin, framework-free adapter over createPicker() exposing the clean
+// init/onSelect/onHover/setSelected/destroy surface ManipulateMode will wire
+// into. It owns shadow-host creation + isolation CSS so the picker is usable
+// standalone, and enriches onSelect with a stable CSS selector via identifier.ts.
+// ===========================================================================
+
+export interface PickerSelectInfo {
+  element: Element;
+  /** Stable, re-selecting CSS selector from core/selector/identifier.ts. */
+  selector: string;
+}
+
+export interface PickerHoverInfo {
+  element: Element;
+  rect: DOMRect;
+}
+
+export interface PickerInitOpts {
+  /** Existing shadow root to render overlay chrome into. If omitted, the Picker
+   *  creates its own isolated `data-justify-host` shadow host on documentElement. */
+  root?: ShadowRoot;
+  /** Start in comment mode (click reports selection without selection chrome). */
+  commentMode?: boolean;
+  onSelect?: (info: PickerSelectInfo) => void;
+  onHover?: (info: PickerHoverInfo) => void;
+  onDoubleClick?: (element: Element) => void;
+  onCancel?: () => void;
+  /** Block a page-element click (e.g. unsaved popover). */
+  shouldBlockClick?: () => boolean;
+  /** Live-edit passthroughs - preview-style, NOT hard-wired to an engine. */
+  onResize?: PickerCallbacks["onResize"];
+  onResizePreview?: PickerCallbacks["onResizePreview"];
+  onReposition?: PickerCallbacks["onReposition"];
+  onRepositionPreview?: PickerCallbacks["onRepositionPreview"];
+  onCanvasReorder?: PickerCallbacks["onCanvasReorder"];
+  onCanvasReparent?: PickerCallbacks["onCanvasReparent"];
+}
+
+/** CSS the snap-guide / snap-label / spacing visuals depend on (ported verbatim
+ *  from Retune overlay-css, retune-* -> justify-*). Inlined so the module is
+ *  self-contained when it creates its own shadow host. */
+const PICKER_OVERLAY_CSS = `
+:host { --justify-red: #D97757; --justify-blue: #D97757; }
+.justify-snap-guide { position: fixed; pointer-events: none; z-index: 2147483645; background: var(--justify-red); display: none; }
+.justify-snap-guide.visible { display: block; }
+.justify-snap-label { position: fixed; pointer-events: none; z-index: 2147483646; font-size: 10px; font-weight: 500; color: #fff; white-space: nowrap; background: var(--justify-red); padding: 1px 4px; border-radius: 2px; opacity: 0; transition: opacity 100ms ease; }
+.justify-snap-label.visible { opacity: 1; transition: none; }
+`;
+
+function injectOverlayCss(root: ShadowRoot): CSSStyleSheet | null {
+  try {
+    const sheet = new CSSStyleSheet();
+    sheet.replaceSync(PICKER_OVERLAY_CSS);
+    root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];
+    return sheet;
+  } catch {
+    // Fallback for environments without constructable stylesheets
+    const style = document.createElement("style");
+    style.textContent = PICKER_OVERLAY_CSS.replace(/:host/g, ":host, :root");
+    root.appendChild(style);
+    return null;
+  }
+}
+
+export class Picker {
+  private handle: ReturnType<typeof createPicker> | null = null;
+  private host: HTMLElement | null = null;
+  private ownHost = false;
+  // When init() is given an external root, track the stylesheet we injected so
+  // destroy() can remove it (prevents accumulation across activate/deactivate).
+  private injectedRoot: ShadowRoot | null = null;
+  private injectedSheet: CSSStyleSheet | null = null;
+  private selectCb: ((info: PickerSelectInfo) => void) | null = null;
+  private hoverCb: ((info: PickerHoverInfo) => void) | null = null;
+  private opts: PickerInitOpts = {};
+
+  /** Register the selection callback. Safe to call before or after init(). */
+  onSelect(cb: (info: PickerSelectInfo) => void): this { this.selectCb = cb; return this; }
+  /** Register the hover callback. Safe to call before or after init(). */
+  onHover(cb: (info: PickerHoverInfo) => void): this { this.hoverCb = cb; return this; }
+
+  /** Build the picker, mount its chrome, and activate it. */
+  init(opts: PickerInitOpts = {}): this {
+    if (this.handle) return this; // already initialized
+    this.opts = opts;
+    if (opts.onSelect) this.selectCb = opts.onSelect;
+    if (opts.onHover) this.hoverCb = opts.onHover;
+
+    let root = opts.root;
+    if (!root) {
+      const host = document.createElement("div");
+      host.setAttribute("data-justify-host", "");
+      host.style.cssText =
+        "position:fixed;top:0;left:0;width:0;height:0;z-index:2147483647;pointer-events:none;";
+      const sr = host.attachShadow({ mode: "open" });
+      injectOverlayCss(sr);
+      document.documentElement.appendChild(host);
+      this.host = host;
+      this.ownHost = true;
+      root = sr;
+    } else {
+      this.injectedRoot = root;
+      this.injectedSheet = injectOverlayCss(root);
+    }
+
+    this.handle = createPicker(root, {
+      onHover: (element, rect) => this.hoverCb?.({ element, rect }),
+      onSelect: (element) => {
+        let selector = "";
+        try { selector = getSelector(element); } catch { /* selector best-effort */ }
+        this.selectCb?.({ element, selector });
+      },
+      onCancel: () => this.opts.onCancel?.(),
+      onDoubleClick: this.opts.onDoubleClick,
+      shouldBlockClick: this.opts.shouldBlockClick,
+      onResize: this.opts.onResize,
+      onResizePreview: this.opts.onResizePreview,
+      onReposition: this.opts.onReposition,
+      onRepositionPreview: this.opts.onRepositionPreview,
+      onCanvasReorder: this.opts.onCanvasReorder,
+      onCanvasReparent: this.opts.onCanvasReparent,
+    });
+
+    this.handle.activate();
+    if (opts.commentMode) this.handle.setCommentMode(true);
+    return this;
+  }
+
+  /** Programmatically select an element (e.g. from a DOM tree row). */
+  setSelected(el: Element): void { this.handle?.selectElement(el); }
+  /** Show/clear the hover highlight without selecting. */
+  highlight(el: Element | null): void { this.handle?.highlightElement(el); }
+  clearSelection(): void { this.handle?.clearSelection(); }
+  setCommentMode(on: boolean): void { this.handle?.setCommentMode(on); }
+  /** Temporarily suppress hover/handles (e.g. during inline text editing). */
+  suspend(): void { this.handle?.suspend(); }
+  resume(): void { this.handle?.resume(); }
+  showScopeHighlights(selector: string, exclude: Element | null): void {
+    this.handle?.showScopeHighlights(selector, exclude);
+  }
+  hideScopeHighlights(): void { this.handle?.hideScopeHighlights(); }
+  updatePinLines(authored: { top: boolean; right: boolean; bottom: boolean; left: boolean }): void {
+    this.handle?.updatePinLines(authored);
+  }
+  /** Stop listening but keep chrome alive (re-init not supported; use destroy()). */
+  deactivate(): void { this.handle?.deactivate(); }
+  /** Escape from the raw handle if a caller needs the full createPicker surface. */
+  raw(): ReturnType<typeof createPicker> | null { return this.handle; }
+
+  /** Full teardown: removes listeners, chrome, and the owned shadow host. */
+  destroy(): void {
+    this.handle?.destroy();
+    this.handle = null;
+    // Remove the overlay CSS we injected into an external root (own-host roots
+    // are discarded wholesale below).
+    if (this.injectedRoot && this.injectedSheet) {
+      this.injectedRoot.adoptedStyleSheets =
+        this.injectedRoot.adoptedStyleSheets.filter((s) => s !== this.injectedSheet);
+    }
+    this.injectedRoot = null;
+    this.injectedSheet = null;
+    if (this.ownHost && this.host) { this.host.remove(); this.host = null; }
+    this.ownHost = false;
+  }
+}

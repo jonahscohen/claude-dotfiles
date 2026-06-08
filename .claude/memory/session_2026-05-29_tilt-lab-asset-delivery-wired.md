@@ -3,6 +3,7 @@ name: tilt-lab asset delivery WIRED (the real functional gap closed)
 description: asset-core wired real asset delivery into the runtime - 9 assets.ts modules, effect-assets registry, compositor/element pass real assets, esbuild dataurl loader, 10 generated sample images. tsc+vitest+both-bundlers green. Effects now receive real content instead of fallbacks.
 type: project
 relates_to: [session_2026-05-29_tilt-lab-asset-gap-FAILURE.md, session_2026-05-29_tilt-lab-restore-DONE.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-05-29. tilt-assets team, task #1 (asset-core) done.

@@ -38,6 +38,14 @@ mkdir -p "$INSTALL_DIST"
 cp "$REPO_DIST/justify-core.js" "$REPO_DIST/justify-core.js.map" "$INSTALL_DIST/"
 echo "synced -> $INSTALL_DIST/justify-core.js"
 
+# Sync the Claudebar sprite sheets the daemon serves at /spark-<name>.svg. The
+# core fetches these to animate the status icon; if they are missing the icon
+# 404s and renders blank.
+for svg in "$REPO_DIST"/spark-*.svg; do
+  [ -f "$svg" ] && cp "$svg" "$INSTALL_DIST/"
+done
+echo "synced -> $INSTALL_DIST/spark-*.svg"
+
 if [ "$CORE_ONLY" -eq 0 ]; then
   for adapter in react vue svelte; do
     if [ -f "$REPO_DIST/justify-${adapter}.js" ]; then

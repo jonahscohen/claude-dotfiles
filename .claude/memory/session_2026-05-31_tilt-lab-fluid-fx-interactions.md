@@ -2,6 +2,7 @@
 name: tilt-lab fluid/fractal-glass/halftone interactions ported + post-overlay variants
 description: Wired the regent pointer interactions into fluid/fractal-glass/halftone and added fractal-glass-post / halftone-post overlay variants consuming the compositor's onBeneath source
 type: project
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah

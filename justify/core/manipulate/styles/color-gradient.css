@@ -1,0 +1,170 @@
+/*
+ * color-gradient.css - styling for the Phase 5 color/gradient controls:
+ * ColorInput, ColorPicker (cp), FloatingDialog shell, GradientEditor,
+ * GradientStopBar. Ported verbatim from Retune overlay/src/overlay/overlay.css.
+ * References shared --retune-* tokens BY NAME. Hard-coded hex / rgba inside these
+ * rules (#D97757 chit, #ccc/#e0e0e0/#fff checkerboards, rgba(217, 119, 87,...) blue
+ * glow focus, #1e1e1e) is mirrored verbatim per plan open-question (o) and is
+ * intentionally NOT tokenized. The blue-glow focus ring on color/gradient inputs
+ * is a deliberate per-control treatment distinct from the core inputs' 1px outline.
+ */
+
+/* ===== ColorInput (split: [swatch|hex] [opacity%]) ===== */
+.retune-color-row { display: flex; gap: 1px; flex: 1; min-width: 0; position: relative; }
+.retune-color-hex-section {
+  display: flex; align-items: center; flex: 1; min-width: 0; height: 32px;
+  position: relative; background: var(--retune-surface-hover); border-radius: 8px 0 0 8px;
+}
+.retune-color-swatch { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; }
+.retune-color-swatch-inner { width: 20px; height: 20px; border-radius: 2px; position: relative; overflow: hidden; }
+.retune-color-hex-input {
+  flex: 1; min-width: 0; height: 32px; background: transparent; border: none;
+  font-family: JustifyMono, ui-monospace, monospace; font-size: 11px; font-weight: 500; color: var(--retune-text);
+  outline: none; padding: 0;
+}
+.retune-color-hex-input:focus { outline: none; }
+.retune-color-hex-section:focus-within { outline: 1px solid var(--retune-border); outline-offset: -1px; }
+.retune-color-hex-input::selection { background: var(--retune-blue-bg); color: var(--retune-text); }
+.retune-color-opacity-section {
+  display: flex; align-items: center; gap: 2px; padding: 0 8px 0 4px; height: 32px;
+  background: var(--retune-surface-hover); border-radius: 0 8px 8px 0; flex-shrink: 0;
+}
+.retune-color-opacity-input {
+  width: 28px; height: 32px; background: transparent; border: none; font-family: JustifyMono, ui-monospace, monospace;
+  font-size: 11px; font-weight: 500; color: var(--retune-text); text-align: center;
+  outline: none; padding: 0; -moz-appearance: textfield;
+}
+.retune-color-opacity-input:focus { outline: none; }
+.retune-color-opacity-section:focus-within { outline: 1px solid var(--retune-border); outline-offset: -1px; }
+.retune-color-opacity-input::-webkit-outer-spin-button,
+.retune-color-opacity-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.retune-color-opacity-unit { font-size: 10px; font-weight: 500; color: var(--retune-text-tertiary); }
+
+/* ===== FloatingDialog shell ===== */
+.retune-floating-dialog {
+  font-family: JustifySans, system-ui, sans-serif;
+  background: var(--retune-surface);
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.12), 0 8px 24px rgba(0, 0, 0, 0.08);
+  overflow: hidden; display: flex; flex-direction: column;
+  z-index: 2147483647; pointer-events: auto;
+  animation: retune-dialog-enter 150ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+@keyframes retune-dialog-enter {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+.retune-floating-dialog-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 8px 0 12px; }
+.retune-floating-dialog-title-area { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
+.retune-floating-dialog-title { font-size: 12px; font-weight: 500; color: var(--retune-text); }
+.retune-floating-dialog-tab {
+  height: 24px; padding: 0 8px; border-radius: 5px; font-size: 11px; line-height: 16px;
+  letter-spacing: 0.055px; white-space: nowrap; border: none; background: none; cursor: pointer;
+  transition: color 0.15s, background-color 0.15s; font-weight: 450;
+  color: var(--retune-text-secondary); font-family: inherit;
+}
+.retune-floating-dialog-tab:hover { background: var(--retune-input-bg); }
+.retune-floating-dialog-tab-active { background: var(--retune-surface-hover); font-weight: 550; color: var(--retune-text); }
+.retune-floating-dialog-tab-active:hover { background: var(--retune-surface-hover); }
+.retune-floating-dialog-tab-single { font-weight: 550; color: var(--retune-text); cursor: inherit; }
+.retune-floating-dialog-tab-single:hover { background: none; }
+.retune-floating-dialog-close {
+  width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none; color: var(--retune-text-tertiary); cursor: pointer;
+  border-radius: 8px; padding: 0; flex-shrink: 0; transition: background 0.15s ease, color 0.15s ease;
+}
+.retune-floating-dialog-close:hover { color: var(--retune-text); background: var(--retune-surface-active); }
+.retune-floating-dialog-search { padding: 8px; }
+.retune-floating-dialog-search-input {
+  width: 100%; height: 32px; background: var(--retune-surface-hover); border: none; border-radius: 8px;
+  padding: 0 10px; font-size: 12px; font-family: inherit; color: var(--retune-text); outline: none; box-sizing: border-box;
+}
+.retune-floating-dialog-search-input::placeholder { color: var(--retune-text-tertiary); }
+.retune-floating-dialog-search-input:focus { box-shadow: 0 0 0 2px rgba(217, 119, 87, 0.15); }
+.retune-floating-dialog-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+/* ===== ColorPicker content ===== */
+.retune-cp-sv-wrap { padding: 12px 12px 0 12px; }
+.retune-cp-sv { position: relative; width: 100%; aspect-ratio: 1; cursor: crosshair; touch-action: none; border-radius: 8px; }
+.retune-cp-sv-white, .retune-cp-sv-black { border-radius: inherit; }
+.retune-cp-sv-white { position: absolute; inset: 0; background: linear-gradient(to right, #fff, transparent); }
+.retune-cp-sv-black { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent, #000); }
+.retune-cp-handle { position: absolute; pointer-events: none; transform: translate(-50%, -50%); will-change: transform; }
+.retune-cp-handle-inner {
+  width: 14px; height: 14px; border-radius: 50%; border: 3px solid white;
+  box-shadow: 0 0 0.5px rgba(0, 0, 0, 0.2), 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+.retune-cp-sliders { display: flex; align-items: center; gap: 8px; padding: 10px 12px; }
+.retune-cp-eyedropper {
+  display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex-shrink: 0;
+  background: transparent; border: none; border-radius: 8px; color: var(--retune-text-tertiary);
+  cursor: pointer; padding: 0; transition: background 0.15s ease, color 0.15s ease;
+}
+.retune-cp-eyedropper:hover { color: var(--retune-text); background: var(--retune-surface-active); }
+.retune-cp-slider-tracks { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
+.retune-cp-hue {
+  position: relative; height: 14px; border-radius: 7px;
+  background: linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
+  cursor: pointer; touch-action: none; overflow: visible; box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.1);
+}
+.retune-cp-alpha { position: relative; height: 14px; border-radius: 7px; cursor: pointer; touch-action: none; overflow: visible; box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.1); }
+.retune-cp-alpha-checker { position: absolute; inset: 0; background-image: repeating-conic-gradient(#e0e0e0 0% 25%, #fff 0% 50%); background-size: 8px 8px; border-radius: 7px; }
+.retune-cp-alpha-gradient { position: absolute; inset: 0; border-radius: 7px; }
+.retune-cp-inputs { display: flex; gap: 4px; padding: 0 12px 10px; }
+.retune-cp-input-group { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.retune-cp-input-group:first-child { flex: 1.8; }
+.retune-cp-label { font-size: 9px; font-weight: 500; color: var(--retune-text-tertiary); text-transform: uppercase; letter-spacing: -0.005em; padding-left: 2px; }
+.retune-cp-input {
+  height: 32px; border-radius: 8px; background: var(--retune-surface-hover); border: none; font-family: inherit;
+  font-size: 11px; font-weight: 500; color: var(--retune-text); padding: 0 6px; outline: none; width: 100%; min-width: 0;
+}
+.retune-cp-input:focus { outline: none; box-shadow: 0 0 0 1.5px rgba(217, 119, 87, 0.5); }
+.retune-cp-input::selection { background: var(--retune-blue-bg); color: var(--retune-text); }
+
+/* ===== GradientEditor ===== */
+.retune-gradient-editor { display: flex; flex-direction: column; gap: 8px; }
+.retune-gradient-editor > * { padding: 0px 8px 0px 16px; }
+.retune-gradient-bar-wrap { position: relative; height: 32px; cursor: crosshair; margin: 0px 48px 0px 16px; padding: 0 !important; }
+.retune-gradient-bar { position: absolute; bottom: 0; left: 0; right: 0; height: 32px; border-radius: 8px; overflow: hidden; border: 1px solid var(--retune-border); }
+.retune-gradient-bar-checker {
+  position: absolute; inset: 0;
+  background-image: linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%),
+    linear-gradient(45deg, #ccc 25%, transparent 25%, transparent 75%, #ccc 75%);
+  background-size: 6px 6px; background-position: 0 0, 3px 3px;
+}
+.retune-gradient-bar-fill { position: absolute; inset: 0; }
+.retune-gradient-stop-handle { position: absolute; top: 0px; transform: translateX(-50%); cursor: grab; touch-action: none; }
+.retune-gradient-stop-handle:active { cursor: grabbing; }
+.retune-gradient-stop-indicator { display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0 0 0.5px rgba(0,0,0,0.18)) drop-shadow(0 2px 6px rgba(0,0,0,0.12)); }
+.retune-gradient-stop-chit { display: flex; align-items: center; justify-content: center; width: 20px; height: 32px; border-radius: 5px; }
+.retune-gradient-stop-chit-color { width: 12px; height: 24px; border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1); }
+.retune-gradient-stop-caret { display: none; }
+.retune-gradient-controls { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.retune-gradient-angle-input {
+  width: 64px; height: 32px; border-radius: 8px; background: var(--retune-surface-hover); border: none;
+  font-family: inherit; font-size: 11px; font-weight: 450; letter-spacing: -0.005em; color: var(--retune-text);
+  padding: 0 8px; text-align: left;
+}
+.retune-gradient-angle-input:focus { outline: none; box-shadow: 0 0 0 1.5px rgba(217, 119, 87, 0.5); }
+.retune-gradient-actions { display: flex; align-items: center; gap: 4px; }
+.retune-gradient-action-btn {
+  display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none;
+  background: transparent; border-radius: 8px; color: var(--retune-text-secondary); cursor: pointer;
+  transition: background-color 0.08s ease, color 0.08s ease;
+}
+.retune-gradient-action-btn:hover { background: var(--retune-surface-hover); color: var(--retune-text); }
+.retune-gradient-action-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.retune-gradient-action-btn:disabled:hover { background: transparent; color: var(--retune-text-secondary); }
+.retune-gradient-stops-header { display: flex; align-items: center; justify-content: space-between; }
+.retune-gradient-stops-label { font-size: 11px; font-weight: 550; letter-spacing: -0.005em; color: var(--retune-text); }
+.retune-gradient-stops-list { display: flex; flex-direction: column; gap: 8px; }
+.retune-gradient-stop-row { display: flex; align-items: flex-start; gap: 8px; padding: 0; }
+.retune-gradient-stop-pos { position: relative; display: flex; align-items: center; width: 48px; flex-shrink: 0; }
+.retune-gradient-stop-pos-input {
+  width: 100%; height: 32px; border-radius: 8px; background: var(--retune-surface-hover); border: none;
+  font-family: inherit; font-size: 11px; font-weight: 450; letter-spacing: -0.005em; color: var(--retune-text);
+  padding: 0 18px 0 6px; text-align: left;
+}
+.retune-gradient-stop-pos-input:focus { outline: none; box-shadow: 0 0 0 1.5px rgba(217, 119, 87, 0.5); }
+.retune-gradient-stop-pos-unit { position: absolute; right: 6px; font-size: 11px; color: var(--retune-text-tertiary); pointer-events: none; }
+.retune-gradient-stop-color { flex: 1; min-width: 0; }

@@ -3,6 +3,7 @@ name: PLAN + TCC BLOCKER - tilt-lab self-contained export package + "open tiltla
 description: Jonah approved two equal-value builds (portable embed-kit export so a tilt-lab stack renders when pasted into ANY repo; a fuzzy-trigger skill to launch tilt-lab from prompts like "open tiltlab"/"build a tilt"/"shader wizard"). Build BLOCKED mid-start by macOS Full Disk Access (TCC) loss - harness Read/Edit/Write + bash content-reads of pre-existing files fail "Operation not permitted"; new-file writes still work. Full design captured here so resume is mechanical once FDA restored.
 type: project
 relates_to: [handoff_2026-05-24_sidecoach_taste_validator_tcc_blocked.md, session_2026-06-01_no-flicker-incremental-params.md, feedback_debugging_trace_first.md]
+superseded_by: session_2026-06-05_tilt-lab-consolidated.md
 ---
 
 Collaborator: Jonah. 2026-06-03.

@@ -3,6 +3,7 @@ import { enableEventIntercept, disableEventIntercept, getElementAtPoint } from '
 import { generateSelector, getComputedStylesSubset, getNearbyText, getAccessibilityInfo } from '../element-utils';
 import { LassoSelect as Lasso } from '../annotate/lasso';
 import { MultiSelect, SelectedElement } from './multi-select';
+import { createLayerIconSvg } from '../selector/layer-icon';
 
 export { InlinePrompt } from './inline-prompt';
 export { MultiSelect } from './multi-select';
@@ -232,7 +233,7 @@ export class PromptMode {
     enableEventIntercept();
 
     this._hLabel = document.createElement("div");
-    this._hLabel.style.cssText = "position:fixed;pointer-events:none;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);font-size:11px;font-family:JustifySans,system-ui,sans-serif;font-weight:500;padding:5px 14px;border-radius:20px;z-index:2147483647;opacity:0;transition:opacity 80ms ease;box-shadow:0 2px 8px rgba(0,0,0,0.3);white-space:nowrap;display:flex;align-items:center;gap:6px";
+    this._hLabel.style.cssText = "position:fixed;pointer-events:none;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);font-size:11px;font-family:JustifySans,system-ui,sans-serif;font-weight:500;padding:5px 14px 5px 6px;border-radius:20px;z-index:2147483647;opacity:0;transition:opacity 80ms ease;box-shadow:0 2px 8px rgba(0,0,0,0.3);white-space:nowrap;display:flex;align-items:center;gap:6px";
     this.overlay.getContainer().appendChild(this._hLabel);
 
     this._selColor = "#D97757";
@@ -326,15 +327,10 @@ export class PromptMode {
           _st.box.style.top = _sr.top + "px";
           _st.box.style.width = _sr.width + "px";
           _st.box.style.height = _sr.height + "px";
-          var _lbX = _sr.right + 4,
-            _lbW = _st.label.offsetWidth || 100;
-          if (_lbX + _lbW > window.innerWidth) _lbX = _sr.left - _lbW - 4;
-          if (_lbX < 4) _lbX = 4;
-          _st.label.style.left = _lbX + "px";
-          _st.label.style.top = _sr.top + "px";
+          this._positionSelLabel(_st.label, _sr);
         }
         if (this.prompt && this.prompt.isVisible()) {
-          var _mb2 = 0,
+          var _mb2 = -Infinity,
             _be2: Element | null = null;
           for (var _si2 = 0; _si2 < this._selTracked.length; _si2++) {
             var _sr2 = this._selTracked[_si2].el.getBoundingClientRect();
@@ -544,20 +540,7 @@ export class PromptMode {
           _cs = getComputedStyle(t),
           _disp = _cs.display || "";
 
-        var _svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        _svg.setAttribute("width", "14");
-        _svg.setAttribute("height", "14");
-        _svg.setAttribute("viewBox", "0 0 24 24");
-        _svg.setAttribute("fill", "none");
-        _svg.setAttribute("stroke", "currentColor");
-        _svg.setAttribute("stroke-width", "2");
-        _svg.setAttribute("stroke-linecap", "round");
-        _svg.setAttribute("stroke-linejoin", "round");
-
-        var _d = getElementIcon(_tag, _role, _disp);
-        var _p = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        _p.setAttribute("d", _d);
-        _svg.appendChild(_p);
+        var _svg = createLayerIconSvg(t as Element, 14);
         this._hLabel.appendChild(_svg);
 
         var _cn = t.className && typeof t.className === "string" ? t.className.split(/\s+/)[0] : "",
@@ -702,6 +685,22 @@ export class PromptMode {
     return this.active;
   }
 
+  // Position a selection label centered horizontally above its element. Keeps it
+  // on-screen while the element is in view; lets it scroll off once the element
+  // leaves (consistent with the box/input scroll behavior).
+  _positionSelLabel(label: HTMLElement, rect: DOMRect) {
+    var w = label.offsetWidth || label.getBoundingClientRect().width || 100;
+    var h = label.offsetHeight || 28;
+    var vpW = window.innerWidth;
+    var x = rect.left + rect.width / 2 - w / 2;
+    if (x < 4) x = 4;
+    if (x + w > vpW - 4) x = vpW - w - 4;
+    var y = rect.top - h - 6;
+    if (rect.bottom > 0 && rect.top < window.innerHeight && y < 4) y = 4;
+    label.style.left = x + "px";
+    label.style.top = y + "px";
+  }
+
   _showSelOverlays() {
     if (this._selOverlays) this._selOverlays.forEach(function (o: HTMLElement) {
       o.remove();
@@ -721,12 +720,12 @@ export class PromptMode {
           el = s.domNode as HTMLElement,
           r = el.getBoundingClientRect();
         var o = document.createElement("div") as HTMLDivElement;
-        o.style.cssText = "position:fixed;left:" + r.left + "px;top:" + r.top + "px;width:" + r.width + "px;height:" + r.height + "px;background:" + c + "26;border:2px solid " + c + "66;border-radius:5px;pointer-events:none;z-index:2147483643";
+        o.style.cssText = "position:fixed;left:" + r.left + "px;top:" + r.top + "px;width:" + r.width + "px;height:" + r.height + "px;background:" + c + "26;border:1px solid " + c + "66;border-radius:0;pointer-events:none;z-index:2147483643";
         self.overlay.getContainer().appendChild(o);
         self._selOverlays.push(o);
 
         var lb = document.createElement("div") as HTMLDivElement;
-        lb.style.cssText = self._showLabels !== false ? "position:fixed;left:" + (r.right + 4) + "px;top:" + r.top + "px;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);font-size:11px;font-family:JustifySans,system-ui,sans-serif;font-weight:500;padding:4px 8px 4px 12px;border-radius:20px;pointer-events:all;z-index:2147483644;display:flex;align-items:center;gap:5px;box-shadow:0 2px 6px rgba(0,0,0,0.3);white-space:nowrap;cursor:default" : "position:fixed;left:" + (r.right + 4) + "px;top:" + r.top + "px;width:24px;height:24px;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:50%;pointer-events:all;z-index:2147483644;display:flex;align-items:center;justify-content:center;cursor:default;box-shadow:0 2px 6px rgba(0,0,0,0.3)";
+        lb.style.cssText = self._showLabels !== false ? "position:fixed;left:" + (r.right + 4) + "px;top:" + r.top + "px;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.85);font-size:11px;font-family:JustifySans,system-ui,sans-serif;font-weight:500;padding:4px 8px 4px 6px;border-radius:20px;pointer-events:all;z-index:2147483644;display:flex;align-items:center;gap:5px;box-shadow:0 2px 6px rgba(0,0,0,0.3);white-space:nowrap;cursor:default" : "position:fixed;left:" + (r.right + 4) + "px;top:" + r.top + "px;width:24px;height:24px;background:#1a1a1a;border:1px solid rgba(255,255,255,0.1);border-radius:50%;pointer-events:all;z-index:2147483644;display:flex;align-items:center;justify-content:center;cursor:default;box-shadow:0 2px 6px rgba(0,0,0,0.3)";
 
         if (self._showLabels !== false) {
           var tag = el.tagName.toLowerCase(),
@@ -734,20 +733,7 @@ export class PromptMode {
             cs2 = getComputedStyle(el),
             disp = cs2.display || "";
 
-          var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-          svg.setAttribute("width", "12");
-          svg.setAttribute("height", "12");
-          svg.setAttribute("viewBox", "0 0 24 24");
-          svg.setAttribute("fill", "none");
-          svg.setAttribute("stroke", "currentColor");
-          svg.setAttribute("stroke-width", "2");
-          svg.setAttribute("stroke-linecap", "round");
-          svg.setAttribute("stroke-linejoin", "round");
-
-          var d = getElementIcon(tag, role, disp);
-          var p = document.createElementNS("http://www.w3.org/2000/svg", "path");
-          p.setAttribute("d", d);
-          svg.appendChild(p);
+          var svg = createLayerIconSvg(el, 12);
           lb.appendChild(svg);
 
           var cn = el.className && typeof el.className === "string" ? el.className.split(/\s+/)[0] : "",
@@ -761,7 +747,8 @@ export class PromptMode {
         }
 
         var xb = document.createElement("button");
-        xb.style.cssText = "border:none;background:none;color:#ef4444;cursor:pointer;padding:0;margin:0;display:flex;align-items:center;justify-content:center;font-size:0;line-height:0";
+        // Padding grows the clickable hit area (~20px); negative margins keep the pill compact.
+        xb.style.cssText = "border:none;background:none;color:#ef4444;cursor:pointer;padding:5px;margin:-5px -3px;display:flex;align-items:center;justify-content:center;font-size:0;line-height:0;border-radius:50%";
 
         var xs = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         xs.setAttribute("width", "10");
@@ -801,9 +788,18 @@ export class PromptMode {
           self.multiSelect.remove(s);
           self._showSelOverlays();
         });
+        // Divider between the label text and the remove (x) button: ([] label | x)
+        if (self._showLabels !== false) {
+          var dv = document.createElement("div");
+          // Full-height divider (stretches edge-to-edge via negative vertical margins
+          // that cancel the pill's 4px top/bottom padding), with extra space before it.
+          dv.style.cssText = "width:1px;align-self:stretch;margin:-4px 0 -4px 5px;background:rgba(255,255,255,0.1);flex:none";
+          lb.appendChild(dv);
+        }
         lb.appendChild(xb);
 
         self.overlay.getContainer().appendChild(lb);
+        self._positionSelLabel(lb, r);
         self._selOverlays.push(lb);
         self._selTracked.push({ el: el, box: o, label: lb });
       })(i);
@@ -811,7 +807,9 @@ export class PromptMode {
 
     if (this._selTracked.length > 0) {
       var _update = function () {
-        var _mb = 0,
+        // Track true max-bottom (may be negative when scrolled above the viewport)
+        // so the input follows the selection off-screen instead of jamming at top.
+        var _mb = -Infinity,
           _ml = Infinity;
         for (var j = 0; j < self._selTracked.length; j++) {
           var tr = self._selTracked[j],
@@ -820,16 +818,7 @@ export class PromptMode {
           tr.box.style.top = rect.top + "px";
           tr.box.style.width = rect.width + "px";
           tr.box.style.height = rect.height + "px";
-          var _lbX = rect.right + 4,
-            _lbW = tr.label.offsetWidth || tr.label.getBoundingClientRect().width || 100,
-            _vpW = window.innerWidth;
-          if (_lbX + _lbW > _vpW - 4) _lbX = rect.left - _lbW - 4;
-          if (_lbX < 4) _lbX = 4;
-          var _lbY = rect.top;
-          if (_lbY < 4) _lbY = 4;
-          if (_lbY + 24 > window.innerHeight) _lbY = window.innerHeight - 28;
-          tr.label.style.left = _lbX + "px";
-          tr.label.style.top = _lbY + "px";
+          self._positionSelLabel(tr.label, rect);
           if (rect.bottom > _mb) _mb = rect.bottom;
           if (rect.left < _ml) _ml = rect.left;
         }
@@ -857,7 +846,7 @@ export class PromptMode {
         if (self.prompt && self.prompt.isVisible() && self._selTracked.length > 0) {
           self.prompt.container.style.transition = "none";
           var _botTr: Element | null = null,
-            _botBot = 0;
+            _botBot = -Infinity;
           for (var _bi = 0; _bi < self._selTracked.length; _bi++) {
             var _br = self._selTracked[_bi].el.getBoundingClientRect();
             if (_br.bottom > _botBot) {
@@ -1273,6 +1262,10 @@ export class PromptMode {
       clearAllBtn.style.borderColor = "rgba(255,255,255,0.12)";
     });
     clearAllBtn.addEventListener("click", function (this: PromptMode) {
+      // Discarding all tasks: revert any Manipulate live previews to original.
+      if (this._changeQueue.some(function (it: any) { return it && it._manipulate; })) {
+        (this._core as any)?.revertManipulatePreview();
+      }
       this._changeQueue.length = 0;
       this._persistQueue();
       // Slide-fade panel out
@@ -1423,6 +1416,10 @@ export class PromptMode {
     confirmBtn.addEventListener("click", function (this: PromptMode) {
       d.remove();
       this._changeQueue.splice(idx, 1);
+      // Discarding a Manipulate task: revert its live preview to the original look.
+      if ((item as any)?._manipulate && (item as any).elements?.[0]?.selector) {
+        (this._core as any)?.revertManipulatePreview((item as any).elements[0].selector);
+      }
       this._persistQueue();
       this._updateQueueBadge();
       if (this._queuePanel) {
@@ -1622,7 +1619,12 @@ export class PromptMode {
           setTimeout(function () { alert.style.height = "0"; alert.style.margin = "0"; alert.style.padding = "0"; alert.style.overflow = "hidden"; }, 200);
         } else {
           alert.style.height = "";
-          alert.style.margin = "";
+          // Restore the real inset margin explicitly. If the panel was created
+          // while watch was active, the collapse path set inline margin to "0";
+          // clearing it with "" would fall back to 0 (no stylesheet rule), making
+          // the banner span the full panel width on first reveal. Match the base
+          // cssText (and the task row / action buttons) at 16px gutters.
+          alert.style.margin = "0 16px 12px";
           alert.style.padding = "12px 14px";
           alert.style.overflow = "";
           requestAnimationFrame(function () { alert.style.opacity = "1"; alert.style.transform = "translateY(0)"; });
