@@ -1,0 +1,27 @@
+{
+  "name": "lotus-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for the Lotus Figma plugin – bridges Cursor, Claude Code, and other MCP clients to Figma.",
+  "type": "module",
+  "main": "dist/server.js",
+  "bin": {
+    "lotus-mcp": "dist/server.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

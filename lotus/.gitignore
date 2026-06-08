@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment and secrets
+.env
+.env.local
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+firebase-debug.log
+
+# Figma plugin dev
+*.zip
+
+# Claude Code local settings (machine-specific permissions)
+.claude/settings.local.json

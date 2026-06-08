@@ -1,0 +1,20 @@
+{
+  "name": "Lotus",
+  "id": "lotus-ai-design-agent",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/ui.html",
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": [
+      "https://api.anthropic.com",
+      "https://api.openai.com",
+      "https://generativelanguage.googleapis.com"
+    ],
+    "devAllowedDomains": [
+      "http://localhost:9527"
+    ],
+    "reasoning": "BYOK AI provider API calls. MCP bridge uses localhost via devAllowedDomains."
+  },
+  "permissions": ["currentuser"]
+}

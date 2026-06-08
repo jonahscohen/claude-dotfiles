@@ -213,6 +213,17 @@ FILES+=("~/.local/bin/tilt-lab (launcher symlink)\n<repo>/tilt-lab/node_modules/
 DIRS+=("$REPO_DIR/tilt-lab")
 PICKS+=(1)
 
+# lotus - Jonah's AI Figma plugin + MCP bridge, vendored into <repo>/lotus.
+# Built in place (webpack plugin + tsc mcp-server), MCP registered in
+# ~/.claude.json (NOT settings.json). Appended to keep the parallel arrays
+# aligned by construction. Defaults OFF (Figma-specific; opt-in like a tool).
+KEYS+=(lotus)
+TITLES+=("Lotus AI Figma plugin (MCP bridge)")
+DESCS+=("Installs Lotus (Jonah's AI Figma plugin, formerly Chiaroscuro) vendored at <repo>/lotus. npm-installs and builds both halves in place - the Figma plugin (webpack -> dist/code.js) and the MCP bridge server (tsc -> mcp-server/dist/server.js, which exposes MCP tools over stdio to Claude Code AND a WebSocket on port 9527 to the plugin running inside Figma). Registers the 'lotus' MCP server in ~/.claude.json and installs the /lotus skill. Restart Claude Code once after install for the lotus tools to load, then run /lotus to connect Figma. Requires the Lotus plugin imported into Figma via <repo>/lotus/manifest.json.")
+FILES+=("<repo>/lotus/dist/ + mcp-server/dist/ (build)\n<repo>/lotus/node_modules/ (npm install)\n~/.claude/skills/lotus/SKILL.md\n~/.claude.json (MCP registration)")
+DIRS+=("$REPO_DIR/lotus")
+PICKS+=(0)
+
 # Personal components - hidden from public TUI and --help. Surfaced only when
 # the maintainer passes --personal (undocumented, undocumented-on-purpose).
 # Lets one human keep cross-machine sync for ghostty/shaders without exposing
@@ -322,7 +333,7 @@ Usage:
 Components (for --only KEYS):
   Core:     brain, config, memory, statusline, nvm, ampersand
   Channels: discord, voice-input, voice-output
-  Tools:    cmux, sidecoach, reflect, task-list, tilt-lab
+  Tools:    cmux, sidecoach, reflect, task-list, tilt-lab, lotus
   Skills:   skills (bundle), make-interfaces, component-gallery, fontshare,
             motion, design-build, curate, design-references, social-media,
             design-team, visual-effects, icon-source
@@ -658,6 +669,7 @@ detect_component() {
     sidecoach)  [ -f "$CLAUDE_DIR/skills/sidecoach/SKILL.md" ] && echo active || echo not-installed ;;
     tilt-lab)   [ -L "$HOME/.local/bin/tilt-lab" ] && echo active || echo not-installed ;;
     justify)     [ -d "$CLAUDE_DIR/justify" ] && echo active || echo not-installed ;;
+    lotus)       [ -f "$CLAUDE_DIR/skills/lotus/SKILL.md" ] && [ -f "$REPO_DIR/lotus/mcp-server/dist/server.js" ] && echo active || echo not-installed ;;
     # Design peer skills (a la carte). Each detects its own ~/.claude/skills/ dir.
     make-interfaces)   [ -d "$CLAUDE_DIR/skills/make-interfaces-feel-better" ] && echo active || echo not-installed ;;
     component-gallery) [ -d "$CLAUDE_DIR/skills/component-gallery-reference" ] && echo active || echo not-installed ;;
@@ -950,6 +962,22 @@ with open(p, 'w') as f: json.dump(d, f, indent=2); f.write('\n')
   fi
 }
 
+deactivate_lotus() {
+  # Remove the skill and the MCP registration. Leave <repo>/lotus source and its
+  # build/node_modules intact - it is vendored repo content, not a generated
+  # install artifact, and a teammate may re-enable it without a rebuild.
+  rm -rf "$CLAUDE_DIR/skills/lotus"
+  if command -v python3 >/dev/null 2>&1 && [ -f "$HOME/.claude.json" ]; then
+    python3 -c "
+import json
+p = '$HOME/.claude.json'
+with open(p) as f: d = json.load(f)
+d.get('mcpServers', {}).pop('lotus', None)
+with open(p, 'w') as f: json.dump(d, f, indent=2); f.write('\n')
+"
+  fi
+}
+
 deactivate_statusline() {
   [ -L "$CLAUDE_DIR/statusline-command.sh" ] && rm -f "$CLAUDE_DIR/statusline-command.sh"
 }
@@ -1075,6 +1103,7 @@ deactivate_component() {
     sidecoach)  deactivate_sidecoach ;;
     tilt-lab)   deactivate_tilt_lab ;;
     justify) deactivate_justify ;;
+    lotus)   deactivate_lotus ;;
     make-interfaces)   deactivate_design_skill make-interfaces-feel-better ;;
     component-gallery) deactivate_design_skill component-gallery-reference ;;
     fontshare)         deactivate_design_skill fontshare-reference ;;
@@ -2531,6 +2560,16 @@ if picked justify; then
   info "Installing Justify..."
   bash "$REPO_DIR/justify/install.sh"
   ok "Justify installed"
+fi
+
+# ============================================================
+# 16b. Lotus (AI Figma plugin + MCP bridge)
+# ============================================================
+
+if picked lotus; then
+  info "Installing Lotus..."
+  bash "$REPO_DIR/lotus/install.sh"
+  ok "Lotus installed"
 fi
 
 # ============================================================

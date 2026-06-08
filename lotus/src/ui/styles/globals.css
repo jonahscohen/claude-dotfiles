@@ -1,0 +1,57 @@
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --figma-color-bg: #1a1a1a;
+  --figma-color-bg-secondary: #252525;
+  --figma-color-bg-tertiary: #333333;
+  --figma-color-text: #e4e4e4;
+  --figma-color-text-secondary: #a0a0a0;
+  --figma-color-text-tertiary: #666666;
+  --figma-color-border: #333333;
+  --figma-color-bg-brand: #0d99ff;
+  --figma-color-bg-brand-hover: #3dabff;
+  --figma-color-bg-brand-pressed: #0975c1;
+  --figma-color-text-brand: #5cb8ff;
+  --figma-color-bg-success: #1bc47d;
+  --figma-color-bg-warning: #f5b731;
+  --figma-color-bg-danger: #f24822;
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 12px;
+  color: var(--figma-color-text);
+  background: var(--figma-color-bg);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Scrollbar styling to match Figma */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--figma-color-bg-tertiary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--figma-color-text-tertiary);
+}
+
