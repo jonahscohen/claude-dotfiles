@@ -75,4 +75,20 @@ My brand perl pass `(?<![/\w])claude-dotfiles(?![/\w]) -> Improv` wrongly capita
 3. Figma feature-tree retitle claude-dotfiles -> Improv (file DdAztWiuZpXbmyrJutSfLw).
 4. FOLDER MOVE LAST: `mv ~/Documents/Github/claude-dotfiles ~/Documents/Github/improv` -> THIS session's cwd dies. User restarts Claude in `~/Documents/Github/improv`, then merges feat/rename-to-improv to main + verifies (install dry-run, sidecoach rebuild once the pre-existing tsconfig error is fixed).
 
-Status: STAGE B executing; folder move + restart imminent.
+### DONE so far in Stage B
+- Stage B committed (b2b5ee0). Stage A committed (c277661). Branch: feat/rename-to-improv.
+- `gh repo rename improv` SUCCEEDED -> remote is now https://github.com/jonahscohen/improv.git (GitHub redirects old URL).
+- Figma feature-tree title node retitled claude-dotfiles -> Improv (file DdAztWiuZpXbmyrJutSfLw, node 1:4). (Figma FILE NAME still "claude-dotfiles - Feature Tree" - cosmetic, rename in UI if desired.)
+
+### FINAL STEP = folder move (breaks this session)
+`mv ~/Documents/Github/claude-dotfiles ~/Documents/Github/improv` then RESTART Claude in `~/Documents/Github/improv`.
+
+### PICKUP for the restarted session (in ~/Documents/Github/improv)
+1. `git status` on branch feat/rename-to-improv (clean, 2 rename commits + earlier work).
+2. Merge to main: `git checkout main && git merge feat/rename-to-improv` (fast-forward).
+3. `git push` (remote already = jonahscohen/improv).
+4. Optional verify: re-run the two http servers (`cd marketing-site && python3 -m http.server 8765`, `cd reference && python3 -m http.server 8766`); install dry-run `./install.sh --help`.
+5. KNOWN pre-existing issue (NOT from rename): sidecoach full build fails on `src/__tests__/t16-bench-ledger.test.ts` rootDir import. Fix the test/tsconfig, then `cd sidecoach && npm run build` for a clean dist.
+6. The install marker migration (`migrate_legacy_markers` in install.sh) handles pre-rename installs on next install/deactivate.
+
+Status: STAGE B complete except the folder move. Folder move executed last; session restart required.
