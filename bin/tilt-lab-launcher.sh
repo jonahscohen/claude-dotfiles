@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# tilt-lab launcher (claude-dotfiles)
+# tilt-lab launcher (Improv)
 # ============================================================
 # Symlinked onto PATH at ~/.local/bin/tilt-lab by install.sh. Resolves its own
 # real location (following the symlink) to find the tilt-lab app inside the

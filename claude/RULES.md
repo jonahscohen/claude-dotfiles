@@ -1,4 +1,4 @@
-<!-- claude-dotfiles:rules:begin -->
+<!-- Improv:rules:begin -->
 # Team Rules
 
 Global standards of practice. These apply to every developer, every project, every session. They are non-negotiable. If you need to change one, change it here and push - the whole team gets it on their next pull.
@@ -101,4 +101,4 @@ The content-guard and bash-guard hooks enforce these rules at write time by bloc
 - When building a style guide, component library, or design system page, it MUST be fully isolated from the app's global styles. Use a separate layout with no shared CSS imports, or use CSS layers/cascade to guarantee zero inheritance from the app.
 - Every component in a design system MUST be extracted directly from the design source (Figma, sketch, spec). Do not invent variants, states, or components that do not exist in the design file.
 - Each component must be verified in the browser against the design source before moving to the next component. One at a time. No batch-and-pray.
-<!-- claude-dotfiles:rules:end -->
+<!-- Improv:rules:end -->

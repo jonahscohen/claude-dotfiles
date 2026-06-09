@@ -1,4 +1,4 @@
-<!-- claude-dotfiles:memory-discipline:begin -->
+<!-- Improv:memory-discipline:begin -->
 ## Memory Discipline (MANDATORY - NO EXCEPTIONS)
 
 ### Session Startup - Memory Loading Order
@@ -116,4 +116,4 @@ Body structure for `decision` memories:
     **Revisit when:** [conditions that would invalidate this decision]
 
 The key distinction from `project`: a project memory says "X is happening" or "X is true right now." A decision memory says "we chose X over Y and Z, for these reasons." Project memories describe state; decision memories describe choices. Decision memories are long-lived (the reasoning persists even after the state changes).
-<!-- claude-dotfiles:memory-discipline:end -->
+<!-- Improv:memory-discipline:end -->

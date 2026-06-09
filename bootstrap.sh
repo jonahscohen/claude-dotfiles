@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ============================================================
-# claude-dotfiles bootstrap
+# Improv bootstrap
 # Tiny entrypoint for `curl -fsSL <url>/bootstrap.sh | bash`.
 #
 # DEFAULT BEHAVIOR (no args): clones the repo, installs ONLY the 'ampersand'
@@ -26,12 +26,12 @@ set -euo pipefail
 #   curl -fsSL .../bootstrap.sh | bash -s -- --no-reload
 # ============================================================
 
-REPO_URL="${CLAUDE_DOTFILES_REPO:-https://github.com/jonahscohen/claude-dotfiles.git}"
+REPO_URL="${CLAUDE_DOTFILES_REPO:-https://github.com/jonahscohen/improv.git}"
 REPO_DIR="${CLAUDE_DOTFILES_DIR:-$HOME/Documents/Github/claude-dotfiles}"
 
 print_help() {
   cat <<'HELP'
-claude-dotfiles bootstrap
+Improv bootstrap
 
 Default flow (no args):
   Clones the repo, installs the 'ampersand' shell shortcut, and reloads
@@ -108,7 +108,7 @@ warn() { printf "${YELLOW}[bootstrap]${NC} %s\n" "$1"; }
 err()  { printf "${RED}[bootstrap]${NC} %s\n" "$1"; }
 
 if [[ "$(uname)" != "Darwin" ]]; then
-  err "claude-dotfiles is macOS-only."
+  err "Improv is macOS-only."
   exit 1
 fi
 

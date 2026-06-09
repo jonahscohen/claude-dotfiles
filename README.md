@@ -6,7 +6,7 @@
   </picture>
 </p>
 
-<h1 align="center">claude-dotfiles</h1>
+<h1 align="center">Improv</h1>
 
 <p align="center"><i>The Yes& Claude Code stack. The way we think about agentic coding, made installable.</i></p>
 
@@ -261,7 +261,7 @@ ampersand --only memory                   # memory subsystem only
 ampersand --yes                           # everything
 ```
 
-CLAUDE.md changes live between `<!-- claude-dotfiles:brain:begin -->` / `<!-- :end -->` comments - sed-delete the range to undo. `~/.zshrc` blocks use the same pattern. `settings.json` is JSON-merged; specific entries can be removed without touching the rest.
+CLAUDE.md changes live between `<!-- Improv:brain:begin -->` / `<!-- :end -->` comments - sed-delete the range to undo. `~/.zshrc` blocks use the same pattern. `settings.json` is JSON-merged; specific entries can be removed without touching the rest.
 
 → [Bootstrap + installer flags](#deep-customization) · [Troubleshooting](#troubleshooting)
 
@@ -633,7 +633,7 @@ Valid component keys: `brain`, `config`, `memory`, `skills`, `statusline`, `cmux
 - **Symlinks** - `make_symlink` checks if the target already points where we want; if so, no-op. Otherwise backs up any pre-existing real file, creates fresh.
 - **`.zshrc` appends** - marker-guarded with grep checks. If the marker is present, no-op. The `ampersand` block self-heals: if `$REPO_DIR` doesn't match the baked path, the block is sed-deleted and re-appended.
 - **settings.json JSON-merge** - marker-based detection on substrings (hook command paths, plugin names). If detected, no-op. Otherwise python3 reads existing settings.json, adds missing entries, writes back.
-- **CLAUDE.md marker-append** - marker-guarded on `<!-- claude-dotfiles:<component>:begin -->`. If present, no-op.
+- **CLAUDE.md marker-append** - marker-guarded on `<!-- Improv:<component>:begin -->`. If present, no-op.
 - **Hook file copy** - overwrites only our own scripts (same filename), never touches hooks you wrote.
 
 **Backup discipline** - any pre-existing real (non-symlink) file at a target path gets copied to `.backups/<timestamp>/<original-path>` before overwrite. Backups are gitignored. To recover: walk `.backups/` and copy back.
@@ -696,6 +696,6 @@ The dotfiles are MIT licensed. Bundled tools (gum, etc.) are licensed by their r
 
 The Yes& brand mark and logo are property of Yes&.
 
-If you found this useful and you're not at Yes&, good - the additive components are built to layer onto your own setup. Issues and PRs welcome at [github.com/jonahscohen/claude-dotfiles](https://github.com/jonahscohen/claude-dotfiles).
+If you found this useful and you're not at Yes&, good - the additive components are built to layer onto your own setup. Issues and PRs welcome at [github.com/jonahscohen/improv](https://github.com/jonahscohen/improv).
 
 We start with yes. You build what's next.

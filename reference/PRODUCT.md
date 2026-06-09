@@ -1,4 +1,4 @@
-# PRODUCT.md - claude-dotfiles reference manual (the docs site)
+# PRODUCT.md - Improv reference manual (the docs site)
 
 ## Register
 

@@ -34,4 +34,6 @@ Status: DONE + verified.
 
 **Decisions worth keeping:** off-by-default (PICKS=0) because it's Figma-specific; build-in-place (not copied to ~/.claude) because the app is large, like tilt-lab; absolute node path baked at install time (portable per-machine AND avoids the spawn-PATH failure the fix-beat hit).
 
+Committed on `feat/lotus-official-component` (94 files, 20430 insertions), then fast-forwarded into `main` (clean, no merge commit). `main` now ahead of origin by 6, NOT pushed.
+
 Files: lotus/** (vendored, 88 files), claude/skills/lotus/SKILL.md, lotus/install.sh, install.sh.

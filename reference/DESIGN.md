@@ -106,7 +106,7 @@ motion:
     glacial: "800ms"        # hero entrance, scrubbed scroll
 ---
 
-# DESIGN.md - claude-dotfiles marketing microsite
+# DESIGN.md - Improv marketing microsite
 
 ## Overview
 

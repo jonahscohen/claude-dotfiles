@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ============================================================
-# claude-dotfiles installer
+# Improv installer
 # Interactive TUI over twelve components:
 #   brain        - Team rules + workflow (appended to CLAUDE.md) - ADDITIVE
 #   config       - Hooks, plugins, permissions (merged into settings.json) - ADDITIVE
@@ -320,7 +320,7 @@ DRY_RUN=0
 
 print_help() {
   cat <<'EOF'
-claude-dotfiles installer
+Improv installer
 
 Usage:
   ./install.sh                  Interactive checkbox TUI (gum or text fallback)
@@ -510,7 +510,7 @@ print_yes_and_banner() {
 run_tui_gum() {
   print_yes_and_banner
   gum style --border double --margin "1 0" --padding "1 2" --border-foreground "#0e7490" \
-    "claude-dotfiles installer" "Pick what to install on this machine."
+    "Improv installer" "Pick what to install on this machine."
 
   local i
   for i in "${!KEYS[@]}"; do
@@ -555,7 +555,7 @@ run_tui_gum() {
 }
 
 run_tui_fallback() {
-  printf "\n${CYAN}claude-dotfiles installer${NC}\n"
+  printf "\n${CYAN}Improv installer${NC}\n"
   printf "Pick what to install. Default is everything on.\n\n"
   local i
   for i in "${!KEYS[@]}"; do
@@ -653,14 +653,14 @@ PY
 detect_component() {
   local key="$1"
   case "$key" in
-    brain)      grep -Fq "<!-- claude-dotfiles:brain:begin -->" "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null && echo active || echo not-installed ;;
+    brain)      grep -Fq "<!-- improv:brain:begin -->" "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null && echo active || echo not-installed ;;
     config)     [ -f "$CLAUDE_DIR/hooks/bash-guard.sh" ] && echo active || echo not-installed ;;
-    memory)     grep -Fq "<!-- claude-dotfiles:memory-discipline:begin -->" "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null && echo active || echo not-installed ;;
+    memory)     grep -Fq "<!-- improv:memory-discipline:begin -->" "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null && echo active || echo not-installed ;;
     skills)     { [ -d "$CLAUDE_DIR/skills/make-interfaces-feel-better" ] || [ -d "$CLAUDE_DIR/skills/component-gallery-reference" ]; } && echo active || echo not-installed ;;
     statusline) [ -L "$CLAUDE_DIR/statusline-command.sh" ] && echo active || echo not-installed ;;
     cmux)       [ -L "$HOME/.config/cmux/settings.json" ] && echo active || echo not-installed ;;
     nvm)        grep -Fq "nvm use default --silent" "$ZSHRC" 2>/dev/null && echo active || echo not-installed ;;
-    ampersand)  grep -Fq "# === claude-dotfiles:shortcuts:begin ===" "$ZSHRC" 2>/dev/null && echo active || echo not-installed ;;
+    ampersand)  grep -Fq "# === improv:shortcuts:begin ===" "$ZSHRC" 2>/dev/null && echo active || echo not-installed ;;
     discord)    grep -Fq "discord-chat-launcher.sh" "$ZSHRC" 2>/dev/null && echo active || echo not-installed ;;
     voice-input) [ -L "$CLAUDE_DIR/transcribe" ] && echo active || echo not-installed ;;
     voice-output) [ -d "$CLAUDE_DIR/voice-output" ] && echo active || echo not-installed ;;
@@ -723,12 +723,12 @@ apply_update() {
 
 deactivate_brain() {
   if [ -f "$CLAUDE_DIR/CLAUDE.md" ] && [ ! -L "$CLAUDE_DIR/CLAUDE.md" ]; then
-    if grep -Fq "<!-- claude-dotfiles:brain:begin -->" "$CLAUDE_DIR/CLAUDE.md"; then
-      sed -i.bak '/<!-- claude-dotfiles:brain:begin -->/,/<!-- claude-dotfiles:brain:end -->/d' "$CLAUDE_DIR/CLAUDE.md"
+    if grep -Fq "<!-- improv:brain:begin -->" "$CLAUDE_DIR/CLAUDE.md"; then
+      sed -i.bak '/<!-- improv:brain:begin -->/,/<!-- improv:brain:end -->/d' "$CLAUDE_DIR/CLAUDE.md"
       rm -f "$CLAUDE_DIR/CLAUDE.md.bak"
     fi
-    if grep -Fq "<!-- claude-dotfiles:local:begin -->" "$CLAUDE_DIR/CLAUDE.md"; then
-      sed -i.bak '/<!-- claude-dotfiles:local:begin -->/,/<!-- claude-dotfiles:local:end -->/d' "$CLAUDE_DIR/CLAUDE.md"
+    if grep -Fq "<!-- improv:local:begin -->" "$CLAUDE_DIR/CLAUDE.md"; then
+      sed -i.bak '/<!-- improv:local:begin -->/,/<!-- improv:local:end -->/d' "$CLAUDE_DIR/CLAUDE.md"
       rm -f "$CLAUDE_DIR/CLAUDE.md.bak"
     fi
     if [ ! -s "$CLAUDE_DIR/CLAUDE.md" ] || ! grep -q '[^[:space:]]' "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null; then
@@ -748,13 +748,13 @@ deactivate_config() {
            second-fix-gate.sh validation-guard.sh verify-before-done.sh verify-clear.sh verify-manual.sh voice-gate.sh; do
     if [ -L "$CLAUDE_DIR/hooks/$f" ] && [[ "$(readlink "$CLAUDE_DIR/hooks/$f")" == "$REPO_DIR/"* ]]; then
       rm -f "$CLAUDE_DIR/hooks/$f"
-    elif [ -f "$CLAUDE_DIR/hooks/$f" ] && grep -Fq "claude-dotfiles" "$CLAUDE_DIR/hooks/$f" 2>/dev/null; then
+    elif [ -f "$CLAUDE_DIR/hooks/$f" ] && grep -Fq "Improv" "$CLAUDE_DIR/hooks/$f" 2>/dev/null; then
       rm -f "$CLAUDE_DIR/hooks/$f"
     fi
   done
   if [ -L "$CLAUDE_DIR/startup-check.sh" ] && [[ "$(readlink "$CLAUDE_DIR/startup-check.sh")" == "$REPO_DIR/"* ]]; then
     rm -f "$CLAUDE_DIR/startup-check.sh"
-  elif [ -f "$CLAUDE_DIR/startup-check.sh" ] && grep -Fq "claude-dotfiles" "$CLAUDE_DIR/startup-check.sh" 2>/dev/null; then
+  elif [ -f "$CLAUDE_DIR/startup-check.sh" ] && grep -Fq "Improv" "$CLAUDE_DIR/startup-check.sh" 2>/dev/null; then
     rm -f "$CLAUDE_DIR/startup-check.sh"
   fi
   if [ -L "$CLAUDE_DIR/settings.json" ] && [[ "$(readlink "$CLAUDE_DIR/settings.json")" == "$REPO_DIR/"* ]]; then
@@ -838,8 +838,8 @@ PYCONFIG
 deactivate_memory() {
   [ -L "$CLAUDE_DIR/startup-check.sh" ] && rm -f "$CLAUDE_DIR/startup-check.sh"
   if [ -f "$CLAUDE_DIR/CLAUDE.md" ] && [ ! -L "$CLAUDE_DIR/CLAUDE.md" ] \
-      && grep -Fq "<!-- claude-dotfiles:memory-discipline:begin -->" "$CLAUDE_DIR/CLAUDE.md"; then
-    sed -i.bak '/<!-- claude-dotfiles:memory-discipline:begin -->/,/<!-- claude-dotfiles:memory-discipline:end -->/d' "$CLAUDE_DIR/CLAUDE.md"
+      && grep -Fq "<!-- improv:memory-discipline:begin -->" "$CLAUDE_DIR/CLAUDE.md"; then
+    sed -i.bak '/<!-- improv:memory-discipline:begin -->/,/<!-- improv:memory-discipline:end -->/d' "$CLAUDE_DIR/CLAUDE.md"
     rm -f "$CLAUDE_DIR/CLAUDE.md.bak"
   fi
   if [ -f "$CLAUDE_DIR/settings.json" ] && [ ! -L "$CLAUDE_DIR/settings.json" ]; then
@@ -912,8 +912,8 @@ deactivate_voice_output() {
   [ -L "$CLAUDE_DIR/hooks/voice-mandate.sh" ] && rm -f "$CLAUDE_DIR/hooks/voice-mandate.sh"
   [ -L "$CLAUDE_DIR/hooks/voice-toggle.sh" ] && rm -f "$CLAUDE_DIR/hooks/voice-toggle.sh"
   [ -L "$CLAUDE_DIR/toggle-voice.sh" ] && rm -f "$CLAUDE_DIR/toggle-voice.sh"
-  if [ -f "$ZSHRC" ] && grep -Fq "# === claude-dotfiles:voice-output:begin ===" "$ZSHRC"; then
-    sed -i.bak '/# === claude-dotfiles:voice-output:begin ===/,/# === claude-dotfiles:voice-output:end ===/d' "$ZSHRC"
+  if [ -f "$ZSHRC" ] && grep -Fq "# === improv:voice-output:begin ===" "$ZSHRC"; then
+    sed -i.bak '/# === improv:voice-output:begin ===/,/# === improv:voice-output:end ===/d' "$ZSHRC"
     rm -f "$ZSHRC.bak"
   fi
   # Remove MCP server from ~/.claude.json
@@ -987,8 +987,8 @@ deactivate_cmux() {
   # Remove Claude Teams launcher
   [ -L "$CLAUDE_DIR/claude-teams-launcher.sh" ] && rm -f "$CLAUDE_DIR/claude-teams-launcher.sh"
   rm -f "$CLAUDE_DIR/.skip-teams-launcher" "$CLAUDE_DIR/.teams-default-on"
-  if [ -f "$ZSHRC" ] && grep -Fq "# === claude-dotfiles:claude-teams:begin ===" "$ZSHRC"; then
-    sed -i.bak '/# === claude-dotfiles:claude-teams:begin ===/,/# === claude-dotfiles:claude-teams:end ===/d' "$ZSHRC"
+  if [ -f "$ZSHRC" ] && grep -Fq "# === improv:claude-teams:begin ===" "$ZSHRC"; then
+    sed -i.bak '/# === improv:claude-teams:begin ===/,/# === improv:claude-teams:end ===/d' "$ZSHRC"
     rm -f "$ZSHRC.bak"
   fi
   # Remove resume hooks
@@ -1026,8 +1026,8 @@ deactivate_nvm() {
 }
 
 deactivate_ampersand() {
-  if [ -f "$ZSHRC" ] && grep -Fq "# === claude-dotfiles:shortcuts:begin ===" "$ZSHRC"; then
-    sed -i.bak '/# === claude-dotfiles:shortcuts:begin ===/,/# === claude-dotfiles:shortcuts:end ===/d' "$ZSHRC"
+  if [ -f "$ZSHRC" ] && grep -Fq "# === improv:shortcuts:begin ===" "$ZSHRC"; then
+    sed -i.bak '/# === improv:shortcuts:begin ===/,/# === improv:shortcuts:end ===/d' "$ZSHRC"
     rm -f "$ZSHRC.bak"
   fi
 }
@@ -1085,7 +1085,22 @@ deactivate_design_skill() {
   [ -d "$CLAUDE_DIR/skills/$dir" ] && rm -rf "$CLAUDE_DIR/skills/$dir"
 }
 
+# 2026-06 rename migration (claude-dotfiles -> improv): pre-rename installs wrote
+# marker tokens "claude-dotfiles:" into ~/.zshrc and ~/.claude/CLAUDE.md; the
+# renamed installer manages "improv:" markers, so rewrite any legacy tokens in
+# the user's installed files before detect/install/deactivate act on them.
+migrate_legacy_markers() {
+  local f
+  for f in "$ZSHRC" "$CLAUDE_DIR/CLAUDE.md" "$CLAUDE_DIR/CLAUDE.local.md"; do
+    [ -f "$f" ] || continue
+    if grep -q "claude-dotfiles:" "$f" 2>/dev/null; then
+      sed -i.bak -E 's/(=== |<!-- )claude-dotfiles:/\1improv:/g' "$f" && rm -f "$f.bak"
+    fi
+  done
+}
+
 deactivate_component() {
+  migrate_legacy_markers
   case "$1" in
     brain)      deactivate_brain ;;
     config)     deactivate_config ;;
@@ -1481,15 +1496,17 @@ make_symlink() {
 # 1. Brain (team rules + workflow, appended to CLAUDE.md)
 # ============================================================
 
+migrate_legacy_markers
+
 if picked brain; then
   echo ""
   info "--- Brain (team rules + workflow) ---"
   mkdir -p "$CLAUDE_DIR"
 
-  BRAIN_BEGIN='<!-- claude-dotfiles:brain:begin -->'
-  BRAIN_END='<!-- claude-dotfiles:brain:end -->'
-  LOCAL_BEGIN='<!-- claude-dotfiles:local:begin -->'
-  LOCAL_END='<!-- claude-dotfiles:local:end -->'
+  BRAIN_BEGIN='<!-- improv:brain:begin -->'
+  BRAIN_END='<!-- improv:brain:end -->'
+  LOCAL_BEGIN='<!-- improv:local:begin -->'
+  LOCAL_END='<!-- improv:local:end -->'
   TARGET_MD="$CLAUDE_DIR/CLAUDE.md"
 
   # Legacy migration: if CLAUDE.md is a symlink to our repo, convert to real file
@@ -1509,8 +1526,8 @@ if picked brain; then
   fi
 
   # Also handle legacy marker from the old claude component
-  if grep -Fq "<!-- claude-dotfiles:rules:begin -->" "$TARGET_MD" 2>/dev/null; then
-    sed -i.bak '/<!-- claude-dotfiles:rules:begin -->/,/<!-- claude-dotfiles:rules:end -->/d' "$TARGET_MD"
+  if grep -Fq "<!-- improv:rules:begin -->" "$TARGET_MD" 2>/dev/null; then
+    sed -i.bak '/<!-- improv:rules:begin -->/,/<!-- improv:rules:end -->/d' "$TARGET_MD"
     rm -f "$TARGET_MD.bak"
   fi
 
@@ -1687,8 +1704,8 @@ if picked memory; then
   chmod +x "$REPO_DIR/claude/startup-check.sh"
 
   # (b) CLAUDE.md memory-discipline section append
-  MEMORY_BEGIN_MARKER='<!-- claude-dotfiles:memory-discipline:begin -->'
-  MEMORY_END_MARKER='<!-- claude-dotfiles:memory-discipline:end -->'
+  MEMORY_BEGIN_MARKER='<!-- improv:memory-discipline:begin -->'
+  MEMORY_END_MARKER='<!-- improv:memory-discipline:end -->'
   USER_CLAUDE_MD="$CLAUDE_DIR/CLAUDE.md"
 
   if [ -f "$USER_CLAUDE_MD" ] && grep -Fq "$MEMORY_BEGIN_MARKER" "$USER_CLAUDE_MD"; then
@@ -2076,8 +2093,8 @@ with open(p, 'w') as f: json.dump(d, f, indent=2); f.write('\n')
   chmod +x "$REPO_DIR/bin/claude-teams-launcher.sh"
   make_symlink "$REPO_DIR/bin/claude-teams-launcher.sh" "$CLAUDE_DIR/claude-teams-launcher.sh"
 
-  CT_BEGIN="# === claude-dotfiles:claude-teams:begin ==="
-  CT_END="# === claude-dotfiles:claude-teams:end ==="
+  CT_BEGIN="# === improv:claude-teams:begin ==="
+  CT_END="# === improv:claude-teams:end ==="
 
   if [ -f "$ZSHRC" ] && grep -Fq "$CT_BEGIN" "$ZSHRC"; then
     ok "Claude Teams launcher already in $ZSHRC"
@@ -2172,13 +2189,13 @@ if picked discord; then
     fi
   done
 
-  DISCORD_LINE="source $CLAUDE_DIR/discord-chat-launcher.sh  # claude-dotfiles: discord-chat-launcher"
+  DISCORD_LINE="source $CLAUDE_DIR/discord-chat-launcher.sh  # Improv: discord-chat-launcher"
 
   if [ -f "$ZSHRC" ]; then
     if grep -Fq "discord-chat-launcher.sh" "$ZSHRC"; then
       ok "$ZSHRC (already sources discord-chat-launcher.sh)"
     else
-      printf '\n# Discord Chat Agent launcher (from claude-dotfiles)\n%s\n' "$DISCORD_LINE" >> "$ZSHRC"
+      printf '\n# Discord Chat Agent launcher (from Improv)\n%s\n' "$DISCORD_LINE" >> "$ZSHRC"
       ok "Appended discord-chat-launcher source line to $ZSHRC"
       warn "Run 'source $ZSHRC' or open a new shell to pick up the wrapper."
     fi
@@ -2232,9 +2249,9 @@ if picked ampersand; then
   echo ""
   info "--- 'ampersand' shell shortcut ---"
 
-  SHORTCUT_BEGIN="# === claude-dotfiles:shortcuts:begin ==="
-  SHORTCUT_END="# === claude-dotfiles:shortcuts:end ==="
-  LEGACY_VANITY_MARKER="# claude-dotfiles vanity command: pull latest and re-launch installer"
+  SHORTCUT_BEGIN="# === improv:shortcuts:begin ==="
+  SHORTCUT_END="# === improv:shortcuts:end ==="
+  LEGACY_VANITY_MARKER="# Improv vanity command: pull latest and re-launch installer"
 
   append_shortcuts() {
     cat >> "$ZSHRC" <<EOF
@@ -2412,8 +2429,8 @@ if picked voice-output; then
   fi
 
   # Add voice-on / voice-off aliases to .zshrc (marker-guarded)
-  VO_BEGIN="# === claude-dotfiles:voice-output:begin ==="
-  VO_END="# === claude-dotfiles:voice-output:end ==="
+  VO_BEGIN="# === improv:voice-output:begin ==="
+  VO_END="# === improv:voice-output:end ==="
 
   if [ -f "$ZSHRC" ] && grep -Fq "$VO_BEGIN" "$ZSHRC"; then
     ok "voice-on/voice-off aliases already in $ZSHRC"

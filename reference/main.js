@@ -1,4 +1,4 @@
-// claude-dotfiles reference manual - motion + interaction
+// Improv reference manual - motion + interaction
 // GSAP + Lenis from esm.sh per motion-reference canonical patterns.
 // Lessons applied from marketing/ retrospective: esm.sh not skypack;
 // LENIS_ENABLED toggle for cmux verification; visible-by-default reveal.

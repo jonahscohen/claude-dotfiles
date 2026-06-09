@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>claude-dotfiles reference</title>
-  <meta name="description" content="The full claude-dotfiles reference. Every component, every hook, every layer of the design pipeline, documented." />
+  <title>Improv reference</title>
+  <meta name="description" content="The full Improv reference. Every component, every hook, every layer of the design pipeline, documented." />
   <meta name="theme-color" content="#1A1F1B" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -26,7 +26,7 @@
   <header class="topbar">
     <div class="topbar__inner">
 
-      <a href="#top" class="brand" aria-label="claude-dotfiles reference">
+      <a href="#top" class="brand" aria-label="Improv reference">
         <picture class="brand__mark">
           <source media="(prefers-color-scheme: dark)" srcset="./assets/yes-and-logo-dark.webp" />
           <img src="./assets/yes-and-logo-light.webp" alt="Yes&" width="86" />
@@ -41,7 +41,7 @@
         <a href="#design">Design</a>
         <a href="#components">Components</a>
         <a href="../marketing/" class="topbar-nav__link-out">Marketing site</a>
-        <a href="https://github.com/jonahscohen/claude-dotfiles" class="topbar-nav__link-out" rel="noopener">
+        <a href="https://github.com/jonahscohen/improv" class="topbar-nav__link-out" rel="noopener">
           GitHub
           <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M7 7h10v10"/></svg>
         </a>
@@ -129,7 +129,7 @@
         <section id="install" class="section section--hero">
 
           <p class="eyebrow">Reference manual</p>
-          <h1 class="page-h1">claude-dotfiles</h1>
+          <h1 class="page-h1">Improv</h1>
           <p class="lede">
             The full reference for the Yes&amp; Claude Code stack. Every component, every hook, every layer of the design pipeline, documented.
           </p>
@@ -888,7 +888,7 @@ CLAUDE_DOTFILES_REPO=https://github.com/your-fork/claude-dotfiles.git \
               <thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead>
               <tbody>
                 <tr><td><code>CLAUDE_DOTFILES_DIR</code></td><td><code>~/Documents/Github/claude-dotfiles</code></td><td>Where the dotfiles repo lives on disk</td></tr>
-                <tr><td><code>CLAUDE_DOTFILES_REPO</code></td><td>github.com/jonahscohen/claude-dotfiles</td><td>Source repo for fresh clones</td></tr>
+                <tr><td><code>CLAUDE_DOTFILES_REPO</code></td><td>github.com/jonahscohen/improv</td><td>Source repo for fresh clones</td></tr>
                 <tr><td><code>REFLECT_THRESHOLD</code></td><td><code>15</code></td><td>New-memory count that triggers the <code>reflect-nudge</code> hook</td></tr>
                 <tr><td><code>CMUX_SOCKET_PASSWORD</code></td><td>(unset)</td><td>For cmux socket auth in scripted contexts</td></tr>
               </tbody>
@@ -911,7 +911,7 @@ CLAUDE_DOTFILES_REPO=https://github.com/your-fork/claude-dotfiles.git \
           </p>
           <ul class="ul">
             <li><strong>To update the team rules:</strong> edit <code>claude/CLAUDE.md</code> in the repo, commit, push, and re-run <code>ampersand --pull</code> to re-append.</li>
-            <li><strong>To remove the team rules:</strong> sed-delete from <code>&lt;!-- claude-dotfiles:brain:begin --&gt;</code> to <code>&lt;!-- claude-dotfiles:brain:end --&gt;</code>.</li>
+            <li><strong>To remove the team rules:</strong> sed-delete from <code>&lt;!-- Improv:brain:begin --&gt;</code> to <code>&lt;!-- Improv:brain:end --&gt;</code>.</li>
             <li><strong>To re-add:</strong> re-run <code>install.sh --only brain</code>.</li>
           </ul>
         </section>
@@ -946,7 +946,7 @@ CLAUDE_DOTFILES_REPO=https://github.com/your-fork/claude-dotfiles.git \
             <li><strong>Symlinks</strong> - <code>make_symlink</code> checks if the target already points where we want; if so, no-op. Otherwise backs up any pre-existing real file, creates fresh.</li>
             <li><strong>.zshrc appends</strong> - marker-guarded with grep checks. If the marker is present, no-op. The <code>ampersand</code> block self-heals: if <code>$REPO_DIR</code> doesn't match the baked path, the block is sed-deleted and re-appended.</li>
             <li><strong>settings.json JSON-merge</strong> - marker-based detection on substrings (hook command paths, plugin names). If detected, no-op. Otherwise python3 reads existing settings.json, adds missing entries, writes back.</li>
-            <li><strong>CLAUDE.md marker-append</strong> - marker-guarded on <code>&lt;!-- claude-dotfiles:&lt;component&gt;:begin --&gt;</code>. If present, no-op.</li>
+            <li><strong>CLAUDE.md marker-append</strong> - marker-guarded on <code>&lt;!-- Improv:&lt;component&gt;:begin --&gt;</code>. If present, no-op.</li>
             <li><strong>Hook file copy</strong> - overwrites only our own scripts (same filename), never touches hooks you wrote.</li>
             <li><strong>npx skills add</strong> - idempotent via the skills CLI's own logic.</li>
           </ul>
@@ -1134,7 +1134,7 @@ CLAUDE_DOTFILES_REPO=https://github.com/your-fork/claude-dotfiles.git \
         <section class="section section--end">
           <h2 class="h2 h2--end">Read the README. Or just install it.</h2>
           <p>
-            This reference goes deep. The <a href="../marketing/">marketing microsite</a> goes wide - the case for the system, not the inventory. The <a href="https://github.com/jonahscohen/claude-dotfiles/blob/main/README.md">README</a> is the canonical lookup. Pick the surface that matches your question.
+            This reference goes deep. The <a href="../marketing/">marketing microsite</a> goes wide - the case for the system, not the inventory. The <a href="https://github.com/jonahscohen/improv/blob/main/README.md">README</a> is the canonical lookup. Pick the surface that matches your question.
           </p>
           <pre class="codeblock"><code>curl -fsSL https://raw.githubusercontent.com/jonahscohen/claude-dotfiles/main/bootstrap.sh | bash</code></pre>
         </section>
@@ -1154,9 +1154,9 @@ CLAUDE_DOTFILES_REPO=https://github.com/your-fork/claude-dotfiles.git \
         <p class="site-footer__tag">We start with yes. You build what's next.</p>
       </div>
       <nav class="site-footer__nav" aria-label="Footer">
-        <a href="https://github.com/jonahscohen/claude-dotfiles">GitHub</a>
-        <a href="https://github.com/jonahscohen/claude-dotfiles/blob/main/README.md">README</a>
-        <a href="https://github.com/jonahscohen/claude-dotfiles/issues">Issues</a>
+        <a href="https://github.com/jonahscohen/improv">GitHub</a>
+        <a href="https://github.com/jonahscohen/improv/blob/main/README.md">README</a>
+        <a href="https://github.com/jonahscohen/improv/issues">Issues</a>
         <a href="../marketing/">Marketing site</a>
       </nav>
       <p class="site-footer__license">MIT. Bundled tools licensed by their respective authors.</p>
